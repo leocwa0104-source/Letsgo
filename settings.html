@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>设置</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+  </script>
+  <script src="https://webapi.amap.com/loader.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>设置</h1>
+  </header>
+
+  <main class="container">
+    <form id="settings-form" class="form">
+      <div class="form-group">
+        <label for="list-title">旅行清单名称</label>
+        <input id="list-title" name="listTitle" type="text" placeholder="默认：旅行清单" />
+      </div>
+
+      <section class="map-section" id="map-section-container">
+        <h2>选点地图默认中心</h2>
+        <div class="form-group" style="position: relative;">
+          <label for="map-search">搜索地点定位</label>
+          <input
+            id="map-search"
+            name="map-search"
+            type="text"
+            placeholder="输入地点以定位中心，例如：旺角"
+          />
+          <div id="map-search-result" style="border: 1px solid #ddd; display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        <div id="map-container"></div>
+        <p class="map-hint">点击地图设定默认中心位置，缩放级别也会被保存。</p>
+      </section>
+
+      <div class="form-actions">
+        <button id="save-btn" type="submit" class="btn btn-primary">保存设置</button>
+        <a href="planner.html" class="btn btn-secondary">返回清单</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const planId = urlParams.get('id');
+      HKWL.setCurrentPlan(planId);
+      HKWL.initSettingsPage();
+
+      if (planId) {
+          const backLink = document.querySelector('a[href="planner.html"]');
+          if (backLink) {
+              backLink.href += `?id=${planId}`;
+          }
+      }
+    });
+  </script>
+</body>
+</html>

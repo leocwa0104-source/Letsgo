@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>旅行清单</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+  </script>
+  <script src="https://webapi.amap.com/loader.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div style="display: flex; align-items: center;">
+        <a href="index.html" style="color: white; text-decoration: none; margin-right: 1rem; font-size: 1.5rem;">&larr;</a>
+        <h1>旅行清单</h1>
+    </div>
+    <a href="settings.html" class="nav-link">设置</a>
+  </header>
+
+  <main class="container layout-main">
+    <section class="main-column">
+      <h2>任务栏</h2>
+      <div id="wish-list" class="card-list"></div>
+
+      <section>
+        <button id="clear-all" class="btn btn-secondary">清空全部愿望（本地）</button>
+      </section>
+    </section>
+
+    <aside class="side-column">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2 style="margin: 0;">计划列表</h2>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="HKWL.autoGenerateTransports()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; background-color: #28a745; color: white; border: none;">✨ 智能交通</button>
+            <a href="map-view.html" id="map-btn" class="btn btn-primary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">🗺 生成地图</a>
+          </div>
+      </div>
+      <div id="plan-days" class="plan-days"></div>
+      <div id="plan-list" class="plan-list"></div>
+      <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
+    </aside>
+  </main>
+
+  <div class="floating-add-wrapper">
+    <div class="floating-add-buttons">
+      <button id="add-note-btn" type="button" class="btn btn-secondary floating-note-btn">添加批注</button>
+      <button id="add-menu-toggle" type="button" class="btn btn-primary floating-add-btn">添加项目</button>
+    </div>
+    <div id="add-menu" class="add-menu">
+      <a href="manage.html?type=food" class="btn btn-primary add-menu-item add-menu-item-food">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">美食</span>
+        <span class="add-menu-type-icon add-menu-type-icon-food">🍽</span>
+      </a>
+      <a href="manage.html?type=place" class="btn btn-primary add-menu-item add-menu-item-place">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">景点</span>
+        <span class="add-menu-type-icon add-menu-type-icon-place">🏞</span>
+      </a>
+      <a href="manage.html?type=stay" class="btn btn-primary add-menu-item add-menu-item-stay">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">住宿</span>
+        <span class="add-menu-type-icon add-menu-type-icon-stay">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M7.293 1.5a1 1 0 0 1 1.414 0l6 6A1 1 0 0 1 14.293 9H13.5v5.5a1 1 0 0 1-1 1h-3v-4h-3v4h-3a1 1 0 0 1-1-1V9H1.707a1 1 0 0 1-.707-1.707l6-6Z"
+            />
+          </svg>
+        </span>
+      </a>
+      <a href="manage.html?type=transport" class="btn btn-primary add-menu-item add-menu-item-transport">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">交通</span>
+        <span class="add-menu-type-icon add-menu-type-icon-transport">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M3 1.5A1.5 1.5 0 0 1 4.5 0h7A1.5 1.5 0 0 1 13 1.5V9a3 3 0 0 1-3 3h-.5l1.75 2.5a.75.75 0 1 1-1.2.9L8 12.5l-2.05 2.9a.75.75 0 1 1-1.2-.9L6.5 12H6a3 3 0 0 1-3-3V1.5ZM4.5 1a.5.5 0 0 0-.5.5V4h8V1.5a.5.5 0 0 0-.5-.5h-7ZM12 5.5H4v3A1.5 1.5 0 0 0 5.5 10h5A1.5 1.5 0 0 0 12 8.5v-3ZM6 6.5h1.5v2H6v-2Zm2.5 0H10v2H8.5v-2Z"
+            />
+          </svg>
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const planId = urlParams.get('id');
+      
+      HKWL.setCurrentPlan(planId);
+      HKWL.renderWishlistPage();
+
+      // Update links
+      if (planId) {
+          document.querySelectorAll('a[href^="manage.html"]').forEach(a => {
+              if (a.href.includes('?')) {
+                  a.href += `&planId=${planId}`;
+              } else {
+                  a.href += `?planId=${planId}`;
+              }
+          });
+          const settingsLink = document.querySelector('a[href^="settings.html"]');
+          if (settingsLink) {
+              settingsLink.href += `?id=${planId}`;
+          }
+          const mapBtn = document.getElementById('map-btn');
+          if (mapBtn) {
+              mapBtn.href += `?id=${planId}`;
+          }
+      }
+    });
+  </script>
+</body>
+</html>

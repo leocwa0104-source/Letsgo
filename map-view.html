@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>定制旅游地图</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+  </script>
+  <style>
+    body {
+      background-color: #fcf5e5;
+      font-family: 'Comic Sans MS', 'Chalkboard SE', 'YouYuan', sans-serif;
+    }
+    .map-container {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #map-container {
+      flex: 1;
+      width: 100%;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .back-btn {
+      text-decoration: none;
+      font-size: 1.2rem;
+      color: #333;
+      font-weight: bold;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: #333;
+    }
+    .day-selector {
+      margin-left: auto;
+    }
+    select {
+      padding: 5px 10px;
+      font-size: 1rem;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: white;
+      font-family: inherit;
+    }
+    
+    /* Custom Marker Styles */
+    .amap-marker-content {
+        white-space: nowrap;
+    }
+    .custom-marker {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .marker-bubble {
+        background: white;
+        border: 2px solid #333;
+        border-radius: 20px;
+        padding: 5px 10px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: 'Comic Sans MS', 'YouYuan', sans-serif;
+        transform: translateY(-5px);
+    }
+    .marker-index {
+        background: #FF9800;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .marker-name {
+        font-weight: bold;
+        color: #333;
+        font-size: 14px;
+    }
+    .marker-pin {
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid #333;
+    }
+    
+    /* Type specific colors */
+    .type-food .marker-index { background-color: #FF5722; }
+    .type-place .marker-index { background-color: #4CAF50; }
+    .type-stay .marker-index { background-color: #2196F3; }
+    
+  </style>
+  <script src="https://webapi.amap.com/loader.js"></script>
+</head>
+<body>
+  <div class="map-container">
+    <div class="controls">
+      <a href="#" id="back-link" class="back-btn">&larr; 返回</a>
+      <h1>定制旅游地图</h1>
+      <div class="day-selector">
+        <select id="day-select">
+          <option value="all">全部行程</option>
+        </select>
+      </div>
+    </div>
+    <div id="map-container"></div>
+  </div>
+
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const planId = urlParams.get('id');
+      const initialDay = urlParams.get('day');
+
+      if (!planId) {
+        alert("未指定计划ID");
+        window.location.href = "index.html";
+        return;
+      }
+
+      // Initialize Data
+      HKWL.setCurrentPlan(planId);
+      const backLink = document.getElementById('back-link');
+      backLink.href = `planner.html?id=${planId}`;
+
+      const state = HKWL.loadPlanState();
+      const allItems = HKWL.loadWishlist();
+      
+      // Setup Day Selector
+      const daySelect = document.getElementById('day-select');
+      state.days.forEach((_, index) => {
+        const option = document.createElement('option');
+        option.value = index + 1;
+        option.textContent = `第 ${index + 1} 天`;
+        if (initialDay && parseInt(initialDay) === index + 1) {
+            option.selected = true;
+        }
+        daySelect.appendChild(option);
+      });
+
+      daySelect.addEventListener('change', () => {
+        renderMap(daySelect.value);
+      });
+
+      // Map Variables
+      let map = null;
+      
+      // Initialize Map
+      initMap();
+
+      async function initMap() {
+          try {
+              const AMap = await AMapLoader.load({
+                  key: "8040299dec271ec2928477f709015d3d",
+                  version: "2.0",
+                  plugins: ["AMap.Scale", "AMap.ToolBar", "AMap.ControlBar", "AMap.Driving", "AMap.Walking", "AMap.Transfer"]
+              });
+              
+              map = new AMap.Map("map-container", {
+                  zoom: 4,
+                  center: [105, 34], // Default China
+                  viewMode: '3D', 
+                  features: ['bg', 'road', 'building', 'point'] // Simplified real map
+              });
+              
+              map.addControl(new AMap.Scale());
+              map.addControl(new AMap.ToolBar({
+                  position: 'RB'
+              }));
+              
+              // Render initial state after map load
+              renderMap(daySelect.value);
+              
+          } catch (e) {
+              console.error(e);
+              document.getElementById('map-container').innerHTML = 
+                  '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#666;">地图加载失败，请检查网络设置</div>';
+          }
+      }
+
+      function getItemsForDay(dayIndex) { 
+        if (!state.days[dayIndex]) return [];
+        return state.days[dayIndex].map(id => allItems.find(item => item.id === id)).filter(Boolean);
+      }
+
+      function getAllItemsOrdered() {
+        let list = [];
+        state.days.forEach(dayIds => {
+           list = list.concat(dayIds.map(id => allItems.find(item => item.id === id)).filter(Boolean));
+        });
+        return list;
+      }
+
+      async function renderMap(dayMode) {
+        if (!map) return;
+        
+        // Clear Map
+        map.clearMap();
+
+        // Prepare Data
+        let items = [];
+        if (dayMode === 'all') {
+            items = getAllItemsOrdered();
+        } else {
+            const dayIndex = parseInt(dayMode) - 1;
+            items = getItemsForDay(dayIndex);
+        }
+
+        if (items.length === 0) {
+            return;
+        }
+
+        let seqIndex = 1;
+        let lastNode = null;
+
+        // Process items to identify nodes and connections
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            // 1. Draw Markers for Locations
+            if (item.type !== 'transport' && item.coords && item.coords.lng && item.coords.lat) {
+                const position = new AMap.LngLat(item.coords.lng, item.coords.lat);
+                
+                // Determine class for color
+                let typeClass = "";
+                if (item.type === 'food') typeClass = "type-food";
+                if (item.type === 'place') typeClass = "type-place";
+                if (item.type === 'stay') typeClass = "type-stay";
+                
+                const content = `
+                    <div class="custom-marker ${typeClass}">
+                        <div class="marker-bubble">
+                            <span class="marker-index">${seqIndex}</span>
+                            <span class="marker-name">${item.name}</span>
+                        </div>
+                        <div class="marker-pin"></div>
+                    </div>
+                `;
+                
+                new AMap.Marker({
+                    position: position,
+                    content: content,
+                    offset: new AMap.Pixel(-15, -35),
+                    map: map,
+                    anchor: 'bottom-center',
+                    zIndex: 100
+                });
+                
+                seqIndex++;
+
+                // 2. Draw Route from Last Node
+                if (lastNode) {
+                    const startPos = lastNode.position;
+                    const endPos = position;
+                    
+                    // Look for transport item between lastNode.index and current i
+                    // Actually, items list contains transport items interspersed.
+                    // Let's find if there is a transport item between lastNode.originalIndex and i
+                    
+                    let transportItem = null;
+                    for (let j = lastNode.originalIndex + 1; j < i; j++) {
+                        if (items[j].type === 'transport') {
+                            transportItem = items[j];
+                            break; // Take the first one found
+                        }
+                    }
+
+                    await drawRoute(startPos, endPos, transportItem);
+                }
+                
+                lastNode = { position, originalIndex: i };
+            }
+        }
+        
+        // Fit View
+        map.setFitView(null, false, [50, 50, 50, 50]);
+      }
+
+      async function drawRoute(start, end, transportItem) {
+          if (!map) return;
+          
+          let mode = 'driving'; // Default
+          if (transportItem) {
+              if (transportItem.name.includes('步行') || transportItem.name.includes('🚶')) mode = 'walking';
+              else if (transportItem.name.includes('地铁') || transportItem.name.includes('公交') || transportItem.name.includes('🚇') || transportItem.name.includes('bus')) mode = 'transit';
+          }
+          
+          try {
+              if (mode === 'walking') {
+                  await drawWalkingRoute(start, end);
+              } else if (mode === 'transit') {
+                   // Use Driving with purple color to simulate transit route visual
+                   // This avoids "city code required" errors with Transfer API
+                   await drawDrivingRoute(start, end, "#9C27B0");
+              } else {
+                  // Default: Driving
+                  await drawDrivingRoute(start, end, "#2196F3"); // Blue for driving
+              }
+          } catch (e) {
+              console.error("Route draw failed", e);
+              // Final fallback: Straight line
+              new AMap.Polyline({
+                  path: [start, end],
+                  strokeColor: "#999",
+                  strokeWeight: 4,
+                  strokeStyle: "dashed",
+                  map: map
+              });
+          }
+      }
+      
+      function drawWalkingRoute(start, end) {
+          return new Promise((resolve) => {
+              const walking = new AMap.Walking();
+              walking.search(start, end, (status, result) => {
+                  if (status === 'complete' && result.routes && result.routes.length) {
+                      const path = [];
+                      result.routes[0].steps.forEach(step => {
+                          path.push(...step.path);
+                      });
+                      
+                      new AMap.Polyline({
+                          path: path,
+                          strokeColor: "#4CAF50", // Green for walking
+                          strokeWeight: 6,
+                          strokeOpacity: 0.9,
+                          showDir: true,
+                          map: map
+                      });
+                      resolve();
+                  } else {
+                      // Fallback to straight line if walking search fails
+                      new AMap.Polyline({
+                          path: [start, end],
+                          strokeColor: "#4CAF50",
+                          strokeWeight: 4,
+                          strokeStyle: "dashed",
+                          map: map
+                      });
+                      resolve();
+                  }
+              });
+          });
+      }
+
+      function drawDrivingRoute(start, end, color) {
+          return new Promise((resolve) => {
+            const driving = new AMap.Driving({ policy: AMap.DrivingPolicy.LEAST_TIME });
+            driving.search(start, end, (status, result) => {
+                if (status === 'complete' && result.routes && result.routes.length) {
+                    const path = [];
+                    result.routes[0].steps.forEach(step => {
+                        path.push(...step.path);
+                    });
+                    
+                    new AMap.Polyline({
+                        path: path,
+                        strokeColor: color,
+                        strokeWeight: 6,
+                        strokeOpacity: 0.8,
+                        showDir: true,
+                        map: map
+                    });
+                    resolve();
+                } else {
+                    // Straight line fallback
+                    new AMap.Polyline({
+                        path: [start, end],
+                        strokeColor: color,
+                        strokeWeight: 4,
+                        strokeStyle: "dashed",
+                        map: map
+                    });
+                    resolve();
+                }
+            });
+          });
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>登录 - 我的旅行计划</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #f9f9f9;
+    }
+    .auth-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    .auth-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .auth-header h1 {
+      margin: 0;
+      color: #333;
+      font-size: 1.5rem;
+    }
+    .auth-tabs {
+      display: flex;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    .auth-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem;
+      cursor: pointer;
+      color: #666;
+      font-weight: 500;
+    }
+    .auth-tab.active {
+      color: #0c5da5;
+      border-bottom: 2px solid #0c5da5;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #333;
+      font-weight: 500;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .form-group input:focus {
+      border-color: #0c5da5;
+      outline: none;
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: #0c5da5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-submit:hover {
+      background-color: #0a4d8a;
+    }
+    .error-msg {
+      color: #ff4d4f;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="auth-header">
+    <h1>我的旅行计划</h1>
+  </div>
+  
+  <div class="auth-tabs">
+    <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">登录</div>
+    <div class="auth-tab" id="tab-register" onclick="switchTab('register')">注册</div>
+  </div>
+
+  <form id="auth-form" onsubmit="handleAuth(event)">
+    <div class="form-group">
+      <label for="username">用户名</label>
+      <input type="text" id="username" required placeholder="请输入用户名" />
+    </div>
+    <div class="form-group">
+      <label for="password">密码</label>
+      <input type="password" id="password" required placeholder="请输入密码" />
+    </div>
+    <button type="submit" class="btn-submit" id="btn-submit">登录</button>
+    <div class="error-msg" id="error-msg"></div>
+  </form>
+</div>
+
+<script src="cloud-sync.js"></script>
+  <script src="auth-manager.js"></script>
+  <script>
+    let isLogin = true;
+
+    function switchTab(mode) {
+      isLogin = mode === 'login';
+      document.getElementById('tab-login').className = isLogin ? 'auth-tab active' : 'auth-tab';
+      document.getElementById('tab-register').className = !isLogin ? 'auth-tab active' : 'auth-tab';
+      document.getElementById('btn-submit').textContent = isLogin ? '登录' : '注册';
+      document.getElementById('error-msg').style.display = 'none';
+    }
+
+    async function handleAuth(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+
+      if (!username || !password) {
+          showError('请输入用户名和密码');
+          return;
+      }
+
+      if (isLogin) {
+        const result = await Auth.login(username, password);
+        if (result.success) {
+          window.location.href = 'index.html';
+        } else {
+          showError(result.message);
+        }
+      } else {
+        const result = await Auth.register(username, password);
+        if (result.success) {
+          alert('注册成功，请登录');
+          switchTab('login');
+        } else {
+          showError(result.message);
+        }
+      }
+    }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+</script>
+
+</body>
+</html>

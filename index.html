@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>我的旅行计划</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .plan-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      height: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .plan-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .plan-item {
+      position: relative;
+      cursor: grab;
+    }
+    .plan-item.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    .plan-item.drag-over {
+      border: 2px dashed #007aff;
+      border-radius: 8px;
+    }
+    .btn-delete-plan {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #eee;
+      color: #999;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .plan-item:hover .btn-delete-plan {
+      opacity: 1;
+    }
+    .btn-delete-plan:hover {
+      background: #ff4d4f;
+      color: #fff;
+      border-color: #ff4d4f;
+    }
+    @media (max-width: 768px) {
+      .btn-delete-plan {
+        opacity: 1;
+        background: #fff;
+        border: 1px solid #ddd;
+      }
+    }
+    .create-btn-container {
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .empty-plans {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <h1>我的旅行计划</h1>
+  </header>
+
+  <main class="container">
+    <div class="plan-grid"></div>
+
+    <div class="create-btn-container">
+      <button id="create-plan-btn" class="btn btn-primary" style="font-size: 1.1rem; padding: 0.6rem 1.2rem;">
+        + 创建旅行计划
+      </button>
+    </div>
+  </main>
+
+  <script src="cloud-sync.js"></script>
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const grid = document.querySelector('.plan-grid');
+      
+      function renderPlans() {
+          grid.innerHTML = '';
+          const plans = HKWL.getPlans();
+          
+          if (plans.length === 0) {
+              grid.innerHTML = '<div class="empty-plans">还没有旅行计划，快创建一个吧！</div>';
+          } else {
+              plans.forEach((plan, index) => {
+                  const div = document.createElement('div');
+                  div.className = 'plan-item';
+                  div.draggable = true;
+                  div.dataset.index = index;
+                  div.innerHTML = `
+                    <a href="planner.html?id=${plan.id}" class="card plan-card">
+                      <div class="card-header">
+                        <div class="card-header-content" style="padding-left: 0.5rem;">
+                          <h3>${plan.title || '未命名计划'}</h3>
+                        </div>
+                      </div>
+                      <div class="card-details" style="padding-bottom: 0.75rem;">
+                        <p>点击查看详细计划</p>
+                      </div>
+                    </a>
+                    <button class="btn-delete-plan" title="删除计划" data-id="${plan.id}" data-title="${plan.title || '未命名计划'}">×</button>
+                  `;
+                  grid.appendChild(div);
+              });
+
+              setupDragAndDrop();
+
+              // Add event listeners for delete buttons
+              document.querySelectorAll('.btn-delete-plan').forEach(btn => {
+                  btn.addEventListener('click', function(e) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const id = this.dataset.id;
+                      const title = this.dataset.title;
+                      
+                      if (confirm(`确定要删除计划“${title}”吗？此操作无法撤销。`)) {
+                          if (HKWL.deletePlan(id)) {
+                              renderPlans(); // Re-render logic
+                          } else {
+                              alert('删除失败，请重试。');
+                          }
+                      }
+                  });
+              });
+          }
+      }
+
+      function setupDragAndDrop() {
+        const grid = document.querySelector('.plan-grid');
+        // Prevent native drag
+        grid.ondragstart = () => false;
+        
+        let dragState = null;
+        let didDrag = false;
+        let lastSwapTime = 0;
+
+        // Capture click to prevent navigation if we dragged
+        grid.addEventListener('click', (e) => {
+            if (didDrag) {
+                e.preventDefault();
+                e.stopPropagation();
+                didDrag = false;
+            }
+        }, true);
+
+        grid.addEventListener('pointerdown', (e) => {
+            const item = e.target.closest('.plan-item');
+            if (!item) return;
+
+            // Ignore if clicking buttons (like delete)
+            if (e.target.closest('button')) return;
+
+            const rect = item.getBoundingClientRect();
+            dragState = {
+                item: item,
+                startX: e.clientX,
+                startY: e.clientY,
+                offsetX: e.clientX - rect.left,
+                offsetY: e.clientY - rect.top,
+                isDragging: false
+            };
+            
+            // We do NOT use setPointerCapture here because it can interfere with click events on <a> tags.
+            // Instead we attach listeners to window to track movement outside the element.
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerUp);
+        });
+
+        // These are now standalone functions to be used as window listeners
+        function onPointerMove(e) {
+            if (!dragState) return;
+            
+            if (!dragState.isDragging) {
+                const dx = e.clientX - dragState.startX;
+                const dy = e.clientY - dragState.startY;
+                // Threshold of 5px
+                if (Math.hypot(dx, dy) > 5) {
+                    dragState.isDragging = true;
+                    didDrag = true;
+                    startVisualDrag(e);
+                }
+            }
+            
+            if (dragState.isDragging) {
+                e.preventDefault(); // Stop scrolling
+                updateVisualDrag(e);
+            }
+        }
+
+        function onPointerUp(e) {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+
+            if (!dragState) return;
+            
+            if (dragState.isDragging) {
+                endVisualDrag(e);
+            }
+            
+            dragState = null;
+            // didDrag remains true until the click event fires (immediately after)
+            setTimeout(() => { didDrag = false; }, 100);
+        }
+
+        function startVisualDrag(e) {
+            const item = dragState.item;
+            const rect = item.getBoundingClientRect();
+            
+            // Create ghost
+            const ghost = item.cloneNode(true);
+            ghost.style.position = 'fixed';
+            ghost.style.width = rect.width + 'px';
+            ghost.style.height = rect.height + 'px';
+            ghost.style.left = rect.left + 'px';
+            ghost.style.top = rect.top + 'px';
+            ghost.style.zIndex = '9999';
+            ghost.style.opacity = '0.9';
+            ghost.style.pointerEvents = 'none';
+            ghost.style.transform = 'scale(1.02)';
+            ghost.style.boxShadow = '0 12px 24px rgba(0,0,0,0.2)';
+            ghost.style.transition = 'none';
+            
+            // Remove delete button from ghost
+            const ghostBtn = ghost.querySelector('.btn-delete-plan');
+            if(ghostBtn) ghostBtn.remove();
+
+            document.body.appendChild(ghost);
+            dragState.ghost = ghost;
+
+            // Placeholder style
+            item.classList.add('dragging-placeholder');
+            item.style.opacity = '0';
+        }
+
+        function updateVisualDrag(e) {
+            const { ghost, offsetX, offsetY, item } = dragState;
+            
+            ghost.style.left = (e.clientX - offsetX) + 'px';
+            ghost.style.top = (e.clientY - offsetY) + 'px';
+
+            const now = Date.now();
+            if (now - lastSwapTime < 150) return; // 150ms cooldown
+
+            // Find swap target
+            const siblings = [...grid.querySelectorAll('.plan-item:not(.dragging-placeholder)')];
+            
+            let closest = null;
+            let minDist = Infinity;
+            
+            // Mouse cursor position
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            siblings.forEach(sibling => {
+                const rect = sibling.getBoundingClientRect();
+                
+                // Define a strict "inner box" for triggering swap
+                // You must drag the mouse into the central 40% of the card
+                const insetX = rect.width * 0.3;
+                const insetY = rect.height * 0.3;
+                
+                if (mouseX >= rect.left + insetX && mouseX <= rect.right - insetX &&
+                    mouseY >= rect.top + insetY && mouseY <= rect.bottom - insetY) {
+                    
+                    const center = {
+                        x: rect.left + rect.width / 2,
+                        y: rect.top + rect.height / 2
+                    };
+                    // Distance from mouse to center of target
+                    const dist = Math.hypot(center.x - mouseX, center.y - mouseY);
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = sibling;
+                    }
+                }
+            });
+
+            if (closest) {
+                const currentIndex = [...grid.children].indexOf(item);
+                const targetIndex = [...grid.children].indexOf(closest);
+                
+                if (currentIndex !== targetIndex) {
+                    // Capture positions for animation
+                    const items = [...grid.children].filter(el => el !== item && el !== ghost);
+                    const prevRects = new Map(items.map(el => [el, el.getBoundingClientRect()]));
+
+                    if (currentIndex < targetIndex) {
+                        grid.insertBefore(item, closest.nextSibling);
+                    } else {
+                        grid.insertBefore(item, closest);
+                    }
+                    lastSwapTime = now;
+
+                    // Animate
+                    items.forEach(el => {
+                        const prev = prevRects.get(el);
+                        if (!prev) return;
+                        const curr = el.getBoundingClientRect();
+                        const dx = prev.left - curr.left;
+                        const dy = prev.top - curr.top;
+                        
+                        if (dx || dy) {
+                            el.style.transition = 'none';
+                            el.style.transform = `translate(${dx}px, ${dy}px)`;
+                            // Force reflow
+                            el.offsetHeight;
+                            el.style.transition = 'transform 0.3s ease';
+                            el.style.transform = '';
+                        }
+                    });
+                }
+            }
+        }
+
+        function endVisualDrag(e) {
+            const { item, ghost } = dragState;
+            
+            ghost.remove();
+            item.classList.remove('dragging-placeholder');
+            item.style.opacity = '';
+
+            // Save order
+            const newOrder = [...grid.querySelectorAll('.plan-item')].map(el => {
+                const link = el.querySelector('a');
+                const id = link.getAttribute('href').split('id=')[1];
+                return id;
+            });
+
+            const currentPlans = HKWL.getPlans();
+            const reorderedPlans = newOrder.map(id => currentPlans.find(p => p.id === id)).filter(Boolean);
+            HKWL.savePlans(reorderedPlans);
+        }
+        
+        function cancelVisualDrag() {
+            const { item, ghost } = dragState;
+            if (ghost) ghost.remove();
+            if (item) {
+                item.classList.remove('dragging-placeholder');
+                item.style.opacity = '';
+            }
+        }
+      }
+
+      renderPlans();
+
+      document.getElementById('create-plan-btn').addEventListener('click', function() {
+        const id = HKWL.createPlan("新计划");
+        window.location.href = `settings.html?id=${id}&new=true`;
+      });
+    });
+  </script>
+</body>
+</html>

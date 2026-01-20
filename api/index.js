@@ -31,6 +31,11 @@ const authenticate = async (req, res, next) => {
 
 // Routes
 
+// Health Check
+app.get('/api', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend is running' });
+});
+
 // Register
 app.post('/api/register', async (req, res) => {
   try {

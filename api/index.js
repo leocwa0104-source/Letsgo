@@ -11,10 +11,17 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 
+// Serve static files from the public directory (for local dev)
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Connection Error:', err));
+if (!process.env.MONGODB_URI) {
+  console.warn('Warning: MONGODB_URI is not defined. Database features will not work.');
+} else {
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+}
 
 // Auth Middleware
 const authenticate = async (req, res, next) => {

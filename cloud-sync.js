@@ -1,6 +1,6 @@
 const CloudSync = (() => {
   // Use localhost for dev, but we need a way to switch for prod.
-  const PROD_API_URL = "https://YOUR-RAILWAY-APP-URL.up.railway.app/api"; // Replace this after deploying backend
+  const PROD_API_URL = "https://YOUR-RENDER-APP-URL.onrender.com/api"; // Replace this after deploying backend
   
   const API_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://localhost:3000/api"

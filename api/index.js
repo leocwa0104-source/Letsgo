@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -12,16 +13,43 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 
 // Serve static files from the public directory (for local dev)
-app.use(express.static(path.join(__dirname, '../public')));
+// app.use(express.static(path.join(__dirname, '../public')));
 
 // Connect to MongoDB
-if (!process.env.MONGODB_URI) {
-  console.warn('Warning: MONGODB_URI is not defined. Database features will not work.');
-} else {
-  mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
-}
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  
+  if (!process.env.MONGODB_URI) {
+    console.warn('Warning: MONGODB_URI is not defined.');
+    throw new Error('MONGODB_URI is not defined. Please check your .env file.');
+  }
+  
+  try {
+    const db = await mongoose.connect(process.env.MONGODB_URI);
+    isConnected = db.connections[0].readyState;
+    console.log('MongoDB Connected');
+  } catch (err) {
+    console.error('MongoDB Connection Error:', err);
+    throw new Error(`DB Connect Failed: ${err.message}`);
+  }
+};
+
+// Global Middleware to ensure DB connection
+app.use(async (req, res, next) => {
+  if (req.path === '/api') return next(); // Skip for health check
+  try {
+    await connectDB();
+    next();
+  } catch (e) {
+    console.error('Middleware Connection Error:', e);
+    // Return explicit JSON error
+    res.status(500).json({ 
+      error: 'Database connection failed',
+      details: process.env.NODE_ENV === 'development' ? e.message : undefined 
+    });
+  }
+});
 
 // Auth Middleware
 const authenticate = async (req, res, next) => {

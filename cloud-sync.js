@@ -24,7 +24,16 @@ const CloudSync = (() => {
       // Handle network errors or server offline
       if (!res) throw new Error("Network error");
       
-      const data = await res.json();
+      const contentType = res.headers.get("content-type");
+      let data;
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        // Handle non-JSON response (e.g. Vercel error page)
+        const text = await res.text();
+        console.error("Non-JSON response:", text);
+        throw new Error(`Server Error (${res.status}): The server returned an invalid response.`);
+      }
       
       if (!res.ok) throw new Error(data.error || "Request failed");
       return data;

@@ -25,10 +25,7 @@ const CloudSync = (() => {
       const opts = { method, headers };
       if (body) opts.body = JSON.stringify(body);
       
-      const url = `${API_URL}${endpoint}`;
-      console.log(`[CloudSync] Requesting: ${method} ${url}`);
-      
-      const res = await fetch(url, opts);
+      const res = await fetch(`${API_URL}${endpoint}`, opts);
       // Handle network errors or server offline
       if (!res) throw new Error("Network error");
       
@@ -42,8 +39,7 @@ const CloudSync = (() => {
         console.error("Non-JSON response:", text);
         // Special case: If we get a 404 or 500 html page, treat it as a "server unavailable" signal
         // so auth-manager can fallback to local.
-        console.error(`[CloudSync] Server Error (${res.status}) at ${API_URL}${endpoint}:`, text);
-        return { error: `Server Error (${res.status}): 请求的接口不存在或服务器错误。` };
+        return { error: `Server Error (${res.status}): The server returned an invalid response.` };
       }
       
       if (!res.ok) throw new Error(data.error || "Request failed");

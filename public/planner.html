@@ -107,10 +107,6 @@
                   a.href += `?planId=${planId}`;
               }
           });
-          const settingsLink = document.querySelector('a[href^="settings.html"]');
-          if (settingsLink) {
-              settingsLink.href += `?id=${planId}`;
-          }
           const mapBtn = document.getElementById('map-btn');
           if (mapBtn) {
               mapBtn.href += `?id=${planId}`;

@@ -56,11 +56,10 @@
       const changePwBtn = document.getElementById('change-pw-btn');
       if (changePwBtn) {
           changePwBtn.addEventListener('click', async () => {
-              const oldPw = document.getElementById('old-pw').value;
               const newPw = document.getElementById('new-pw').value;
               const confirmPw = document.getElementById('confirm-pw').value;
 
-              if (!oldPw || !newPw || !confirmPw) {
+              if (!newPw || !confirmPw) {
                   alert("请填写所有密码字段");
                   return;
               }
@@ -74,11 +73,10 @@
               changePwBtn.textContent = "修改中...";
 
               try {
-                  const res = await Auth.changePassword(oldPw, newPw);
+                  const res = await Auth.changePassword(newPw);
                   alert(res.message);
                   
                   if (res.success) {
-                      document.getElementById('old-pw').value = '';
                       document.getElementById('new-pw').value = '';
                       document.getElementById('confirm-pw').value = '';
                   }

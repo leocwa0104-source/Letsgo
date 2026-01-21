@@ -59,12 +59,12 @@ const Auth = (() => {
       return Auth.register(username, password);
     },
 
-    changePassword: async (oldPassword, newPassword) => {
+    changePassword: async (newPassword) => {
       if (typeof CloudSync === 'undefined') {
         return { success: false, message: "无法连接到云端服务" };
       }
       try {
-        const res = await CloudSync.changePassword(oldPassword, newPassword);
+        const res = await CloudSync.changePassword(newPassword);
         if (res.success) return { success: true, message: "密码修改成功" };
         return { success: false, message: res.error || "修改失败" };
       } catch (e) {

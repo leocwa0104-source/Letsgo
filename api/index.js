@@ -126,18 +126,13 @@ router.post('/register', async (req, res) => {
 // Change Password
 router.post('/change-password', authenticate, async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ error: '请提供旧密码和新密码' });
+    const { newPassword } = req.body;
+    if (!newPassword) {
+      return res.status(400).json({ error: '请提供新密码' });
     }
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: '用户不存在' });
-
-    // In a real app, hash checking. Here plain text.
-    if (user.password !== oldPassword) {
-      return res.status(401).json({ error: '旧密码错误' });
-    }
 
     user.password = newPassword;
     await user.save();

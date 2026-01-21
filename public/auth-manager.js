@@ -70,45 +70,6 @@ const Auth = (() => {
       const user = sessionStorage.getItem(CURRENT_USER_KEY);
       if (!user) return key; 
       return `${user}_${key}`;
-    },
-
-    deleteAccount: async () => {
-      const username = sessionStorage.getItem(CURRENT_USER_KEY);
-      if (!username) return;
-
-      if (typeof CloudSync === 'undefined') {
-        alert("无法连接到云端服务，无法注销账户");
-        return;
-      }
-
-      if (!confirm("确定要注销当前账户吗？此操作不可逆，云端及本地数据将被永久删除。")) {
-        return;
-      }
-
-      try {
-        const res = await CloudSync.deleteAccount();
-        if (!res.success) {
-          alert("注销失败: " + (res.error || "未知错误"));
-          return;
-        }
-      } catch (e) {
-        alert("注销请求失败: " + e.message);
-        return;
-      }
-
-      // Cleanup Local Storage Cache
-      const keysToRemove = [];
-      const prefix = `${username}_`;
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-
-      sessionStorage.removeItem(CURRENT_USER_KEY);
-      window.location.replace("login.html");
     }
   };
 })();

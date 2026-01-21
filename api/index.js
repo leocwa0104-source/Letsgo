@@ -181,18 +181,6 @@ router.post('/data', authenticate, async (req, res) => {
   }
 });
 
-// Delete Account
-router.delete('/user', authenticate, async (req, res) => {
-  try {
-    await UserData.deleteOne({ userId: req.user.id });
-    await User.findByIdAndDelete(req.user.id);
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // Mount router at /api AND / (to handle Vercel rewrites robustly)
 app.use('/api', router);
 app.use('/', router);

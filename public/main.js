@@ -40,23 +40,8 @@ const HKWL = (() => {
               logoutBtn.style.cursor = 'pointer';
               logoutBtn.onclick = () => Auth.logout();
 
-              const deleteAccountBtn = document.createElement('button');
-              deleteAccountBtn.textContent = '注销账户';
-              deleteAccountBtn.style.background = '#ff4d4f';
-              deleteAccountBtn.style.border = 'none';
-              deleteAccountBtn.style.color = 'white';
-              deleteAccountBtn.style.padding = '0.3rem 0.8rem';
-              deleteAccountBtn.style.borderRadius = '4px';
-              deleteAccountBtn.style.cursor = 'pointer';
-              deleteAccountBtn.style.fontSize = '0.8rem';
-              deleteAccountBtn.title = '永久删除账户及所有数据';
-              deleteAccountBtn.onclick = () => {
-                  Auth.deleteAccount();
-              };
-              
               userDiv.appendChild(userName);
               userDiv.appendChild(logoutBtn);
-              userDiv.appendChild(deleteAccountBtn);
               
               // Insert before the last child if it's nav-link, or append
               header.appendChild(userDiv);

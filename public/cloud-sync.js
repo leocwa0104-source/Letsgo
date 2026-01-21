@@ -117,11 +117,6 @@ const CloudSync = (() => {
     pullData: async () => {
       if (!token) return { error: "Not logged in" };
       return await request("/data", "GET");
-    },
-
-    deleteAccount: async () => {
-      if (!token) return { error: "Not logged in" };
-      return await request("/user", "DELETE");
     }
   };
 })();

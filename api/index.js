@@ -12,10 +12,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 
-// Serve static files from the public directory (only for local dev, Vercel handles this natively)
-if (process.env.NODE_ENV !== 'production') {
-  app.use(express.static(path.join(__dirname, '../public')));
-}
+// Serve static files from the public directory
+// Important: This must be unconditional so Vercel's build system (NFT) includes the public folder
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Connect to MongoDB
 let isConnected = false;

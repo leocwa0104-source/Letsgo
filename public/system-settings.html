@@ -73,16 +73,21 @@
               changePwBtn.disabled = true;
               changePwBtn.textContent = "修改中...";
 
-              const res = await Auth.changePassword(oldPw, newPw);
-              alert(res.message);
-              
-              changePwBtn.disabled = false;
-              changePwBtn.textContent = "修改密码";
-              
-              if (res.success) {
-                  document.getElementById('old-pw').value = '';
-                  document.getElementById('new-pw').value = '';
-                  document.getElementById('confirm-pw').value = '';
+              try {
+                  const res = await Auth.changePassword(oldPw, newPw);
+                  alert(res.message);
+                  
+                  if (res.success) {
+                      document.getElementById('old-pw').value = '';
+                      document.getElementById('new-pw').value = '';
+                      document.getElementById('confirm-pw').value = '';
+                  }
+              } catch (err) {
+                  alert("发生错误: " + err);
+                  console.error(err);
+              } finally {
+                  changePwBtn.disabled = false;
+                  changePwBtn.textContent = "修改密码";
               }
           });
       }

@@ -77,6 +77,14 @@ const Auth = (() => {
       if (window.location.pathname.endsWith('login.html')) return;
       if (!sessionStorage.getItem(CURRENT_USER_KEY)) {
         window.location.replace("login.html");
+        return;
+      }
+      // Ensure CloudSync token matches session
+      if (typeof CloudSync !== 'undefined' && !CloudSync.isLoggedIn()) {
+          console.warn("Session valid but CloudSync token missing. Redirecting to login.");
+          sessionStorage.removeItem(CURRENT_USER_KEY);
+          sessionStorage.removeItem("hkwl_is_admin");
+          window.location.replace("login.html");
       }
     },
     

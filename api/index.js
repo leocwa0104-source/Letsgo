@@ -142,9 +142,10 @@ router.post('/change-password', authenticate, async (req, res) => {
     user.password = newPassword;
     await user.save();
 
+    console.log(`Password changed for user: ${user.username}`);
     res.json({ success: true, message: '密码已修改' });
   } catch (e) {
-    console.error(e);
+    console.error('Change Password Error:', e);
     res.status(500).json({ error: '修改密码失败: ' + e.message });
   }
 });

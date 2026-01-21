@@ -30,66 +30,6 @@ const HKWL = (() => {
               userName.textContent = `你好, ${Auth.getCurrentUser()}`;
               userName.style.fontSize = '0.9rem';
 
-              const importBtn = document.createElement('button');
-              importBtn.textContent = '导入本地数据';
-              importBtn.style.background = 'rgba(255,255,255,0.2)';
-              importBtn.style.border = 'none';
-              importBtn.style.color = 'white';
-              importBtn.style.padding = '0.3rem 0.8rem';
-              importBtn.style.borderRadius = '4px';
-              importBtn.style.cursor = 'pointer';
-              importBtn.style.fontSize = '0.8rem';
-              importBtn.title = '将未登录时的本地数据导入当前账户';
-              
-              importBtn.onclick = async () => {
-                  const localIndexKey = "hkwl_plans_index";
-                  const localPlansRaw = localStorage.getItem(localIndexKey);
-                  if (!localPlansRaw || JSON.parse(localPlansRaw).length === 0) {
-                      alert("本地没有可导入的数据。");
-                      return;
-                  }
-                  const localPlans = JSON.parse(localPlansRaw);
-
-                  if (!confirm(`发现 ${localPlans.length} 个本地计划。确定要导入到当前账户吗？\n（重复的计划将被跳过）`)) {
-                      return;
-                  }
-
-                  const userIndexKey = Auth.getUserKey("hkwl_plans_index");
-                  const userPlansRaw = localStorage.getItem(userIndexKey);
-                  const userPlans = userPlansRaw ? JSON.parse(userPlansRaw) : [];
-                  
-                  let count = 0;
-                  for (const plan of localPlans) {
-                      if (!userPlans.find(p => p.id === plan.id)) {
-                          userPlans.push(plan);
-                          count++;
-                          
-                          // Migrate data keys
-                          const suffixes = ['_wishlist', '_wishlist_plan', '_wishlist_collapsed', '_wishlist_settings'];
-                          suffixes.forEach(suffix => {
-                              const oldKey = `${plan.id}${suffix}`;
-                              const val = localStorage.getItem(oldKey);
-                              if (val) {
-                                  localStorage.setItem(Auth.getUserKey(oldKey), val);
-                              }
-                          });
-                      }
-                  }
-
-                  if (count > 0) {
-                      localStorage.setItem(userIndexKey, JSON.stringify(userPlans));
-                      await syncToCloud(); // Assuming syncToCloud is available in scope or we call HKWL.syncToCloud if exposed? 
-                      // syncToCloud is defined below but not exposed on HKWL. 
-                      // However, we are inside DOMContentLoaded which is inside the IIFE?
-                      // No, DOMContentLoaded is inside HKWL IIFE. syncToCloud is defined in the same scope (HKWL IIFE).
-                      // So we can call it.
-                      alert(`成功导入 ${count} 个计划！`);
-                      window.location.reload();
-                  } else {
-                      alert("所有本地计划已存在于当前账户中。");
-                  }
-              };
-              
               const logoutBtn = document.createElement('button');
               logoutBtn.textContent = '退出';
               logoutBtn.style.background = 'rgba(255,255,255,0.2)';
@@ -111,9 +51,7 @@ const HKWL = (() => {
               deleteAccountBtn.style.fontSize = '0.8rem';
               deleteAccountBtn.title = '永久删除账户及所有数据';
               deleteAccountBtn.onclick = () => {
-                if (confirm('警告：确定要注销账户吗？\n\n此操作将永久删除您的账户以及所有相关的旅行计划数据，且无法恢复！')) {
                   Auth.deleteAccount();
-                }
               };
               
               userDiv.appendChild(userName);

@@ -76,10 +76,10 @@ router.get('/', (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Missing fields' });
+    if (!username || !password) return res.status(400).json({ error: '请填写所有必填项' });
     
     const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ error: 'Username taken' });
+    if (existing) return res.status(400).json({ error: '用户名已存在' });
     
     const user = new User({ username, password });
     await user.save();
@@ -89,8 +89,11 @@ router.post('/register', async (req, res) => {
     
     res.json({ success: true, userId: user._id });
   } catch (e) {
+    if (e.code === 11000) {
+      return res.status(400).json({ error: '用户名已存在' });
+    }
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '注册失败: ' + e.message });
   }
 });
 
@@ -101,7 +104,7 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ username });
     
     if (!user || user.password !== password) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: '用户名或密码错误' });
     }
     
     const token = `${user._id}:${user.username}`;
@@ -143,6 +146,18 @@ router.post('/data', authenticate, async (req, res) => {
     userData.updatedAt = Date.now();
     await userData.save();
     
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete Account
+router.delete('/user', authenticate, async (req, res) => {
+  try {
+    await UserData.deleteOne({ userId: req.user.id });
+    await User.findByIdAndDelete(req.user.id);
     res.json({ success: true });
   } catch (e) {
     console.error(e);

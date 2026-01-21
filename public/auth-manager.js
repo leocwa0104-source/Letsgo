@@ -1,88 +1,36 @@
 const Auth = (() => {
-  const USERS_KEY = "hkwl_users";
   const CURRENT_USER_KEY = "hkwl_current_user";
 
-  // Helper for local fallback
-  function getUsers() {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  }
-  function saveUsers(users) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  }
-
   return {
-    // Make these async to support cloud sync
     register: async (username, password) => {
-      // 1. Try Cloud
-      if (typeof CloudSync !== 'undefined') {
-          try {
-              const res = await CloudSync.register(username, password);
-              if (res.success) return { success: true, message: "注册成功" };
-              // If cloud fails but it's not a network error (e.g. taken), return error
-              // We also want to ignore generic Server Errors (404/500) to allow fallback
-              const isServerError = res.error && (
-                  res.error === "Network error" ||
-                  res.error.includes("fetch") ||
-                  res.error.includes("Server Error") ||
-                  res.error.includes("Failed to fetch")
-              );
-
-              if (res.error && !isServerError) {
-                  return { success: false, message: res.error };
-              }
-        } catch (e) {
-              console.warn("Cloud register failed, falling back to local", e);
-          }
+      if (typeof CloudSync === 'undefined') {
+        return { success: false, message: "无法连接到云端服务" };
       }
-
-      // 2. Fallback to Local
-      const users = getUsers();
-      if (users[username]) {
-        return { success: false, message: "用户名已存在 (本地)" };
+      try {
+        const res = await CloudSync.register(username, password);
+        if (res.success) return { success: true, message: "注册成功" };
+        return { success: false, message: res.error || "注册失败" };
+      } catch (e) {
+        console.error("Cloud register failed", e);
+        return { success: false, message: "注册请求失败: " + e.message };
       }
-      users[username] = {
-        password: btoa(password),
-        createdAt: Date.now()
-      };
-      saveUsers(users);
-      return { success: true, message: "注册成功 (本地模式)" };
     },
 
     login: async (username, password) => {
-      // 1. Try Cloud
-      if (typeof CloudSync !== 'undefined') {
-          try {
-              const res = await CloudSync.login(username, password);
-              if (res.success) {
-                  sessionStorage.setItem(CURRENT_USER_KEY, username);
-                  // Trigger data sync after login? We'll handle that in main.js
-                  return { success: true, message: "登录成功" };
-              }
-               // If explicit error (wrong password), return it
-               const isServerError = res.error && (
-                   res.error === "Network error" ||
-                   res.error.includes("fetch") ||
-                   res.error.includes("Server Error") ||
-                   res.error.includes("Failed to fetch")
-               );
-               
-               if (res.error && !isServerError) {
-                  return { success: false, message: res.error };
-              }
-        } catch (e) {
-              console.warn("Cloud login failed, falling back to local", e);
-          }
+      if (typeof CloudSync === 'undefined') {
+        return { success: false, message: "无法连接到云端服务" };
       }
-
-      // 2. Fallback to Local
-      const users = getUsers();
-      const user = users[username];
-      if (user && user.password === btoa(password)) {
-        sessionStorage.setItem(CURRENT_USER_KEY, username);
-        return { success: true, message: "登录成功 (离线模式)" };
+      try {
+        const res = await CloudSync.login(username, password);
+        if (res.success) {
+          sessionStorage.setItem(CURRENT_USER_KEY, username);
+          return { success: true, message: "登录成功" };
+        }
+        return { success: false, message: res.error || "登录失败" };
+      } catch (e) {
+        console.error("Cloud login failed", e);
+        return { success: false, message: "登录请求失败: " + e.message };
       }
-      return { success: false, message: "用户名或密码错误" };
     },
 
     logout: () => {
@@ -113,15 +61,27 @@ const Auth = (() => {
       const username = sessionStorage.getItem(CURRENT_USER_KEY);
       if (!username) return;
 
-      // TODO: Implement cloud delete
-      
-      // Local delete
-      const users = getUsers();
-      if (users[username]) {
-        delete users[username];
-        saveUsers(users);
+      if (typeof CloudSync === 'undefined') {
+        alert("无法连接到云端服务，无法注销账户");
+        return;
       }
 
+      if (!confirm("确定要注销当前账户吗？此操作不可逆，云端及本地数据将被永久删除。")) {
+        return;
+      }
+
+      try {
+        const res = await CloudSync.deleteAccount();
+        if (!res.success) {
+          alert("注销失败: " + (res.error || "未知错误"));
+          return;
+        }
+      } catch (e) {
+        alert("注销请求失败: " + e.message);
+        return;
+      }
+
+      // Cleanup Local Storage Cache
       const keysToRemove = [];
       const prefix = `${username}_`;
       for (let i = 0; i < localStorage.length; i++) {

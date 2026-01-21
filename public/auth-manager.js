@@ -38,7 +38,7 @@ const Auth = (() => {
           CloudSync.logout();
       }
       sessionStorage.removeItem(CURRENT_USER_KEY);
-      window.location.href = "login.html";
+      window.location.replace("login.html");
     },
 
     getCurrentUser: () => {
@@ -46,8 +46,9 @@ const Auth = (() => {
     },
 
     requireLogin: () => {
+      if (window.location.pathname.endsWith('login.html')) return;
       if (!sessionStorage.getItem(CURRENT_USER_KEY)) {
-        window.location.href = "login.html";
+        window.location.replace("login.html");
       }
     },
     
@@ -93,7 +94,14 @@ const Auth = (() => {
       keysToRemove.forEach(key => localStorage.removeItem(key));
 
       sessionStorage.removeItem(CURRENT_USER_KEY);
-      window.location.href = "login.html";
+      window.location.replace("login.html");
     }
   };
 })();
+
+// Prevent back button from accessing protected pages after logout
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+    Auth.requireLogin();
+  }
+});

@@ -16,6 +16,13 @@ const CloudSync = (() => {
 
   let token = localStorage.getItem("hkwl_auth_token");
 
+  // Immediate cleanup of invalid tokens on module load to prevent issues
+  if (token && /[^\x00-\x7F]/.test(token)) {
+      console.warn("[CloudSync] Invalid token detected on load, clearing.");
+      localStorage.removeItem("hkwl_auth_token");
+      token = null;
+  }
+
   function setToken(t) {
     token = t;
     if (t) localStorage.setItem("hkwl_auth_token", t);
@@ -26,13 +33,33 @@ const CloudSync = (() => {
     const headers = {
       "Content-Type": "application/json",
     };
-    if (token) headers["Authorization"] = token;
+    if (token) {
+      // Check for non-ASCII characters in token which cause fetch to fail
+      // This happens if user has an old token with Chinese characters
+      if (/[^\x00-\x7F]/.test(token)) {
+        console.warn("[CloudSync] Detected invalid characters in token, clearing session.");
+        setToken(null);
+        // Do not add header, let it fail with 401 or handle as guest
+      } else {
+        headers["Authorization"] = token;
+      }
+    }
 
     try {
       const fullUrl = `${API_URL}${endpoint}`;
       console.log(`[CloudSync] Requesting: ${method} ${fullUrl}`);
       
       const opts = { method, headers };
+      
+      // Final safety check: remove any headers with invalid characters to prevent fetch crash
+      Object.keys(headers).forEach(key => {
+        const val = headers[key];
+        if (/[^\x00-\x7F]/.test(key) || (typeof val === 'string' && /[^\x00-\x7F]/.test(val))) {
+           console.error(`[CloudSync] Removed invalid header: ${key}`);
+           delete headers[key];
+        }
+      });
+
       if (body) opts.body = JSON.stringify(body);
       
       const res = await fetch(fullUrl, opts);

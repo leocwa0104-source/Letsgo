@@ -58,7 +58,13 @@ const authenticate = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   
   // Simple token implementation: "userId:username" (In production, use JWT!)
-  const [userId, username] = token.split(':');
+  const parts = token.split(':');
+  if (parts.length < 2) return res.status(401).json({ error: 'Invalid Token' });
+  
+  const userId = parts[0];
+  // Handle potential encoded usernames
+  const username = decodeURIComponent(parts.slice(1).join(':'));
+  
   if (!userId || !username) return res.status(401).json({ error: 'Invalid Token' });
   
   req.user = { id: userId, username };
@@ -108,7 +114,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: '用户名或密码错误' });
     }
     
-    const token = `${user._id}:${user.username}`;
+    const token = `${user._id}:${encodeURIComponent(user.username)}`;
     res.json({ success: true, token, username: user.username });
   } catch (e) {
     console.error(e);

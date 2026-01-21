@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <title>我的旅行计划</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    // Critical fix: Clear invalid tokens immediately before any code runs
+    try {
+      const t = localStorage.getItem("hkwl_auth_token");
+      if (t && /[^\x00-\x7F]/.test(t)) {
+        console.warn("Cleaned up invalid token");
+        localStorage.removeItem("hkwl_auth_token");
+      }
+    } catch(e) {}
+  </script>
   <link rel="stylesheet" href="styles.css" />
   <style>
     .plan-card {
@@ -97,7 +107,7 @@
     </div>
   </main>
 
-  <script src="cloud-sync.js"></script>
+  <script src="cloud-sync.js?v=3"></script>
   <script src="auth-manager.js"></script>
   <script src="main.js"></script>
   <script>

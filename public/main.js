@@ -30,18 +30,25 @@ const HKWL = (() => {
               userName.textContent = `你好, ${Auth.getCurrentUser()}`;
               userName.style.fontSize = '0.9rem';
 
-              const logoutBtn = document.createElement('button');
-              logoutBtn.textContent = '退出';
-              logoutBtn.style.background = 'rgba(255,255,255,0.2)';
-              logoutBtn.style.border = 'none';
-              logoutBtn.style.color = 'white';
-              logoutBtn.style.padding = '0.3rem 0.8rem';
-              logoutBtn.style.borderRadius = '4px';
-              logoutBtn.style.cursor = 'pointer';
-              logoutBtn.onclick = () => Auth.logout();
-
               userDiv.appendChild(userName);
-              userDiv.appendChild(logoutBtn);
+
+              // Only show Settings button if NOT on settings page
+              if (!window.location.pathname.includes('settings')) {
+                  const settingsBtn = document.createElement('button');
+                  settingsBtn.textContent = '设置';
+                  settingsBtn.style.background = 'rgba(255,255,255,0.2)';
+                  settingsBtn.style.border = 'none';
+                  settingsBtn.style.color = 'white';
+                  settingsBtn.style.padding = '0.3rem 0.8rem';
+                  settingsBtn.style.borderRadius = '4px';
+                  settingsBtn.style.cursor = 'pointer';
+                  settingsBtn.onclick = () => {
+                      // Preserve current plan ID if possible
+                      const planId = (typeof currentPlanId !== 'undefined') ? currentPlanId : '';
+                      window.location.href = `settings.html?id=${planId}`;
+                  };
+                  userDiv.appendChild(settingsBtn);
+              }
               
               // Insert before the last child if it's nav-link, or append
               header.appendChild(userDiv);

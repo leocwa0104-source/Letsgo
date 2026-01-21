@@ -13,7 +13,7 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 
 // Serve static files from the public directory (for local dev)
-// app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Connect to MongoDB
 let isConnected = false;

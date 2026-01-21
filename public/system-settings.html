@@ -50,6 +50,41 @@
               }
           });
       }
+      
+      // Change Password Logic
+      const changePwBtn = document.getElementById('change-pw-btn');
+      if (changePwBtn) {
+          changePwBtn.addEventListener('click', async () => {
+              const oldPw = document.getElementById('old-pw').value;
+              const newPw = document.getElementById('new-pw').value;
+              const confirmPw = document.getElementById('confirm-pw').value;
+
+              if (!oldPw || !newPw || !confirmPw) {
+                  alert("请填写所有密码字段");
+                  return;
+              }
+
+              if (newPw !== confirmPw) {
+                  alert("两次输入的新密码不一致");
+                  return;
+              }
+
+              changePwBtn.disabled = true;
+              changePwBtn.textContent = "修改中...";
+
+              const res = await Auth.changePassword(oldPw, newPw);
+              alert(res.message);
+              
+              changePwBtn.disabled = false;
+              changePwBtn.textContent = "修改密码";
+              
+              if (res.success) {
+                  document.getElementById('old-pw').value = '';
+                  document.getElementById('new-pw').value = '';
+                  document.getElementById('confirm-pw').value = '';
+              }
+          });
+      }
 
       // Admin Logic
       if (Auth.isAdmin()) {

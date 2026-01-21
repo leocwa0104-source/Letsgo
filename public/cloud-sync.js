@@ -95,6 +95,10 @@ const CloudSync = (() => {
       return await request("/register", "POST", { username, password });
     },
 
+    changePassword: async (oldPassword, newPassword) => {
+      return await request("/change-password", "POST", { oldPassword, newPassword });
+    },
+
     login: async (username, password) => {
       const res = await request("/login", "POST", { username, password });
       if (res.success && res.token) {

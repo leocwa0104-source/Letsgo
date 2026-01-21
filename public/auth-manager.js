@@ -59,6 +59,20 @@ const Auth = (() => {
       return Auth.register(username, password);
     },
 
+    changePassword: async (oldPassword, newPassword) => {
+      if (typeof CloudSync === 'undefined') {
+        return { success: false, message: "无法连接到云端服务" };
+      }
+      try {
+        const res = await CloudSync.changePassword(oldPassword, newPassword);
+        if (res.success) return { success: true, message: "密码修改成功" };
+        return { success: false, message: res.error || "修改失败" };
+      } catch (e) {
+        console.error("Change password failed", e);
+        return { success: false, message: "请求失败: " + e.message };
+      }
+    },
+
     requireLogin: () => {
       if (window.location.pathname.endsWith('login.html')) return;
       if (!sessionStorage.getItem(CURRENT_USER_KEY)) {

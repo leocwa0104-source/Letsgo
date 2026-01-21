@@ -171,9 +171,15 @@ app.use('/', router);
 
 // Catch-all 404 for API requests to ensure JSON response
 app.use((req, res) => {
+  console.log(`404 Hit: ${req.method} ${req.url}`);
   res.status(404).json({ 
     error: `API Endpoint not found: ${req.method} ${req.url}`,
-    path: req.path
+    path: req.path,
+    debug_info: {
+      originalUrl: req.originalUrl,
+      baseUrl: req.baseUrl,
+      headers: req.headers
+    }
   });
 });
 

@@ -22,10 +22,13 @@ const CloudSync = (() => {
     if (token) headers["Authorization"] = token;
 
     try {
+      const fullUrl = `${API_URL}${endpoint}`;
+      console.log(`[CloudSync] Requesting: ${method} ${fullUrl}`);
+      
       const opts = { method, headers };
       if (body) opts.body = JSON.stringify(body);
       
-      const res = await fetch(`${API_URL}${endpoint}`, opts);
+      const res = await fetch(fullUrl, opts);
       // Handle network errors or server offline
       if (!res) throw new Error("Network error");
       

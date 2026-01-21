@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <title>系统设置</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>系统设置</h1>
+  </header>
+
+  <main class="container">
+    <div class="form">
+      <section id="admin-section" class="map-section" style="display: none; border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>管理员控制台</h2>
+        <p style="color: #666; margin-bottom: 1rem;">您是管理员，可以创建新用户账号。</p>
+        <div class="form-group">
+            <label for="new-username">新用户名</label>
+            <input id="new-username" type="text" placeholder="输入用户名">
+        </div>
+        <div class="form-group">
+            <label for="new-password">新密码</label>
+            <input id="new-password" type="password" placeholder="输入密码">
+        </div>
+        <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: auto;">创建账号</button>
+      </section>
+
+      <div style="text-align: center;">
+        <button type="button" id="logout-btn" style="background-color: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem;">退出登录</button>
+      </div>
+      
+      <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
+        <a href="index.html" class="btn btn-secondary">返回首页</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Logout logic
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+          logoutBtn.addEventListener('click', () => {
+              if (confirm('确定要退出登录吗？')) {
+                  Auth.logout();
+              }
+          });
+      }
+
+      // Admin Logic
+      if (Auth.isAdmin()) {
+          document.getElementById('admin-section').style.display = 'block';
+          document.getElementById('create-user-btn').addEventListener('click', async () => {
+              const u = document.getElementById('new-username').value.trim();
+              const p = document.getElementById('new-password').value;
+              
+              if(!u || !p) {
+                  alert("请输入用户名和密码");
+                  return;
+              }
+              
+              const btn = document.getElementById('create-user-btn');
+              btn.disabled = true;
+              btn.textContent = "创建中...";
+              
+              try {
+                const res = await Auth.createAccount(u, p);
+                if(res.success) {
+                    alert("创建成功！用户 ID: " + (res.userId || "未知"));
+                    document.getElementById('new-username').value = '';
+                    document.getElementById('new-password').value = '';
+                } else {
+                    alert("创建失败: " + res.message);
+                }
+              } catch(e) {
+                  alert("错误: " + e.message);
+              } finally {
+                  btn.disabled = false;
+                  btn.textContent = "创建账号";
+              }
+          });
+      }
+    });
+  </script>
+</body>
+</html>

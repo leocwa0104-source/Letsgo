@@ -32,10 +32,10 @@ const HKWL = (() => {
 
               userDiv.appendChild(userName);
 
-              // Only show Settings button if NOT on settings page
-              if (!window.location.pathname.includes('settings')) {
+              // Only show System Settings button if NOT on system settings page
+              if (!window.location.pathname.includes('system-settings')) {
                   const settingsBtn = document.createElement('button');
-                  settingsBtn.textContent = '设置';
+                  settingsBtn.textContent = '系统设置';
                   settingsBtn.style.background = 'rgba(255,255,255,0.2)';
                   settingsBtn.style.border = 'none';
                   settingsBtn.style.color = 'white';
@@ -43,9 +43,7 @@ const HKWL = (() => {
                   settingsBtn.style.borderRadius = '4px';
                   settingsBtn.style.cursor = 'pointer';
                   settingsBtn.onclick = () => {
-                      // Preserve current plan ID if possible
-                      const planId = (typeof currentPlanId !== 'undefined') ? currentPlanId : '';
-                      window.location.href = `settings.html?id=${planId}`;
+                      window.location.href = 'system-settings.html';
                   };
                   userDiv.appendChild(settingsBtn);
               }

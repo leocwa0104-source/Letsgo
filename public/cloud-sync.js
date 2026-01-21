@@ -1,10 +1,17 @@
 const CloudSync = (() => {
   // Use relative path for Vercel since frontend and backend are on the same domain
-  // But if running on Live Server (port 5500/etc), point to localhost:3000
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // But if running on Live Server (port 5500/etc), point to localhost:3000 or IP:3000
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  // Check for local network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  const isLocalIP = /^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+  
   const isBackendPort = window.location.port === '3000';
-  const API_URL = (isLocalDev && !isBackendPort) 
-    ? "http://localhost:3000/api" 
+  
+  // If we are on localhost or a local IP, and NOT on port 3000, 
+  // we assume the backend is running on port 3000 on the same host.
+  const API_URL = ((isLocalhost || isLocalIP) && !isBackendPort) 
+    ? `http://${hostname}:3000/api` 
     : "/api";
 
   let token = localStorage.getItem("hkwl_auth_token");

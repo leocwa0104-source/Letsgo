@@ -1,6 +1,11 @@
 const CloudSync = (() => {
   // Use relative path for Vercel since frontend and backend are on the same domain
-  const API_URL = "/api";
+  // But if running on Live Server (port 5500/etc), point to localhost:3000
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isBackendPort = window.location.port === '3000';
+  const API_URL = (isLocalDev && !isBackendPort) 
+    ? "http://localhost:3000/api" 
+    : "/api";
 
   let token = localStorage.getItem("hkwl_auth_token");
 
@@ -32,7 +37,9 @@ const CloudSync = (() => {
         // Handle non-JSON response (e.g. Vercel error page)
         const text = await res.text();
         console.error("Non-JSON response:", text);
-        throw new Error(`Server Error (${res.status}): The server returned an invalid response.`);
+        // Special case: If we get a 404 or 500 html page, treat it as a "server unavailable" signal
+        // so auth-manager can fallback to local.
+        return { error: `Server Error (${res.status}): The server returned an invalid response.` };
       }
       
       if (!res.ok) throw new Error(data.error || "Request failed");

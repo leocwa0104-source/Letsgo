@@ -64,15 +64,16 @@ const authenticate = async (req, res, next) => {
   next();
 };
 
-// Routes
+// Define Router to handle API routes
+const router = express.Router();
 
 // Health Check
-app.get('/api', (req, res) => {
+router.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
 // Register
-app.post('/api/register', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -94,7 +95,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login
-app.post('/api/login', async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
@@ -112,7 +113,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Sync Data (Pull)
-app.get('/api/data', authenticate, async (req, res) => {
+router.get('/data', authenticate, async (req, res) => {
   try {
     const userData = await UserData.findOne({ userId: req.user.id });
     res.json({ success: true, data: userData ? userData.data : {} });
@@ -123,7 +124,7 @@ app.get('/api/data', authenticate, async (req, res) => {
 });
 
 // Sync Data (Push)
-app.post('/api/data', authenticate, async (req, res) => {
+router.post('/data', authenticate, async (req, res) => {
   try {
     const { data } = req.body;
     
@@ -147,6 +148,18 @@ app.post('/api/data', authenticate, async (req, res) => {
     console.error(e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// Mount router at /api AND / (to handle Vercel rewrites robustly)
+app.use('/api', router);
+app.use('/', router);
+
+// Catch-all 404 for API requests to ensure JSON response
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: `API Endpoint not found: ${req.method} ${req.url}`,
+    path: req.path
+  });
 });
 
 const PORT = process.env.PORT || 3000;

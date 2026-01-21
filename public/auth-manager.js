@@ -20,10 +20,18 @@ const Auth = (() => {
               const res = await CloudSync.register(username, password);
               if (res.success) return { success: true, message: "注册成功" };
               // If cloud fails but it's not a network error (e.g. taken), return error
-              if (res.error && res.error !== "Network error" && !res.error.includes("fetch")) {
+              // We also want to ignore generic Server Errors (404/500) to allow fallback
+              const isServerError = res.error && (
+                  res.error === "Network error" ||
+                  res.error.includes("fetch") ||
+                  res.error.includes("Server Error") ||
+                  res.error.includes("Failed to fetch")
+              );
+
+              if (res.error && !isServerError) {
                   return { success: false, message: res.error };
               }
-          } catch (e) {
+        } catch (e) {
               console.warn("Cloud register failed, falling back to local", e);
           }
       }
@@ -52,10 +60,17 @@ const Auth = (() => {
                   return { success: true, message: "登录成功" };
               }
                // If explicit error (wrong password), return it
-               if (res.error && !res.error.includes("fetch") && !res.error.includes("Network")) {
+               const isServerError = res.error && (
+                   res.error === "Network error" ||
+                   res.error.includes("fetch") ||
+                   res.error.includes("Server Error") ||
+                   res.error.includes("Failed to fetch")
+               );
+               
+               if (res.error && !isServerError) {
                   return { success: false, message: res.error };
               }
-          } catch (e) {
+        } catch (e) {
               console.warn("Cloud login failed, falling back to local", e);
           }
       }

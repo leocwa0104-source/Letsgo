@@ -81,6 +81,25 @@ router.get('/', (req, res) => {
 
 // Register
 router.post('/register', async (req, res) => {
+  // Check if Admin restriction is enabled
+  const adminUser = process.env.ADMIN_USERNAME;
+  
+  if (adminUser) {
+    // If Admin restriction is on, we need to verify the requester is the admin
+    // We manually invoke the authenticate middleware logic here to keep the route definition simple
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: '仅管理员可创建新账号' });
+    
+    const parts = token.split(':');
+    if (parts.length < 2) return res.status(401).json({ error: 'Invalid Token' });
+    
+    const requestUsername = decodeURIComponent(parts.slice(1).join(':'));
+    
+    if (requestUsername !== adminUser) {
+      return res.status(403).json({ error: '您没有权限执行此操作' });
+    }
+  }
+
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: '请填写所有必填项' });
@@ -115,7 +134,9 @@ router.post('/login', async (req, res) => {
     }
     
     const token = `${user._id}:${encodeURIComponent(user.username)}`;
-    res.json({ success: true, token, username: user.username });
+    const isAdmin = process.env.ADMIN_USERNAME === user.username;
+    
+    res.json({ success: true, token, username: user.username, isAdmin });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });

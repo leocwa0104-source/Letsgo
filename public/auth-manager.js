@@ -24,6 +24,11 @@ const Auth = (() => {
         const res = await CloudSync.login(username, password);
         if (res.success) {
           sessionStorage.setItem(CURRENT_USER_KEY, username);
+          if (res.isAdmin) {
+             sessionStorage.setItem("hkwl_is_admin", "true");
+          } else {
+             sessionStorage.removeItem("hkwl_is_admin");
+          }
           return { success: true, message: "登录成功" };
         }
         return { success: false, message: res.error || "登录失败" };
@@ -38,11 +43,20 @@ const Auth = (() => {
           CloudSync.logout();
       }
       sessionStorage.removeItem(CURRENT_USER_KEY);
+      sessionStorage.removeItem("hkwl_is_admin");
       window.location.replace("login.html");
     },
 
     getCurrentUser: () => {
       return sessionStorage.getItem(CURRENT_USER_KEY);
+    },
+
+    isAdmin: () => {
+      return sessionStorage.getItem("hkwl_is_admin") === "true";
+    },
+
+    createAccount: async (username, password) => {
+      return Auth.register(username, password);
     },
 
     requireLogin: () => {

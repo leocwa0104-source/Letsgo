@@ -40,6 +40,20 @@
         <p class="map-hint">点击地图设定默认中心位置，缩放级别也会被保存。</p>
       </section>
 
+      <section id="admin-section" class="map-section" style="display: none; border-top: 1px solid #eee; margin-top: 2rem; padding-top: 2rem;">
+        <h2>管理员控制台</h2>
+        <p style="color: #666; margin-bottom: 1rem;">您是管理员，可以创建新用户账号。</p>
+        <div class="form-group">
+            <label for="new-username">新用户名</label>
+            <input id="new-username" type="text" placeholder="输入用户名">
+        </div>
+        <div class="form-group">
+            <label for="new-password">新密码</label>
+            <input id="new-password" type="password" placeholder="输入密码">
+        </div>
+        <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: auto;">创建账号</button>
+      </section>
+
       <div class="form-actions">
         <button id="save-btn" type="submit" class="btn btn-primary">保存设置</button>
         <a href="planner.html" class="btn btn-secondary">返回清单</a>
@@ -61,6 +75,40 @@
           if (backLink) {
               backLink.href += `?id=${planId}`;
           }
+      }
+
+      // Admin Logic
+      if (Auth.isAdmin()) {
+          document.getElementById('admin-section').style.display = 'block';
+          document.getElementById('create-user-btn').addEventListener('click', async () => {
+              const u = document.getElementById('new-username').value.trim();
+              const p = document.getElementById('new-password').value;
+              
+              if(!u || !p) {
+                  alert("请输入用户名和密码");
+                  return;
+              }
+              
+              const btn = document.getElementById('create-user-btn');
+              btn.disabled = true;
+              btn.textContent = "创建中...";
+              
+              try {
+                const res = await Auth.createAccount(u, p);
+                if(res.success) {
+                    alert("创建成功！用户 ID: " + (res.userId || "未知"));
+                    document.getElementById('new-username').value = '';
+                    document.getElementById('new-password').value = '';
+                } else {
+                    alert("创建失败: " + res.message);
+                }
+              } catch(e) {
+                  alert("错误: " + e.message);
+              } finally {
+                  btn.disabled = false;
+                  btn.textContent = "创建账号";
+              }
+          });
       }
     });
   </script>

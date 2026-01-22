@@ -123,8 +123,15 @@ const Mailbox = (() => {
         }
 
         sortedMsgs.forEach(msg => {
-            // Robust comparison using lower case
-            const isMe = currentUser && msg.sender.toLowerCase() === currentUser.toLowerCase();
+            // Priority: Use server-side isMe if available, otherwise fallback to local check
+            let isMe;
+            if (typeof msg.isMe !== 'undefined') {
+                isMe = msg.isMe;
+            } else {
+                // Robust comparison using lower case
+                isMe = currentUser && msg.sender.toLowerCase() === currentUser.toLowerCase();
+            }
+            
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = 'column';

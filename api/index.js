@@ -238,7 +238,10 @@ router.get('/messages', authenticate, async (req, res) => {
     const result = messages.map(msg => ({
       ...msg.toObject(),
       isRead: msg.readBy.includes(req.user.username),
-      senderIsAdmin: msg.sender === adminUsername
+      // Fix: robustly check if sender is admin, handling potential undefined
+      senderIsAdmin: adminUsername && msg.sender === adminUsername,
+      // Fix: Calculate isMe on server side to avoid client-side mismatch issues
+      isMe: msg.sender === req.user.username
     }));
 
     res.json({ success: true, messages: result });

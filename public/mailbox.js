@@ -124,10 +124,10 @@ const Mailbox = (() => {
             return;
         }
 
-        // Messages are sorted by timestamp desc in backend.
-        // We usually want to display oldest at top, newest at bottom like chat.
-        // So let's reverse them for display.
-        const sortedMsgs = [...messages].reverse();
+        // Messages are sorted by timestamp asc (oldest -> newest) in backend.
+        // We want to display oldest at top, newest at bottom like chat.
+        // So we use the order as is.
+        const sortedMsgs = messages;
         
         sortedMsgs.forEach(msg => {
             // Use server-side calculated isMe

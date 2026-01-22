@@ -379,27 +379,6 @@ router.delete('/messages/:id', authenticate, async (req, res) => {
   }
 });
 
-// Clear All Messages (Admin Only)
-router.delete('/messages/all/clear', authenticate, async (req, res) => {
-  try {
-    const currentUsername = req.user.username;
-    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
-    const isAdmin = adminUsername && currentUsername === adminUsername;
-
-    if (!isAdmin) {
-      return res.status(403).json({ error: '只有管理员可以执行此操作' });
-    }
-
-    await Message.deleteMany({});
-    console.log(`[Clear All Messages] Admin ${currentUsername} cleared all messages`);
-    
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Clear All Messages Error:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // Mount router at /api AND / (to handle Vercel rewrites robustly)
 app.use('/api', router);
 app.use('/', router);

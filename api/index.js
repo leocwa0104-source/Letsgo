@@ -511,30 +511,28 @@ router.get('/notice', async (req, res) => {
     }
 
     // Normal User Logic (View Mode)
-    // Find Global Notice
-    const globalNotice = await Notice.findOne({ 
-      $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] 
-    });
+    // Find All Relevant Notices (Global + Private)
+    const query = {
+      $or: [
+        { targetUser: 'all' },
+        { targetUser: { $exists: false } }
+      ]
+    };
 
-    // Find Private Notice if user is known
-    let privateNotice = null;
     if (currentUser) {
-      privateNotice = await Notice.findOne({ targetUser: currentUser });
+      query.$or.push({ targetUser: currentUser });
     }
 
-    // Determine which to show (Latest one)
-    let noticeToShow = globalNotice;
-    if (privateNotice) {
-      if (!globalNotice || new Date(privateNotice.lastUpdated) > new Date(globalNotice.lastUpdated)) {
-        noticeToShow = privateNotice;
-      }
-    }
+    const notices = await Notice.find(query).sort({ lastUpdated: -1 });
 
     res.json({ 
       success: true, 
-      content: noticeToShow ? noticeToShow.content : '',
-      lastUpdated: noticeToShow ? noticeToShow.lastUpdated : null,
-      targetUser: noticeToShow ? (noticeToShow.targetUser || 'all') : 'all'
+      notices: notices.map(n => ({
+        content: n.content,
+        lastUpdated: n.lastUpdated,
+        targetUser: n.targetUser || 'all',
+        _id: n._id
+      }))
     });
   } catch (e) {
     console.error('Get Notice Error:', e);

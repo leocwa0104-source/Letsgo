@@ -88,7 +88,7 @@ const HKWL = (() => {
 
                   // Notice Board Button
                   const noticeBtn = document.createElement('button');
-                  noticeBtn.textContent = '最新告示';
+                  noticeBtn.textContent = '告示栏';
                   noticeBtn.style.background = 'rgba(255,255,255,0.2)';
                   noticeBtn.style.border = 'none';
                   noticeBtn.style.color = 'white';

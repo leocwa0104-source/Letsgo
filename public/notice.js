@@ -1,7 +1,7 @@
 // Notice Viewer Module
 const NoticeViewer = (function() {
     // Show Notice Modal
-    async function showNoticeModal(content, isAutoPopup = false) {
+    async function showNoticeBoard(notices, isAutoPopup = false) {
         // Remove existing modal if any
         const existing = document.getElementById('notice-modal');
         if (existing) existing.remove();
@@ -28,24 +28,73 @@ const NoticeViewer = (function() {
         modalContent.style.maxHeight = '80vh';
         modalContent.style.overflowY = 'auto';
         modalContent.style.position = 'relative';
+        modalContent.style.display = 'flex';
+        modalContent.style.flexDirection = 'column';
         
         // Title
         const title = document.createElement('h2');
-        title.textContent = '最新告示';
+        title.textContent = '告示栏';
         title.style.marginTop = '0';
         title.style.marginBottom = '1rem';
         title.style.borderBottom = '1px solid #eee';
         title.style.paddingBottom = '0.5rem';
         
-        // Body (Markdown-like or plain text)
-        const body = document.createElement('div');
-        body.style.lineHeight = '1.6';
-        body.style.whiteSpace = 'pre-wrap'; // Preserve whitespace
-        body.textContent = content;
+        // Notices List Container
+        const listContainer = document.createElement('div');
+        listContainer.style.flex = '1';
+        listContainer.style.overflowY = 'auto';
+        listContainer.style.display = 'flex';
+        listContainer.style.flexDirection = 'column';
+        listContainer.style.gap = '1.5rem';
+
+        if (!notices || notices.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center; color:#888;">暂无告示</div>';
+        } else {
+            notices.forEach(notice => {
+                const item = document.createElement('div');
+                item.style.paddingBottom = '1.5rem';
+                item.style.borderBottom = '1px dashed #eee';
+                
+                // Meta Info
+                const meta = document.createElement('div');
+                meta.style.display = 'flex';
+                meta.style.alignItems = 'center';
+                meta.style.marginBottom = '0.5rem';
+                meta.style.gap = '0.5rem';
+
+                if (notice.targetUser && notice.targetUser !== 'all') {
+                     const badge = document.createElement('span');
+                     badge.textContent = '私信';
+                     badge.style.backgroundColor = '#28a745';
+                     badge.style.color = 'white';
+                     badge.style.padding = '2px 6px';
+                     badge.style.borderRadius = '4px';
+                     badge.style.fontSize = '0.75rem';
+                     meta.appendChild(badge);
+                }
+
+                const date = document.createElement('span');
+                date.textContent = new Date(notice.lastUpdated).toLocaleString();
+                date.style.color = '#999';
+                date.style.fontSize = '0.85rem';
+                meta.appendChild(date);
+                
+                // Content
+                const content = document.createElement('div');
+                content.style.lineHeight = '1.6';
+                content.style.whiteSpace = 'pre-wrap';
+                content.style.color = '#333';
+                content.textContent = notice.content;
+
+                item.appendChild(meta);
+                item.appendChild(content);
+                listContainer.appendChild(item);
+            });
+        }
         
         // Close Button
         const closeBtn = document.createElement('button');
-        closeBtn.textContent = '我知道了';
+        closeBtn.textContent = isAutoPopup ? '我知道了' : '关闭';
         closeBtn.className = 'btn btn-secondary';
         closeBtn.style.marginTop = '1.5rem';
         closeBtn.style.width = '100%';
@@ -58,7 +107,7 @@ const NoticeViewer = (function() {
         };
         
         modalContent.appendChild(title);
-        modalContent.appendChild(body);
+        modalContent.appendChild(listContainer);
         modalContent.appendChild(closeBtn);
         modalOverlay.appendChild(modalContent);
         
@@ -91,20 +140,22 @@ const NoticeViewer = (function() {
             });
             const authData = await authRes.json();
             
-            // Get latest notice
+            // Get notices
             const noticeRes = await fetch('/api/notice', {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const noticeData = await noticeRes.json();
             
-            if (!noticeData.success || !noticeData.content) return;
+            if (!noticeData.success || !noticeData.notices || noticeData.notices.length === 0) return;
             
             const lastSeen = authData.lastNoticeSeenAt ? new Date(authData.lastNoticeSeenAt).getTime() : 0;
-            const lastUpdated = noticeData.lastUpdated ? new Date(noticeData.lastUpdated).getTime() : 0;
+            // Check the latest notice (first one)
+            const latestNotice = noticeData.notices[0];
+            const lastUpdated = latestNotice.lastUpdated ? new Date(latestNotice.lastUpdated).getTime() : 0;
             
-            // If notice is newer than last seen, show it
+            // If latest notice is newer than last seen, show the board
             if (lastUpdated > lastSeen) {
-                showNoticeModal(noticeData.content, true);
+                showNoticeBoard(noticeData.notices, true);
             }
         } catch (e) {
             console.error("Notice check failed:", e);
@@ -118,10 +169,10 @@ const NoticeViewer = (function() {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
-            if (data.success && data.content) {
-                showNoticeModal(data.content, false);
+            if (data.success) {
+                showNoticeBoard(data.notices || [], false);
             } else {
-                alert("暂无告示");
+                alert("无法获取告示");
             }
         } catch (e) {
             alert("无法获取告示");

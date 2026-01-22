@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const User = require('./models/User');
 const UserData = require('./models/UserData');
 const Message = require('./models/Message');
+const Manual = require('./models/Manual');
 
 const app = express();
 app.use(cors());
@@ -344,6 +345,51 @@ router.put('/messages/:id/read', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error('Mark Read Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get Manual Content (Public or Authenticated)
+// Assuming we want public access so users can read it easily
+router.get('/manual', async (req, res) => {
+  try {
+    const manual = await Manual.findOne();
+    res.json({ success: true, content: manual ? manual.content : '' });
+  } catch (e) {
+    console.error('Get Manual Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update Manual Content (Admin Only)
+router.put('/manual', authenticate, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足：只有管理员可以编辑使用说明' });
+    }
+
+    let manual = await Manual.findOne();
+    if (manual) {
+      manual.content = content;
+      manual.lastUpdated = Date.now();
+      manual.updatedBy = currentUsername;
+    } else {
+      manual = new Manual({
+        content,
+        updatedBy: currentUsername
+      });
+    }
+
+    await manual.save();
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Update Manual Error:', e);
     res.status(500).json({ error: e.message });
   }
 });

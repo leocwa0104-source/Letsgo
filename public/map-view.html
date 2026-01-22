@@ -124,7 +124,7 @@
   <header class="site-header">
     <div style="display: flex; align-items: center;">
         <a href="index.html" style="color: white; text-decoration: none; margin-right: 1rem; font-size: 1.5rem;">&larr;</a>
-        <h1>定制旅游地图</h1>
+        <h1 id="plan-title">旅行清单</h1>
     </div>
     
     <div class="mode-switcher">
@@ -160,6 +160,15 @@
 
       // Initialize Data
       HKWL.setCurrentPlan(planId);
+      const settings = HKWL.loadSettings();
+      if (settings.title) {
+        document.title = settings.title;
+        const headerH1 = document.getElementById("plan-title");
+        if (headerH1) {
+          headerH1.textContent = settings.title;
+        }
+      }
+
       const modeBlockBtn = document.getElementById('mode-block-btn');
       if (modeBlockBtn) {
           modeBlockBtn.href = `planner.html?id=${planId}`;

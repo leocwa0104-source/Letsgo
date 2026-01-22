@@ -213,14 +213,20 @@ router.get('/messages', authenticate, async (req, res) => {
     let query = {};
 
     if (isAdmin) {
-      // Admin sees messages sent to 'admin'
-      query = { receiver: 'admin' };
+      // Admin sees messages sent to 'admin' OR sent by themselves
+      query = { 
+        $or: [
+          { receiver: 'admin' },
+          { sender: req.user.username }
+        ]
+      };
     } else {
-      // User sees messages sent to 'all_users' or specifically to them
+      // User sees messages sent to 'all_users', specifically to them, OR sent by themselves
       query = { 
         $or: [
           { receiver: 'all_users' },
-          { receiver: req.user.username }
+          { receiver: req.user.username },
+          { sender: req.user.username }
         ]
       };
     }

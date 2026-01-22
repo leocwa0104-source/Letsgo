@@ -11,43 +11,162 @@
     };
   </script>
   <script src="https://webapi.amap.com/loader.js"></script>
+  <style>
+    /* Slider Styles */
+    .view-wrapper {
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+    }
+    .view-slider {
+      display: flex;
+      width: 200%;
+      transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .view-slide {
+      width: 50%;
+      flex-shrink: 0;
+      position: relative;
+      /* Ensure min-height for layout */
+      min-height: calc(100vh - 120px);
+    }
+    
+    /* Adjust Block View Layout for Slider */
+    #block-view.layout-main {
+      display: block;
+    }
+    #block-view .main-column {
+      position: absolute;
+      top: 0; /* Relative to slide */
+      height: calc(100vh - 140px);
+    }
+    
+    /* Map Styles from map-view.html */
+    .map-container {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 120px);
+      display: flex;
+      flex-direction: column;
+    }
+    #map-container {
+      flex: 1;
+      width: 100%;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+      justify-content: flex-end;
+    }
+    .day-selector select {
+      padding: 5px 10px;
+      font-size: 1rem;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: white;
+    }
+    
+    /* Custom Marker Styles */
+    .amap-marker-content { white-space: nowrap; }
+    .custom-marker { display: flex; flex-direction: column; align-items: center; }
+    .marker-bubble {
+        background: white;
+        border: 2px solid #333;
+        border-radius: 20px;
+        padding: 5px 10px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: 'Comic Sans MS', 'YouYuan', sans-serif;
+        transform: translateY(-5px);
+    }
+    .marker-index {
+        background: #FF9800;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .marker-name { font-weight: bold; color: #333; font-size: 14px; }
+    .marker-pin {
+        width: 0; height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid #333;
+    }
+    .type-food .marker-index { background-color: #FF5722; }
+    .type-place .marker-index { background-color: #4CAF50; }
+    .type-stay .marker-index { background-color: #2196F3; }
+  </style>
 </head>
 <body>
   <header class="site-header">
     <div style="display: flex; align-items: center; gap: 2rem;">
         <div style="display: flex; align-items: center;">
             <a href="index.html" style="color: white; text-decoration: none; margin-right: 1rem; font-size: 1.5rem;">&larr;</a>
-            <h1>旅行清单</h1>
+            <h1 id="plan-title">旅行清单</h1>
         </div>
         
         <div class="mode-switcher">
-            <a href="#" class="mode-btn active">积木模式</a>
-            <a href="map-view.html" id="mode-map-btn" class="mode-btn">地图模式</a>
+            <a href="javascript:void(0)" id="mode-block-btn" class="mode-btn active" onclick="switchMode('block')">积木模式</a>
+            <a href="javascript:void(0)" id="mode-map-btn" class="mode-btn" onclick="switchMode('map')">地图模式</a>
         </div>
     </div>
   </header>
 
-  <main class="container layout-main">
-    <section class="main-column">
-      <h2>任务栏</h2>
-      <div id="wish-list" class="card-list"></div>
+  <main class="container view-wrapper">
+    <div class="view-slider" id="view-slider">
+        <!-- Block View -->
+        <div class="view-slide layout-main" id="block-view">
+            <section class="main-column">
+              <h2>任务栏</h2>
+              <div id="wish-list" class="card-list"></div>
+        
+              <section>
+                <button id="clear-all" class="btn btn-secondary">清空全部愿望（本地）</button>
+              </section>
+            </section>
+        
+            <aside class="side-column">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                  <h2 style="margin: 0;">计划列表</h2>
+                  <div style="display: flex; gap: 10px;">
+                    <button onclick="HKWL.autoGenerateTransports()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; background-color: #28a745; color: white; border: none;">✨ 智能交通</button>
+                  </div>
+              </div>
+              <div id="plan-days" class="plan-days"></div>
+              <div id="plan-list" class="plan-list"></div>
+              <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
+            </aside>
+        </div>
 
-      <section>
-        <button id="clear-all" class="btn btn-secondary">清空全部愿望（本地）</button>
-      </section>
-    </section>
-
-    <aside class="side-column">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h2 style="margin: 0;">计划列表</h2>
-          <div style="display: flex; gap: 10px;">
-            <button onclick="HKWL.autoGenerateTransports()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; background-color: #28a745; color: white; border: none;">✨ 智能交通</button>
-          </div>
-      </div>
-      <div id="plan-days" class="plan-days"></div>
-      <div id="plan-list" class="plan-list"></div>
-      <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
-    </aside>
+        <!-- Map View -->
+        <div class="view-slide" id="map-view">
+            <div class="map-container">
+                <div class="controls">
+                  <div class="day-selector">
+                    <select id="day-select">
+                      <option value="all">全部行程</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="map-container"></div>
+            </div>
+        </div>
+    </div>
   </main>
 
   <div class="floating-add-wrapper">
@@ -96,6 +215,265 @@
   <script src="auth-manager.js"></script>
   <script src="main.js?v=10"></script>
   <script>
+    let currentMode = 'block';
+    let mapInitialized = false;
+    let map = null;
+    let mapState = { days: [] };
+    let mapAllItems = [];
+
+    function switchMode(mode) {
+        if (currentMode === mode) return;
+        currentMode = mode;
+        
+        const slider = document.getElementById('view-slider');
+        const blockBtn = document.getElementById('mode-block-btn');
+        const mapBtn = document.getElementById('mode-map-btn');
+        
+        if (mode === 'map') {
+            slider.style.transform = 'translateX(-50%)';
+            blockBtn.classList.remove('active');
+            mapBtn.classList.add('active');
+            
+            // Hide floating buttons in map mode
+            document.querySelector('.floating-add-wrapper').style.display = 'none';
+
+            if (!mapInitialized) {
+                initMapLogic();
+                mapInitialized = true;
+            } else {
+                 if (map) {
+                     setTimeout(() => {
+                         map.resize(); 
+                         const daySelect = document.getElementById('day-select');
+                         // Reload data to ensure sync with block mode changes
+                         mapState = HKWL.loadPlanState();
+                         mapAllItems = HKWL.loadWishlist();
+                         updateDaySelector();
+                         renderMap(daySelect.value);
+                     }, 500);
+                 }
+            }
+        } else {
+            slider.style.transform = 'translateX(0)';
+            mapBtn.classList.remove('active');
+            blockBtn.classList.add('active');
+            // Show floating buttons in block mode
+            document.querySelector('.floating-add-wrapper').style.display = 'block';
+        }
+    }
+
+    // --- Map Logic ---
+
+    async function initMapLogic() {
+        mapState = HKWL.loadPlanState();
+        mapAllItems = HKWL.loadWishlist();
+        
+        // Setup Day Selector
+        updateDaySelector();
+        
+        const daySelect = document.getElementById('day-select');
+        daySelect.addEventListener('change', () => {
+            renderMap(daySelect.value);
+        });
+
+        await initMap();
+    }
+
+    function updateDaySelector() {
+        const daySelect = document.getElementById('day-select');
+        // Keep first option (All)
+        while (daySelect.options.length > 1) {
+            daySelect.remove(1);
+        }
+        
+        mapState.days.forEach((_, index) => {
+            const option = document.createElement('option');
+            option.value = index + 1;
+            option.textContent = `第 ${index + 1} 天`;
+            daySelect.appendChild(option);
+        });
+    }
+
+    async function initMap() {
+        try {
+            const AMap = await AMapLoader.load({
+                key: "8040299dec271ec2928477f709015d3d",
+                version: "2.0",
+                plugins: ["AMap.Scale", "AMap.ToolBar", "AMap.ControlBar", "AMap.Driving", "AMap.Walking", "AMap.Transfer"]
+            });
+            
+            map = new AMap.Map("map-container", {
+                zoom: 4,
+                center: [105.0, 35.0], 
+                viewMode: '3D', 
+                features: ['bg', 'road', 'building', 'point']
+            });
+            
+            map.addControl(new AMap.Scale());
+            map.addControl(new AMap.ToolBar({ position: 'RB' }));
+            
+            const daySelect = document.getElementById('day-select');
+            renderMap(daySelect.value);
+            
+        } catch (e) {
+            console.error(e);
+            document.getElementById('map-container').innerHTML = 
+                '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#666;">地图加载失败，请检查网络设置</div>';
+        }
+    }
+
+    function getItemsForDay(dayIndex) { 
+        if (!mapState.days[dayIndex]) return [];
+        return mapState.days[dayIndex].map(id => mapAllItems.find(item => item.id === id)).filter(Boolean);
+    }
+
+    function getAllItemsOrdered() {
+        let list = [];
+        mapState.days.forEach(dayIds => {
+           list = list.concat(dayIds.map(id => mapAllItems.find(item => item.id === id)).filter(Boolean));
+        });
+        return list;
+    }
+
+    async function renderMap(dayMode) {
+        if (!map) return;
+        map.clearMap();
+
+        let items = [];
+        if (dayMode === 'all') {
+            items = getAllItemsOrdered();
+        } else {
+            const dayIndex = parseInt(dayMode) - 1;
+            items = getItemsForDay(dayIndex);
+        }
+
+        if (items.length === 0) return;
+
+        let seqIndex = 1;
+        let lastNode = null;
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            if (item.type !== 'transport' && item.coords && item.coords.lng && item.coords.lat) {
+                const position = new AMap.LngLat(item.coords.lng, item.coords.lat);
+                
+                let typeClass = "";
+                if (item.type === 'food') typeClass = "type-food";
+                if (item.type === 'place') typeClass = "type-place";
+                if (item.type === 'stay') typeClass = "type-stay";
+                
+                const content = `
+                    <div class="custom-marker ${typeClass}">
+                        <div class="marker-bubble">
+                            <span class="marker-index">${seqIndex}</span>
+                            <span class="marker-name">${item.name}</span>
+                        </div>
+                        <div class="marker-pin"></div>
+                    </div>
+                `;
+                
+                new AMap.Marker({
+                    position: position,
+                    content: content,
+                    offset: new AMap.Pixel(-15, -35),
+                    map: map,
+                    anchor: 'bottom-center',
+                    zIndex: 100
+                });
+                
+                seqIndex++;
+
+                if (lastNode) {
+                    const startPos = lastNode.position;
+                    const endPos = position;
+                    let transportItem = null;
+                    // Find transport between nodes
+                     for (let j = lastNode.originalIndex + 1; j < i; j++) {
+                        if (items[j].type === 'transport') {
+                            transportItem = items[j];
+                            break; 
+                        }
+                    }
+                    await drawRoute(startPos, endPos, transportItem);
+                }
+                lastNode = { position, originalIndex: i };
+            }
+        }
+        map.setFitView(null, false, [50, 50, 50, 50]);
+    }
+
+    async function drawRoute(start, end, transportItem) {
+        if (!map) return;
+        let mode = 'driving';
+        if (transportItem) {
+            if (transportItem.name.includes('步行') || transportItem.name.includes('🚶')) mode = 'walking';
+            else if (transportItem.name.includes('地铁') || transportItem.name.includes('公交') || transportItem.name.includes('🚇') || transportItem.name.includes('bus')) mode = 'transit';
+        }
+        
+        try {
+            if (mode === 'walking') await drawWalkingRoute(start, end);
+            else if (mode === 'transit') await drawDrivingRoute(start, end, "#9C27B0");
+            else await drawDrivingRoute(start, end, "#2196F3");
+        } catch (e) {
+            new AMap.Polyline({
+                path: [start, end],
+                strokeColor: "#999",
+                strokeWeight: 4,
+                strokeStyle: "dashed",
+                map: map
+            });
+        }
+    }
+    
+    function drawWalkingRoute(start, end) {
+        return new Promise((resolve) => {
+            const walking = new AMap.Walking();
+            walking.search(start, end, (status, result) => {
+                if (status === 'complete' && result.routes && result.routes.length) {
+                    const path = [];
+                    result.routes[0].steps.forEach(step => path.push(...step.path));
+                    new AMap.Polyline({
+                        path: path,
+                        strokeColor: "#4CAF50",
+                        strokeWeight: 6,
+                        strokeOpacity: 0.9,
+                        showDir: true,
+                        map: map
+                    });
+                    resolve();
+                } else {
+                    new AMap.Polyline({ path: [start, end], strokeColor: "#4CAF50", strokeWeight: 4, strokeStyle: "dashed", map: map });
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function drawDrivingRoute(start, end, color) {
+        return new Promise((resolve) => {
+            const driving = new AMap.Driving({ policy: AMap.DrivingPolicy.LEAST_TIME });
+            driving.search(start, end, (status, result) => {
+                if (status === 'complete' && result.routes && result.routes.length) {
+                    const path = [];
+                    result.routes[0].steps.forEach(step => path.push(...step.path));
+                    new AMap.Polyline({
+                        path: path,
+                        strokeColor: color,
+                        strokeWeight: 6,
+                        strokeOpacity: 0.9,
+                        showDir: true,
+                        map: map
+                    });
+                    resolve();
+                } else {
+                    new AMap.Polyline({ path: [start, end], strokeColor: color, strokeWeight: 4, strokeStyle: "dashed", map: map });
+                    resolve();
+                }
+            });
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
       const urlParams = new URLSearchParams(window.location.search);
       const planId = urlParams.get('id');
@@ -103,7 +481,6 @@
       HKWL.setCurrentPlan(planId);
       HKWL.renderWishlistPage();
 
-      // Update links
       if (planId) {
           document.querySelectorAll('a[href^="manage.html"]').forEach(a => {
               if (a.href.includes('?')) {
@@ -112,10 +489,6 @@
                   a.href += `?planId=${planId}`;
               }
           });
-          const modeMapBtn = document.getElementById('mode-map-btn');
-          if (modeMapBtn) {
-            modeMapBtn.href += `?id=${planId}`;
-          }
       }
     });
   </script>

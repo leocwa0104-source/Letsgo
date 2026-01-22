@@ -302,14 +302,24 @@ const HKWL = (() => {
   async function saveSettings(settings) {
     try {
       window.localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
-      // Update plan title in index if changed
+      
+      // Update plan title in index unconditionally to ensure consistency
       if (settings.title) {
           const plans = getPlans();
           const plan = plans.find(p => p.id === currentPlanId);
-          if (plan && plan.title !== settings.title) {
+          
+          if (plan) {
               plan.title = settings.title;
-              // Directly save to localStorage to avoid double sync
               window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+          } else {
+              console.warn(`Plan ${currentPlanId} not found in index, reloading plans...`);
+              // Double check with fresh read
+              const freshPlans = JSON.parse(window.localStorage.getItem(getPlanIndexKey()) || '[]');
+              const freshPlan = freshPlans.find(p => p.id === currentPlanId);
+              if (freshPlan) {
+                  freshPlan.title = settings.title;
+                  window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
+              }
           }
       }
       return await syncToCloud();

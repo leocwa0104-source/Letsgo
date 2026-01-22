@@ -439,7 +439,45 @@ router.put('/manual', authenticate, async (req, res) => {
 
 // --- Notice Routes ---
 
-// Get Notice
+// Get All Notices (Admin Only) - For management
+router.get('/admin/notices', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    const notices = await Notice.find().sort({ lastUpdated: -1 });
+    res.json({ success: true, notices });
+  } catch (e) {
+    console.error('Get All Notices Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete Notice (Admin Only)
+router.delete('/admin/notices/:id', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    await Notice.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete Notice Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get Notice (Public/User View)
 router.get('/notice', async (req, res) => {
   try {
     // Check for Admin Inspection Query

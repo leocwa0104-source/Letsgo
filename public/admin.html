@@ -50,6 +50,14 @@
         </div>
       </section>
 
+      <section id="active-notices-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+          <h2>已发布的告示</h2>
+          <p style="color: #666; margin-bottom: 1rem;">查看或撤回当前有效的告示。</p>
+          <div id="notices-list" style="display: flex; flex-direction: column; gap: 1rem;">
+              <div style="text-align: center; color: #888; padding: 1rem;">加载中...</div>
+          </div>
+      </section>
+
       <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
         <a href="index.html" class="btn btn-secondary">返回首页</a>
       </div>
@@ -220,6 +228,104 @@
       
       // Load manual by default
       loadContent('manual');
+
+      // --- Active Notices Manager ---
+      const noticesList = document.getElementById('notices-list');
+      
+      async function loadActiveNotices() {
+          try {
+              noticesList.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">加载中...</div>';
+              
+              const res = await fetch('/api/admin/notices', {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              
+              if (data.success && data.notices && data.notices.length > 0) {
+                  noticesList.innerHTML = '';
+                  data.notices.forEach(notice => {
+                      const item = document.createElement('div');
+                      item.style.border = '1px solid #eee';
+                      item.style.borderRadius = '8px';
+                      item.style.padding = '1rem';
+                      item.style.backgroundColor = '#f9f9f9';
+                      item.style.display = 'flex';
+                      item.style.justifyContent = 'space-between';
+                      item.style.alignItems = 'start';
+                      item.style.gap = '1rem';
+                      
+                      const targetDisplay = (!notice.targetUser || notice.targetUser === 'all') 
+                          ? '<span style="background:#007aff; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">全站</span>' 
+                          : `<span style="background:#28a745; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">用户: ${notice.targetUser}</span>`;
+                          
+                      const date = new Date(notice.lastUpdated).toLocaleString();
+                      const contentPreview = notice.content.length > 50 ? notice.content.substring(0, 50) + '...' : notice.content;
+                      
+                      item.innerHTML = `
+                          <div style="flex: 1;">
+                              <div style="margin-bottom: 0.5rem; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                                  ${targetDisplay}
+                                  <span style="color: #999; font-weight: normal; font-size: 0.85rem;">${date}</span>
+                              </div>
+                              <div style="color: #333; white-space: pre-wrap; font-size: 0.95rem;">${contentPreview}</div>
+                          </div>
+                          <button class="btn btn-secondary retract-btn" data-id="${notice._id}" style="color: #ff4d4f; border-color: #ff4d4f; background: white; width: auto; font-size: 0.9rem; padding: 0.3rem 0.8rem;">
+                              撤回
+                          </button>
+                      `;
+                      
+                      noticesList.appendChild(item);
+                  });
+                  
+                  // Add delete listeners
+                  document.querySelectorAll('.retract-btn').forEach(btn => {
+                      btn.addEventListener('click', async (e) => {
+                          if(!confirm('确定要撤回这条告示吗？用户将不再看到它。')) return;
+                          
+                          const id = e.target.dataset.id;
+                          try {
+                              e.target.disabled = true;
+                              e.target.textContent = '处理中...';
+                              
+                              const res = await fetch(`/api/admin/notices/${id}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                              });
+                              const data = await res.json();
+                              
+                              if(data.success) {
+                                  loadActiveNotices(); // Reload list
+                              } else {
+                                  alert('撤回失败: ' + data.error);
+                                  e.target.disabled = false;
+                                  e.target.textContent = '撤回';
+                              }
+                          } catch(err) {
+                              alert('错误: ' + err.message);
+                              e.target.disabled = false;
+                              e.target.textContent = '撤回';
+                          }
+                      });
+                  });
+                  
+              } else {
+                  noticesList.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">暂无已发布的告示</div>';
+              }
+          } catch (e) {
+              console.error("Failed to load notices list", e);
+              noticesList.innerHTML = '<div style="text-align: center; color: red; padding: 1rem;">加载列表失败</div>';
+          }
+      }
+      
+      // Load initially and refresh when publishing
+      loadActiveNotices();
+      const originalSaveContent = saveContent;
+      saveContent = async function(type) {
+          await originalSaveContent(type);
+          if (type === 'notice') {
+              loadActiveNotices();
+          }
+      }
     });
   </script>
 </body>

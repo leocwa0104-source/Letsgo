@@ -3134,6 +3134,7 @@ const HKWL = (() => {
   return {
     getPlans,
     createPlan,
+    renamePlan,
     setCurrentPlan,
     deletePlan,
     savePlans,

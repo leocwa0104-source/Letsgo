@@ -166,6 +166,27 @@ router.post('/change-password', authenticate, async (req, res) => {
   }
 });
 
+// Get Users (Admin Only)
+router.get('/users', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    const users = await User.find({}, 'username').sort({ username: 1 });
+    const usernames = users.map(u => u.username);
+    
+    res.json({ success: true, users: usernames });
+  } catch (e) {
+    console.error('Get Users Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -421,11 +442,61 @@ router.put('/manual', authenticate, async (req, res) => {
 // Get Notice
 router.get('/notice', async (req, res) => {
   try {
-    const notice = await Notice.findOne();
+    // Check for Admin Inspection Query
+    const requestedTarget = req.query.targetUser;
+    const token = req.headers.authorization;
+    let currentUser = null;
+    let isAdmin = false;
+
+    if (token) {
+      const parts = token.split(':');
+      if (parts.length >= 2) {
+        currentUser = decodeURIComponent(parts.slice(1).join(':'));
+        const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+        isAdmin = adminUsername && currentUser === adminUsername;
+      }
+    }
+
+    // Admin requesting specific target's notice
+    if (requestedTarget && isAdmin) {
+       let query = { targetUser: requestedTarget };
+       if (requestedTarget === 'all') {
+         query = { $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] };
+       }
+       const notice = await Notice.findOne(query);
+       return res.json({
+         success: true,
+         content: notice ? notice.content : '',
+         lastUpdated: notice ? notice.lastUpdated : null,
+         targetUser: requestedTarget
+       });
+    }
+
+    // Normal User Logic (View Mode)
+    // Find Global Notice
+    const globalNotice = await Notice.findOne({ 
+      $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] 
+    });
+
+    // Find Private Notice if user is known
+    let privateNotice = null;
+    if (currentUser) {
+      privateNotice = await Notice.findOne({ targetUser: currentUser });
+    }
+
+    // Determine which to show (Latest one)
+    let noticeToShow = globalNotice;
+    if (privateNotice) {
+      if (!globalNotice || new Date(privateNotice.lastUpdated) > new Date(globalNotice.lastUpdated)) {
+        noticeToShow = privateNotice;
+      }
+    }
+
     res.json({ 
       success: true, 
-      content: notice ? notice.content : '',
-      lastUpdated: notice ? notice.lastUpdated : null 
+      content: noticeToShow ? noticeToShow.content : '',
+      lastUpdated: noticeToShow ? noticeToShow.lastUpdated : null,
+      targetUser: noticeToShow ? (noticeToShow.targetUser || 'all') : 'all'
     });
   } catch (e) {
     console.error('Get Notice Error:', e);
@@ -436,7 +507,7 @@ router.get('/notice', async (req, res) => {
 // Update Notice (Admin Only)
 router.put('/notice', authenticate, async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, targetUser = 'all' } = req.body;
     
     const currentUsername = req.user.username;
     const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
@@ -446,15 +517,24 @@ router.put('/notice', authenticate, async (req, res) => {
       return res.status(403).json({ error: '权限不足：只有管理员可以编辑告示' });
     }
 
-    let notice = await Notice.findOne();
+    // Update or Create Notice for the specific target
+    let query = { targetUser };
+    if (targetUser === 'all') {
+      query = { $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] };
+    }
+
+    let notice = await Notice.findOne(query);
     if (notice) {
       notice.content = content;
       notice.lastUpdated = Date.now();
       notice.updatedBy = currentUsername;
+      // Ensure targetUser is set correctly if it was missing (legacy docs)
+      if (!notice.targetUser) notice.targetUser = 'all';
     } else {
       notice = new Notice({
         content,
-        updatedBy: currentUsername
+        updatedBy: currentUsername,
+        targetUser
       });
     }
 

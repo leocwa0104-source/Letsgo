@@ -31,9 +31,12 @@
         <h2>内容发布与管理</h2>
         <p style="color: #666; margin-bottom: 1rem;">加载现有内容进行编辑，或输入新内容并选择发布目标。</p>
         
-        <div class="action-buttons" style="margin-bottom: 1rem; display: flex; gap: 10px; flex-wrap: wrap;">
+        <div class="action-buttons" style="margin-bottom: 1rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <select id="content-target-select" style="padding: 0.4rem; border-radius: 4px; border: 1px solid #ddd; min-width: 150px;">
+                <option value="all">所有人 (全站告示)</option>
+            </select>
             <button type="button" id="load-manual-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载使用说明</button>
-            <button type="button" id="load-notice-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载全站告示</button>
+            <button type="button" id="load-notice-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载告示</button>
             <span id="current-source-label" style="margin-left: auto; color: #888; align-self: center; font-size: 0.9rem;">当前: 未加载</span>
         </div>
 
@@ -43,7 +46,7 @@
         
         <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button type="button" id="save-as-manual-btn" class="btn btn-primary" style="background-color: #28a745; border-color: #28a745; width: auto;">保存为使用说明</button>
-            <button type="button" id="publish-as-notice-btn" class="btn btn-primary" style="background-color: #007aff; border-color: #007aff; width: auto;">发布为全站告示</button>
+            <button type="button" id="publish-as-notice-btn" class="btn btn-primary" style="background-color: #007aff; border-color: #007aff; width: auto;">发布告示</button>
         </div>
       </section>
 
@@ -104,25 +107,58 @@
       const saveManualBtn = document.getElementById('save-as-manual-btn');
       const publishNoticeBtn = document.getElementById('publish-as-notice-btn');
       const sourceLabel = document.getElementById('current-source-label');
+      const targetSelect = document.getElementById('content-target-select');
+
+      // Load Users
+      async function loadUsers() {
+          try {
+              const res = await fetch('/api/users', {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              if(data.success && data.users) {
+                  // Keep "all" option
+                  targetSelect.innerHTML = '<option value="all">所有人 (全站告示)</option>';
+                  data.users.forEach(u => {
+                      // Don't exclude admin, useful for testing
+                      const opt = document.createElement('option');
+                      opt.value = u;
+                      opt.textContent = u;
+                      targetSelect.appendChild(opt);
+                  });
+              }
+          } catch(e) {
+              console.error("Failed to load users", e);
+          }
+      }
+      loadUsers();
 
       // Helper to load content
       async function loadContent(type) {
-          const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
-          const label = type === 'manual' ? '使用说明' : '全站告示';
+          let endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const label = type === 'manual' ? '使用说明' : '告示';
           
+          if (type === 'notice') {
+              endpoint += `?targetUser=${targetSelect.value}`;
+          }
+
           try {
               editor.disabled = true;
               sourceLabel.textContent = `加载中...`;
               
-              const res = await fetch(endpoint);
+              const res = await fetch(endpoint, {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
               const data = await res.json();
               
               if (data.success && data.content) {
                   editor.value = data.content;
-                  sourceLabel.textContent = `当前加载: ${label}`;
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  sourceLabel.textContent = `当前加载: ${targetName}`;
               } else {
                   editor.value = '';
-                  sourceLabel.textContent = `当前加载: ${label} (为空)`;
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  sourceLabel.textContent = `当前加载: ${targetName} (为空)`;
               }
           } catch (e) {
               console.error(`Failed to load ${type}:`, e);
@@ -141,9 +177,14 @@
       async function saveContent(type) {
           const content = editor.value;
           const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
-          const label = type === 'manual' ? '使用说明' : '全站告示';
+          const label = type === 'manual' ? '使用说明' : '告示';
           const btn = type === 'manual' ? saveManualBtn : publishNoticeBtn;
           const originalText = btn.textContent;
+          
+          const payload = { content };
+          if (type === 'notice') {
+              payload.targetUser = targetSelect.value;
+          }
           
           try {
               btn.disabled = true;
@@ -155,12 +196,13 @@
                       'Content-Type': 'application/json',
                       'Authorization': sessionStorage.getItem('hkwl_auth_token')
                   },
-                  body: JSON.stringify({ content })
+                  body: JSON.stringify(payload)
               });
               const data = await res.json();
               
               if(data.success) {
-                  alert(`${label} ${type === 'manual' ? '保存' : '发布'}成功！`);
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  alert(`${targetName} 发布成功！`);
               } else {
                   alert(`操作失败: ` + data.error);
               }

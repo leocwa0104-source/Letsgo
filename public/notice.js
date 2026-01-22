@@ -92,7 +92,9 @@ const NoticeViewer = (function() {
             const authData = await authRes.json();
             
             // Get latest notice
-            const noticeRes = await fetch('/api/notice');
+            const noticeRes = await fetch('/api/notice', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
             const noticeData = await noticeRes.json();
             
             if (!noticeData.success || !noticeData.content) return;
@@ -112,7 +114,9 @@ const NoticeViewer = (function() {
     // Manual open
     async function openNoticeBoard() {
         try {
-            const res = await fetch('/api/notice');
+            const res = await fetch('/api/notice', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
             const data = await res.json();
             if (data.success && data.content) {
                 showNoticeModal(data.content, false);

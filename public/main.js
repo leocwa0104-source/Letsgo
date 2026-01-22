@@ -35,30 +35,41 @@ const HKWL = (() => {
               // Only show System Settings button on Index page (Home)
               const path = window.location.pathname;
               if (path.endsWith('index.html') || path === '/' || path.endsWith('/')) {
-                  const manualBtn = document.createElement('button');
-                  manualBtn.textContent = '使用说明';
-                  manualBtn.style.background = 'rgba(255,255,255,0.2)';
-                  manualBtn.style.border = 'none';
-                  manualBtn.style.color = 'white';
-                  manualBtn.style.padding = '0.3rem 0.8rem';
-                  manualBtn.style.borderRadius = '4px';
-                  manualBtn.style.cursor = 'pointer';
-                  manualBtn.onclick = () => {
-                      if (typeof Manual !== 'undefined') {
-                          Manual.open();
-                      }
+                  
+                  const createIconButton = (svg, title, onClick) => {
+                      const btn = document.createElement('button');
+                      btn.innerHTML = svg;
+                      btn.title = title;
+                      btn.style.background = 'rgba(255,255,255,0.2)';
+                      btn.style.border = 'none';
+                      btn.style.color = 'white';
+                      btn.style.width = '32px';
+                      btn.style.height = '32px';
+                      btn.style.padding = '0';
+                      btn.style.borderRadius = '4px';
+                      btn.style.display = 'flex';
+                      btn.style.alignItems = 'center';
+                      btn.style.justifyContent = 'center';
+                      btn.style.cursor = 'pointer';
+                      btn.onclick = onClick;
+                      return btn;
                   };
+
+                  // Manual Button
+                  const manualBtn = createIconButton(
+                      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+                      '使用说明',
+                      () => { if (typeof Manual !== 'undefined') Manual.open(); }
+                  );
                   userDiv.appendChild(manualBtn);
 
-                  const mailboxBtn = document.createElement('button');
-                  mailboxBtn.textContent = '信箱';
+                  // Mailbox Button
+                  const mailboxBtn = createIconButton(
+                      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+                      '信箱',
+                      () => { if (typeof Mailbox !== 'undefined') Mailbox.open(); }
+                  );
                   mailboxBtn.style.position = 'relative';
-                  mailboxBtn.style.background = 'rgba(255,255,255,0.2)';
-                  mailboxBtn.style.border = 'none';
-                  mailboxBtn.style.color = 'white';
-                  mailboxBtn.style.padding = '0.3rem 0.8rem';
-                  mailboxBtn.style.borderRadius = '4px';
-                  mailboxBtn.style.cursor = 'pointer';
                   
                   // Badge for unread messages
                   const badge = document.createElement('div');
@@ -78,28 +89,14 @@ const HKWL = (() => {
                   badge.style.fontWeight = 'bold';
                   badge.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
                   mailboxBtn.appendChild(badge);
-
-                  mailboxBtn.onclick = () => {
-                      if (typeof Mailbox !== 'undefined') {
-                          Mailbox.open();
-                      }
-                  };
                   userDiv.appendChild(mailboxBtn);
 
                   // Notice Board Button
-                  const noticeBtn = document.createElement('button');
-                  noticeBtn.textContent = '告示栏';
-                  noticeBtn.style.background = 'rgba(255,255,255,0.2)';
-                  noticeBtn.style.border = 'none';
-                  noticeBtn.style.color = 'white';
-                  noticeBtn.style.padding = '0.3rem 0.8rem';
-                  noticeBtn.style.borderRadius = '4px';
-                  noticeBtn.style.cursor = 'pointer';
-                  noticeBtn.onclick = () => {
-                      if (typeof NoticeViewer !== 'undefined') {
-                          NoticeViewer.openNoticeBoard();
-                      }
-                  };
+                  const noticeBtn = createIconButton(
+                      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+                      '告示栏',
+                      () => { if (typeof NoticeViewer !== 'undefined') NoticeViewer.openNoticeBoard(); }
+                  );
                   userDiv.appendChild(noticeBtn);
                   
                   // Initialize Badge
@@ -116,18 +113,14 @@ const HKWL = (() => {
                       }
                       
                       if (isAdmin) {
-                          const adminBtn = document.createElement('button');
-                          adminBtn.textContent = '管理员控制台';
+                          const adminBtn = createIconButton(
+                              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+                              '管理员控制台',
+                              () => { window.location.href = 'admin.html'; }
+                          );
                           adminBtn.style.background = '#0c5da5';
-                          adminBtn.style.border = 'none';
-                          adminBtn.style.color = 'white';
-                          adminBtn.style.padding = '0.3rem 0.8rem';
-                          adminBtn.style.borderRadius = '4px';
-                          adminBtn.style.cursor = 'pointer';
                           adminBtn.style.marginLeft = '0.5rem';
-                          adminBtn.onclick = () => {
-                              window.location.href = 'admin.html';
-                          };
+                          
                           // Insert before Settings button if possible, or append
                           if (userDiv.contains(settingsBtn)) {
                               userDiv.insertBefore(adminBtn, settingsBtn);
@@ -137,17 +130,12 @@ const HKWL = (() => {
                       }
                   };
                   
-                  const settingsBtn = document.createElement('button');
-                  settingsBtn.textContent = '系统设置';
-                  settingsBtn.style.background = 'rgba(255,255,255,0.2)';
-                  settingsBtn.style.border = 'none';
-                  settingsBtn.style.color = 'white';
-                  settingsBtn.style.padding = '0.3rem 0.8rem';
-                  settingsBtn.style.borderRadius = '4px';
-                  settingsBtn.style.cursor = 'pointer';
-                  settingsBtn.onclick = () => {
-                      window.location.href = 'system-settings.html';
-                  };
+                  // System Settings Button
+                  const settingsBtn = createIconButton(
+                      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+                      '系统设置',
+                      () => { window.location.href = 'system-settings.html'; }
+                  );
                   userDiv.appendChild(settingsBtn);
                   
                   // Trigger admin check

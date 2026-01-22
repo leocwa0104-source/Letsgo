@@ -94,13 +94,14 @@ const Mailbox = (() => {
         list.innerHTML = '<div style="text-align: center; color: #888; padding-top: 2rem;">加载中...</div>';
 
         try {
-            const res = await fetch('/api/messages', {
+            // Add timestamp to prevent caching
+            const res = await fetch(`/api/messages?t=${Date.now()}`, {
                 headers: { 'Authorization': localStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
 
             if (data.success) {
-                renderMessages(data.messages);
+                renderMessages(data.messages, data.currentUser);
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }
@@ -110,7 +111,7 @@ const Mailbox = (() => {
         }
     }
 
-    function renderMessages(messages) {
+    function renderMessages(messages, serverCurrentUser) {
         const list = document.getElementById('message-list');
         list.innerHTML = '';
 
@@ -123,30 +124,22 @@ const Mailbox = (() => {
         // We usually want to display oldest at top, newest at bottom like chat.
         // So let's reverse them for display.
         const sortedMsgs = [...messages].reverse();
-        let currentUser = Auth.getCurrentUser();
         
-        // Fallback: try to parse token if currentUser is null
+        // Priority: Use server-provided user identity, fallback to local
+        let currentUser = serverCurrentUser;
         if (!currentUser) {
-             const token = localStorage.getItem('hkwl_auth_token');
-             if (token) {
-                 try {
-                     const parts = token.split(':');
-                     if (parts.length > 1) {
-                         currentUser = decodeURIComponent(parts.slice(1).join(':'));
-                     }
-                 } catch(e) { console.error("Token parse error", e); }
-             }
+             currentUser = Auth.getCurrentUser();
         }
+        
+        // Normalize currentUser
+        if (currentUser) currentUser = currentUser.toLowerCase();
 
         sortedMsgs.forEach(msg => {
-            // Priority: Use server-side isMe if available, otherwise fallback to local check
-            let isMe;
-            if (typeof msg.isMe !== 'undefined') {
-                isMe = msg.isMe;
-            } else {
-                // Robust comparison using lower case
-                isMe = currentUser && msg.sender.toLowerCase() === currentUser.toLowerCase();
-            }
+            // Robust comparison
+            let sender = msg.sender;
+            if (sender) sender = sender.toLowerCase();
+            
+            const isMe = currentUser && sender === currentUser;
             
             const item = document.createElement('div');
             item.style.display = 'flex';

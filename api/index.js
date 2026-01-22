@@ -237,27 +237,29 @@ router.get('/messages', authenticate, async (req, res) => {
       };
     }
 
-    const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50);
+    const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50).lean();
     
     // Add a flag to indicate if the message is read by the current user
     const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
     
     const result = messages.map(msg => {
-      const msgObj = msg.toObject();
       const isSenderAdmin = adminUsername && msg.sender === adminUsername;
       
       return {
-        ...msgObj,
-        isRead: msg.readBy.includes(req.user.username),
+        ...msg,
+        _id: msg._id.toString(), // Ensure ID is string
+        isRead: msg.readBy ? msg.readBy.includes(req.user.username) : false,
         senderIsAdmin: isSenderAdmin,
-        // Calculate isMe on server side
-        isMe: msg.sender === req.user.username,
         // Pre-calculate display name
         senderDisplay: isSenderAdmin ? '管理员' : msg.sender
       };
     });
 
-    res.json({ success: true, messages: result });
+    res.json({ 
+      success: true, 
+      messages: result,
+      currentUser: req.user.username // Explicitly tell client who they are authenticated as
+    });
   } catch (e) {
     console.error('Get Messages Error:', e);
     res.status(500).json({ error: e.message });

@@ -518,7 +518,71 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    // --- Swipe Detection ---
+    document.addEventListener("DOMContentLoaded", () => {
+      const wrapper = document.querySelector('.view-wrapper');
+      let startX = 0;
+      let startY = 0;
+      let startTime = 0;
+
+      // Helper to check if event target is interactive (e.g. draggable card, map canvas)
+      function isInteractive(target) {
+        // Check if inside map canvas
+        if (target.closest('.amap-container') || target.tagName === 'CANVAS') return true;
+        // Check if interactive elements
+        if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select')) return true;
+        // Check if draggable card (simple check)
+        if (target.closest('.card')) return true;
+        return false;
+      }
+
+      function handleStart(e) {
+        // If interactive, ignore swipe start
+        if (isInteractive(e.target)) return;
+        
+        startX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        startY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+        startTime = new Date().getTime();
+      }
+
+      function handleEnd(e) {
+        if (!startX) return;
+
+        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        const duration = new Date().getTime() - startTime;
+
+        // Reset
+        startX = 0;
+
+        // Thresholds
+        const minSwipeDistance = 50; // px
+        const maxSwipeTime = 500; // ms
+        const verticalLimit = 50; // px (don't trigger if scrolled vertically too much)
+
+        if (duration > maxSwipeTime) return; // Too slow
+        if (Math.abs(diffY) > verticalLimit) return; // Too much vertical movement (scrolling)
+        
+        if (Math.abs(diffX) > minSwipeDistance) {
+          if (diffX > 0) {
+            // Swipe Right -> Go to Block Mode
+            if (currentMode === 'map') switchMode('block');
+          } else {
+            // Swipe Left -> Go to Map Mode
+            if (currentMode === 'block') switchMode('map');
+          }
+        }
+      }
+
+      wrapper.addEventListener('mousedown', handleStart);
+      wrapper.addEventListener('touchstart', handleStart, { passive: true });
+
+      wrapper.addEventListener('mouseup', handleEnd);
+      wrapper.addEventListener('touchend', handleEnd);
+      
+      // Init Data
       const urlParams = new URLSearchParams(window.location.search);
       const planId = urlParams.get('id');
       
@@ -535,6 +599,7 @@
           });
       }
     });
+
   </script>
 </body>
 </html>

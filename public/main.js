@@ -176,9 +176,40 @@ const HKWL = (() => {
   }
 
   // --- Cloud Sync Helpers ---
+  let lastLocalWriteTime = 0;
+  
+  function markLocalDirty() {
+      lastLocalWriteTime = Date.now();
+      // Also store in sessionStorage to persist across page reloads in the same tab
+      try {
+          sessionStorage.setItem('hkwl_local_dirty_time', lastLocalWriteTime.toString());
+      } catch(e) {}
+  }
+
+  function isLocalDirty() {
+      // Check memory first
+      if (Date.now() - lastLocalWriteTime < 10000) return true; // 10 seconds buffer
+      
+      // Check session storage
+      try {
+          const stored = sessionStorage.getItem('hkwl_local_dirty_time');
+          if (stored) {
+              const t = parseInt(stored, 10);
+              if (!isNaN(t) && (Date.now() - t < 10000)) {
+                  lastLocalWriteTime = t; // sync back to memory
+                  return true;
+              }
+          }
+      } catch(e) {}
+      
+      return false;
+  }
+
   async function syncToCloud() {
     if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
     
+    markLocalDirty(); // Mark dirty before sync
+
     const username = Auth.getCurrentUser();
     if (!username) return;
     
@@ -206,6 +237,14 @@ const HKWL = (() => {
   async function syncFromCloud() {
     if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
     
+    // If local was modified very recently, SKIP pull to prevent overwriting new local data with old cloud data.
+    if (isLocalDirty()) {
+        console.log("Local data modified recently. Skipping pull to prevent overwrite.");
+        // Optional: Trigger a push to ensure cloud catches up, but don't await it here to block UI
+        syncToCloud().catch(console.error);
+        return false;
+    }
+
     try {
         const res = await CloudSync.pullData();
         if (res.success && res.data) {
@@ -246,6 +285,7 @@ const HKWL = (() => {
   function savePlans(plans) {
       try {
           window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+          markLocalDirty();
           syncToCloud();
       } catch (e) {
           console.error("Failed to save plans", e);
@@ -260,6 +300,7 @@ const HKWL = (() => {
       
       // Save plans locally
       window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+      markLocalDirty();
       
       // Initialize settings for the new plan
       const settingsKey = Auth.getUserKey(`${newId}_wishlist_settings`);
@@ -281,6 +322,7 @@ const HKWL = (() => {
       
       plan.title = newTitle;
       window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+      markLocalDirty();
 
       // 2. Update Settings for that plan
       const settingsKey = Auth.getUserKey(`${id}_wishlist_settings`);
@@ -309,6 +351,7 @@ const HKWL = (() => {
           window.localStorage.removeItem(Auth.getUserKey(`${id}_wishlist_plan`));
           window.localStorage.removeItem(Auth.getUserKey(`${id}_wishlist_collapsed`));
           window.localStorage.removeItem(Auth.getUserKey(`${id}_wishlist_settings`));
+          markLocalDirty();
           return true;
       }
       return false;
@@ -328,6 +371,7 @@ const HKWL = (() => {
   async function saveSettings(settings, planId) {
     try {
       window.localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
+      markLocalDirty();
       
       const targetId = planId || currentPlanId;
 
@@ -373,6 +417,7 @@ const HKWL = (() => {
   function saveWishlist(list) {
     try {
       window.localStorage.setItem(getStorageKey(), JSON.stringify(list));
+      markLocalDirty();
       syncToCloud();
     } catch (e) {
       console.error("保存旅行清单失败", e);
@@ -450,6 +495,7 @@ const HKWL = (() => {
     try {
       const normalized = normalizePlanState(state);
       window.localStorage.setItem(getPlanKey(), JSON.stringify(normalized));
+      markLocalDirty();
       syncToCloud();
     } catch (e) {
       console.error("保存计划列表失败", e);

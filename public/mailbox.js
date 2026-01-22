@@ -1,6 +1,11 @@
 const Mailbox = (() => {
     let modal = null;
     let badgeElement = null;
+    let currentPage = 1;
+    let totalMessages = 0;
+    let isLoading = false;
+    let currentTab = 'inbox';
+    let cachedIsAdmin = false;
 
     function init() {
         // Create modal structure if not exists
@@ -124,7 +129,7 @@ const Mailbox = (() => {
             inboxBtn.style.borderBottom = '2px solid transparent';
         }
         
-        loadMessages(); // Reload data from server with new tab filter
+        loadMessages(1); // Reset to page 1
     }
 
     function open() {
@@ -148,7 +153,6 @@ const Mailbox = (() => {
                 input.placeholder = '发送消息给管理员 (仅管理员可见)...';
             }
         }
-        // loadMessages called by switchTab
     }
 
     function close() {
@@ -157,182 +161,207 @@ const Mailbox = (() => {
         checkUnread();
     }
 
-    async function loadMessages() {
+    async function loadMessages(page = 1) {
+        if (isLoading) return;
+        isLoading = true;
+        
         const list = document.getElementById('message-list');
-        // Don't clear immediately if we want to preserve scroll or just append?
-        // For simplicity, reload all.
-        list.innerHTML = '<div style="text-align: center; color: #888; padding-top: 2rem;">加载中...</div>';
+        const isLoadMore = page > 1;
+
+        if (!isLoadMore) {
+            list.innerHTML = '<div style="text-align: center; color: #888; padding-top: 2rem;">加载中...</div>';
+        } else {
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            if (loadMoreBtn) loadMoreBtn.textContent = '加载中...';
+        }
 
         try {
-            // Add timestamp to prevent caching
-            // Default limit 50 enforced by backend if not specified, but let's be explicit or just use default.
-            const res = await fetch(`/api/messages?t=${Date.now()}&limit=50&type=${currentTab}`, {
+            const res = await fetch(`/api/messages?t=${Date.now()}&limit=50&page=${page}&type=${currentTab}`, {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
 
             if (data.success) {
-                cachedMessages = data.messages || [];
+                const newMessages = data.messages || [];
                 cachedIsAdmin = data.isAdmin;
-                renderMessages();
-                
-                // Show hint if there are more messages
-                if (data.total > cachedMessages.length) {
-                    const hint = document.createElement('div');
-                    hint.style.textAlign = 'center';
-                    hint.style.color = '#999';
-                    hint.style.fontSize = '0.8rem';
-                    hint.style.padding = '1rem';
-                    hint.textContent = `仅显示最近 ${cachedMessages.length} 条消息 (共 ${data.total} 条)`;
-                    list.appendChild(hint);
-                }
+                totalMessages = data.total;
+                currentPage = page;
+
+                // Backend returns Newest -> Oldest.
+                // We want to display Oldest -> Newest (Newest at bottom).
+                newMessages.reverse();
+
+                renderMessages(newMessages, isLoadMore);
             } else {
-                list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
+                 if (!isLoadMore) list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }
         } catch (e) {
             console.error(e);
-            list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">网络错误</div>`;
+            if (!isLoadMore) list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">网络错误</div>`;
+        } finally {
+            isLoading = false;
         }
     }
 
-    function renderMessages() {
+    function renderMessages(messages, isLoadMore) {
         const list = document.getElementById('message-list');
-        list.innerHTML = '';
         
-        const messages = cachedMessages;
-        const isAdmin = cachedIsAdmin;
+        // Create fragment for new items
+        const fragment = document.createDocumentFragment();
+        
+        messages.forEach(msg => {
+            const el = createMessageElement(msg, cachedIsAdmin);
+            fragment.appendChild(el);
+        });
 
-        if (!messages || messages.length === 0) {
-            list.innerHTML = `<div style="text-align: center; color: #999; padding-top: 3rem;">${currentTab === 'inbox' ? '没有收到的消息' : '没有发送的消息'}</div>`;
-            return;
+        if (isLoadMore) {
+            // "Load More" scenario: Insert OLDER messages at the TOP
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            if (loadMoreBtn) {
+                const oldHeight = list.scrollHeight;
+                const oldScrollTop = list.scrollTop;
+                
+                // Insert after the button (which is at top)
+                loadMoreBtn.after(fragment);
+                
+                // Restore scroll position
+                const newHeight = list.scrollHeight;
+                list.scrollTop = oldScrollTop + (newHeight - oldHeight);
+                
+                // Update button
+                if ((currentPage * 50) >= totalMessages) {
+                    loadMoreBtn.style.display = 'none';
+                } else {
+                    loadMoreBtn.textContent = '加载更多历史消息';
+                }
+            }
+        } else {
+            // Initial load scenario: Clear and Append
+            list.innerHTML = '';
+            
+            if (messages.length === 0) {
+                list.innerHTML = `<div style="text-align: center; color: #999; padding-top: 3rem;">${currentTab === 'inbox' ? '没有收到的消息' : '没有发送的消息'}</div>`;
+                return;
+            }
+
+            // Add Load More button at TOP if there are more messages
+            if (totalMessages > messages.length) {
+                 const btn = document.createElement('div');
+                 btn.id = 'load-more-btn';
+                 btn.textContent = '加载更多历史消息';
+                 btn.style.textAlign = 'center';
+                 btn.style.padding = '10px';
+                 btn.style.color = '#007aff';
+                 btn.style.cursor = 'pointer';
+                 btn.style.fontSize = '0.85rem';
+                 btn.style.userSelect = 'none';
+                 btn.onclick = () => loadMessages(currentPage + 1);
+                 list.appendChild(btn);
+            }
+            
+            list.appendChild(fragment);
+            
+            // Scroll to bottom (Newest messages)
+            list.scrollTop = list.scrollHeight;
+        }
+    }
+
+    function createMessageElement(msg, isAdmin) {
+        // Use server-side calculated isMe
+        const isMe = msg.isMe;
+        
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.flexDirection = 'column';
+        item.style.alignItems = isMe ? 'flex-end' : 'flex-start';
+        item.style.maxWidth = '100%';
+
+        const bubble = document.createElement('div');
+        bubble.style.maxWidth = '85%';
+        bubble.style.padding = '0.8rem 1rem';
+        bubble.style.borderRadius = '12px';
+        bubble.style.position = 'relative';
+        bubble.style.fontSize = '0.95rem';
+        bubble.style.lineHeight = '1.4';
+        bubble.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+        
+        if (msg.isAnnouncement) {
+            if (isMe) {
+                 bubble.style.backgroundColor = '#f0ad4e';
+                 bubble.style.color = 'white';
+                 bubble.style.borderBottomRightRadius = '2px';
+            } else {
+                 bubble.style.backgroundColor = '#fff3cd';
+                 bubble.style.color = '#856404';
+                 bubble.style.border = '1px solid #ffeeba';
+                 bubble.style.borderBottomLeftRadius = '2px';
+            }
+        } else {
+            if (isMe) {
+                bubble.style.backgroundColor = '#007aff';
+                bubble.style.color = 'white';
+                bubble.style.borderBottomRightRadius = '2px';
+            } else {
+                bubble.style.backgroundColor = 'white';
+                bubble.style.color = '#333';
+                bubble.style.borderBottomLeftRadius = '2px';
+            }
         }
 
-        // Messages are already filtered by backend
-        const sortedMsgs = messages; // Backend already sorts by timestamp desc (newest first)
+        const meta = document.createElement('div');
+        meta.style.fontSize = '0.75rem';
+        meta.style.marginBottom = '0.3rem';
+        meta.style.opacity = '0.8';
         
-        sortedMsgs.forEach(msg => {
-            // Use server-side calculated isMe
-            const isMe = msg.isMe;
-            
-            const item = document.createElement('div');
-            item.style.display = 'flex';
-            item.style.flexDirection = 'column';
-            // If inbox (received), align left. If sent, align right?
-            // Or just align everything left since it's a list now?
-            // Let's keep the alignment for visual cue.
-            item.style.alignItems = isMe ? 'flex-end' : 'flex-start';
-            item.style.maxWidth = '100%';
-
-            const bubble = document.createElement('div');
-            bubble.style.maxWidth = '85%';
-            bubble.style.padding = '0.8rem 1rem';
-            bubble.style.borderRadius = '12px';
-            bubble.style.position = 'relative';
-            bubble.style.fontSize = '0.95rem';
-            bubble.style.lineHeight = '1.4';
-            bubble.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
-            
-            // Visual distinction for Announcement vs Private Message
-            if (msg.isAnnouncement) {
-                // Announcement Style
-                if (isMe) {
-                     // Admin viewing their own announcement
-                     bubble.style.backgroundColor = '#f0ad4e'; // Orange-ish
-                     bubble.style.color = 'white';
-                     bubble.style.borderBottomRightRadius = '2px';
-                } else {
-                     // User viewing announcement
-                     bubble.style.backgroundColor = '#fff3cd'; // Light yellow
-                     bubble.style.color = '#856404';
-                     bubble.style.border = '1px solid #ffeeba';
-                     bubble.style.borderBottomLeftRadius = '2px';
-                }
-            } else {
-                // Regular Message Style
-                if (isMe) {
-                    bubble.style.backgroundColor = '#007aff';
-                    bubble.style.color = 'white';
-                    bubble.style.borderBottomRightRadius = '2px';
-                } else {
-                    bubble.style.backgroundColor = 'white';
-                    bubble.style.color = '#333';
-                    bubble.style.borderBottomLeftRadius = '2px';
-                }
-            }
-
-            const meta = document.createElement('div');
-            meta.style.fontSize = '0.75rem';
-            meta.style.marginBottom = '0.3rem';
-            meta.style.opacity = '0.8';
-            
-            const time = new Date(msg.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            
-            // Use senderDisplay from backend
-            let senderName = msg.senderDisplay || msg.sender;
-            
-            // Add (全员) tag for announcements
-            if (msg.isAnnouncement) {
-                senderName += ' (全员公告)';
-            }
-            
-            // In Sent tab (isMe), we might want to see "To: Receiver"?
-            // Current backend response structure for 'receiver' might be needed.
-            // Backend returns message object.
-            // If isMe, sender is me. Receiver is...
-            // Let's check api/index.js.
-            // It returns messages. The schema has sender and receiver.
-            // If I am sender, I want to see who I sent to.
-            // But receiver might be 'admin' or 'all_users' or specific user.
-            
-            if (isMe) {
-                // In Sent box
-                let target = msg.receiver;
-                if (target === 'admin') target = '管理员';
-                if (target === 'all_users') target = '所有用户';
-                meta.textContent = `发送给 ${target} · ${time}`;
-            } else {
-                // In Inbox
-                meta.textContent = `${senderName} · ${time}`;
-            }
-
-            // Allow admin to delete their own messages
-            if (isMe && isAdmin) {
-                const deleteBtn = document.createElement('span');
-                deleteBtn.textContent = ' 撤回';
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.marginLeft = '0.5rem';
-                deleteBtn.style.color = 'rgba(255, 255, 255, 0.9)'; // White on blue background
-                deleteBtn.style.fontSize = '0.75rem';
-                deleteBtn.style.textDecoration = 'underline';
-                deleteBtn.title = '撤回这条消息';
-                
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if(confirm('确定要撤回这条消息吗？')) {
-                        deleteMessage(msg._id);
-                    }
-                };
-                meta.appendChild(deleteBtn);
-            }
-
-            const content = document.createElement('div');
-            content.style.wordBreak = 'break-word';
-            content.style.whiteSpace = 'pre-wrap';
-            content.textContent = msg.content;
-
-            bubble.appendChild(meta);
-            bubble.appendChild(content);
-            item.appendChild(bubble);
-            list.appendChild(item);
-
-            // Mark as read if not me and not read
-            if (!isMe && !msg.isRead) {
-                markAsRead(msg._id);
-            }
-        });
+        const time = new Date(msg.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        let senderName = msg.senderDisplay || msg.sender;
         
-        // No auto-scroll to bottom for Newest-at-Top list style
-        list.scrollTop = 0;
+        if (msg.isAnnouncement) {
+            senderName += ' (全员公告)';
+        }
+        
+        if (isMe) {
+            let target = msg.receiver;
+            if (target === 'admin') target = '管理员';
+            if (target === 'all_users') target = '所有用户';
+            meta.textContent = `发送给 ${target} · ${time}`;
+        } else {
+            meta.textContent = `${senderName} · ${time}`;
+        }
+
+        if (isMe && isAdmin) {
+            const deleteBtn = document.createElement('span');
+            deleteBtn.textContent = ' 撤回';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.style.marginLeft = '0.5rem';
+            deleteBtn.style.color = 'rgba(255, 255, 255, 0.9)';
+            deleteBtn.style.fontSize = '0.75rem';
+            deleteBtn.style.textDecoration = 'underline';
+            deleteBtn.title = '撤回这条消息';
+            
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if(confirm('确定要撤回这条消息吗？')) {
+                    deleteMessage(msg._id);
+                }
+            };
+            meta.appendChild(deleteBtn);
+        }
+
+        const content = document.createElement('div');
+        content.style.wordBreak = 'break-word';
+        content.style.whiteSpace = 'pre-wrap';
+        content.textContent = msg.content;
+
+        bubble.appendChild(meta);
+        bubble.appendChild(content);
+        item.appendChild(bubble);
+
+        if (!isMe && !msg.isRead) {
+            markAsRead(msg._id);
+        }
+
+        return item;
     }
 
     async function sendMessage() {
@@ -358,8 +387,9 @@ const Mailbox = (() => {
 
             if (data.success) {
                 input.value = '';
-                await loadMessages(); // Reload data
-                switchTab('sent');    // Switch to sent tab to show new message
+                // Reload to show new message (which will be at bottom)
+                await loadMessages(1); 
+                switchTab('sent');
             } else {
                 console.error('Send failed:', data);
                 alert(`发送失败: ${data.error || '未知错误'}`);
@@ -391,7 +421,7 @@ const Mailbox = (() => {
             });
             const data = await res.json();
             if (data.success) {
-                loadMessages(); // Reload list
+                loadMessages(currentPage); // Reload current page or just Page 1? Page 1 is safer.
             } else {
                 alert('撤回失败: ' + (data.error || '未知错误'));
             }

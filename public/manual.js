@@ -23,7 +23,7 @@ const Manual = (() => {
                     <h3 style="margin: 0; font-size: 1.2rem; color: #333;">使用说明</h3>
                     <button id="close-manual" style="border: none; background: none; font-size: 1.8rem; cursor: pointer; color: #999; line-height: 1;">&times;</button>
                 </div>
-                <div id="manual-content" style="flex: 1; overflow-y: auto; padding: 2rem; background: #fff; line-height: 1.6; color: #333; white-space: pre-wrap;">
+                <div id="manual-content" style="flex: 1; overflow-y: auto; padding: 2rem; background: #fff; line-height: 1.6; color: #333;">
                     <div style="text-align: center; color: #888;">加载中...</div>
                 </div>
             </div>
@@ -48,7 +48,7 @@ const Manual = (() => {
             const data = await res.json();
             
             if (data.success && data.content) {
-                contentDiv.textContent = data.content;
+                contentDiv.innerHTML = data.content;
             } else {
                 contentDiv.innerHTML = '<div style="text-align: center; color: #666; padding-top: 2rem;">暂无使用说明</div>';
             }

@@ -5,6 +5,22 @@
   <title>管理员控制台</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Quill CSS -->
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style>
+    /* Quill Editor Customization */
+    #editor-container {
+      height: 300px;
+      background: white;
+      border-bottom-left-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+    .ql-toolbar {
+      background: #f8f9fa;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -41,10 +57,11 @@
         </div>
 
         <div class="form-group">
-            <textarea id="content-editor" rows="10" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="在此输入内容..."></textarea>
+            <!-- Quill Editor Container -->
+            <div id="editor-container"></div>
         </div>
         
-        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem;">
             <button type="button" id="save-as-manual-btn" class="btn btn-primary" style="background-color: #28a745; border-color: #28a745; width: auto;">保存为使用说明</button>
             <button type="button" id="publish-as-notice-btn" class="btn btn-primary" style="background-color: #007aff; border-color: #007aff; width: auto;">发布告示</button>
         </div>
@@ -64,6 +81,9 @@
     </div>
   </main>
 
+  <!-- Quill JS -->
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  
   <script src="cloud-sync.js"></script>
   <script src="auth-manager.js"></script>
   <script src="main.js"></script>
@@ -76,6 +96,22 @@
           window.location.href = "index.html";
           return;
       }
+
+      // Initialize Quill
+      var quill = new Quill('#editor-container', {
+        theme: 'snow',
+        placeholder: '在此输入内容...',
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'align': [] }],
+            ['link', 'clean']
+          ]
+        }
+      });
 
       // Create User Logic
       document.getElementById('create-user-btn').addEventListener('click', async () => {
@@ -109,7 +145,6 @@
       });
 
       // Unified Content Manager Logic
-      const editor = document.getElementById('content-editor');
       const loadManualBtn = document.getElementById('load-manual-btn');
       const loadNoticeBtn = document.getElementById('load-notice-btn');
       const saveManualBtn = document.getElementById('save-as-manual-btn');
@@ -151,7 +186,7 @@
           }
 
           try {
-              editor.disabled = true;
+              quill.disable();
               sourceLabel.textContent = `加载中...`;
               
               const res = await fetch(endpoint, {
@@ -160,11 +195,12 @@
               const data = await res.json();
               
               if (data.success && data.content) {
-                  editor.value = data.content;
+                  // Use dangerouslyPasteHTML to handle both HTML and plain text (best effort)
+                  quill.clipboard.dangerouslyPasteHTML(0, data.content);
                   const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
                   sourceLabel.textContent = `当前加载: ${targetName}`;
               } else {
-                  editor.value = '';
+                  quill.setText('');
                   const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
                   sourceLabel.textContent = `当前加载: ${targetName} (为空)`;
               }
@@ -173,7 +209,7 @@
               alert(`加载${label}失败: ` + e.message);
               sourceLabel.textContent = '加载失败';
           } finally {
-              editor.disabled = false;
+              quill.enable();
           }
       }
 
@@ -183,7 +219,16 @@
 
       // Save Helper
       async function saveContent(type) {
-          const content = editor.value;
+          // Get HTML content
+          // If editor is empty, root.innerHTML might still contain <p><br></p>, check text length
+          let content = quill.root.innerHTML;
+          if (quill.getText().trim().length === 0 && !content.includes('<img')) {
+              // If visually empty, maybe send empty string? 
+              // But user might want to delete content.
+              // However, Quill usually defaults to <p><br></p>
+              if (content === '<p><br></p>') content = '';
+          }
+
           // Notice uses POST (create new), Manual uses PUT (update)
           const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
           const method = type === 'manual' ? 'PUT' : 'POST';
@@ -214,6 +259,11 @@
               if(data.success) {
                   const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
                   alert(`${targetName} 发布成功！`);
+                  
+                  // Refresh list if it's a notice
+                  if (type === 'notice') {
+                      loadActiveNotices();
+                  }
               } else {
                   alert(`操作失败: ` + data.error);
               }
@@ -235,6 +285,13 @@
       // --- Active Notices Manager ---
       const noticesList = document.getElementById('notices-list');
       
+      // Helper to strip HTML for preview
+      function stripHtml(html) {
+          let tmp = document.createElement("DIV");
+          tmp.innerHTML = html;
+          return tmp.textContent || tmp.innerText || "";
+      }
+
       async function loadActiveNotices() {
           try {
               noticesList.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">加载中...</div>';
@@ -262,7 +319,10 @@
                           : `<span style="background:#28a745; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">用户: ${notice.targetUser}</span>`;
                           
                       const date = new Date(notice.lastUpdated).toLocaleString();
-                      const contentPreview = notice.content.length > 50 ? notice.content.substring(0, 50) + '...' : notice.content;
+                      
+                      // Strip HTML for preview
+                      const plainText = stripHtml(notice.content);
+                      const contentPreview = plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
                       
                       item.innerHTML = `
                           <div style="flex: 1;">
@@ -320,15 +380,8 @@
           }
       }
       
-      // Load initially and refresh when publishing
+      // Load initially
       loadActiveNotices();
-      const originalSaveContent = saveContent;
-      saveContent = async function(type) {
-          await originalSaveContent(type);
-          if (type === 'notice') {
-              loadActiveNotices();
-          }
-      }
     });
   </script>
 </body>

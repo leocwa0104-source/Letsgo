@@ -82,9 +82,9 @@ const NoticeViewer = (function() {
                 // Content
                 const content = document.createElement('div');
                 content.style.lineHeight = '1.6';
-                content.style.whiteSpace = 'pre-wrap';
+                // content.style.whiteSpace = 'pre-wrap';
                 content.style.color = '#333';
-                content.textContent = notice.content;
+                content.innerHTML = notice.content;
 
                 item.appendChild(meta);
                 item.appendChild(content);

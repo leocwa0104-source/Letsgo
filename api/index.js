@@ -248,6 +248,9 @@ router.get('/messages', authenticate, async (req, res) => {
 
     const messages = await Message.find(query).sort({ timestamp: 1 }).lean(); // Sort oldest to newest for chat flow
     
+    console.log(`[GET Messages] User: ${currentUsername}, IsAdmin: ${isAdmin}, Count: ${messages.length}`);
+    console.log(`[GET Messages] Query:`, JSON.stringify(query));
+
     const result = messages.map(msg => {
       const isSenderAdmin = adminUsername && msg.sender === adminUsername;
       
@@ -269,7 +272,11 @@ router.get('/messages', authenticate, async (req, res) => {
       success: true, 
       messages: result,
       currentUser: currentUsername,
-      isAdmin: isAdmin
+      isAdmin: isAdmin,
+      debug_info: {
+        adminUsernameEnv: adminUsername,
+        query: query
+      }
     });
   } catch (e) {
     console.error('Get Messages Error:', e);

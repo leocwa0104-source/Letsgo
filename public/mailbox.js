@@ -102,7 +102,9 @@ const Mailbox = (() => {
 
             if (data.success) {
                 // Log for debugging
-                console.log("Server sees current user as:", data.debug_user);
+                console.log("Server Debug Info:", data.debug_info);
+                console.log("Server sees current user as:", data.currentUser);
+                console.log("Is Admin:", data.isAdmin);
                 renderMessages(data.messages);
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;

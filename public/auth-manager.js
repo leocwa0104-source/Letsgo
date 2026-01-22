@@ -51,6 +51,10 @@ const Auth = (() => {
       return sessionStorage.getItem(CURRENT_USER_KEY);
     },
 
+    isLoggedIn: () => {
+      return !!sessionStorage.getItem(CURRENT_USER_KEY);
+    },
+
     isAdmin: () => {
       return sessionStorage.getItem("hkwl_is_admin") === "true";
     },

@@ -27,22 +27,24 @@
         <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: auto;">创建账号</button>
       </section>
 
-      <section id="manual-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
-        <h2>编辑使用说明</h2>
-        <p style="color: #666; margin-bottom: 1rem;">在此处编辑网站的使用说明内容。</p>
-        <div class="form-group">
-            <textarea id="manual-editor" rows="10" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="输入使用说明内容..."></textarea>
+      <section id="content-manager-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>内容发布与管理</h2>
+        <p style="color: #666; margin-bottom: 1rem;">加载现有内容进行编辑，或输入新内容并选择发布目标。</p>
+        
+        <div class="action-buttons" style="margin-bottom: 1rem; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="load-manual-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载使用说明</button>
+            <button type="button" id="load-notice-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载全站告示</button>
+            <span id="current-source-label" style="margin-left: auto; color: #888; align-self: center; font-size: 0.9rem;">当前: 未加载</span>
         </div>
-        <button type="button" id="save-manual-btn" class="btn btn-secondary" style="width: auto;">保存说明</button>
-      </section>
 
-      <section id="notice-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
-        <h2>编辑全站告示</h2>
-        <p style="color: #666; margin-bottom: 1rem;">发布新的告示。用户下次登录时会自动看到此告示。</p>
         <div class="form-group">
-            <textarea id="notice-editor" rows="6" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="输入告示内容..."></textarea>
+            <textarea id="content-editor" rows="10" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="在此输入内容..."></textarea>
         </div>
-        <button type="button" id="save-notice-btn" class="btn btn-secondary" style="width: auto;">发布告示</button>
+        
+        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="save-as-manual-btn" class="btn btn-primary" style="background-color: #28a745; border-color: #28a745; width: auto;">保存为使用说明</button>
+            <button type="button" id="publish-as-notice-btn" class="btn btn-primary" style="background-color: #007aff; border-color: #007aff; width: auto;">发布为全站告示</button>
+        </div>
       </section>
 
       <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
@@ -95,30 +97,59 @@
           }
       });
 
-      // Manual Editor Logic
-      const manualEditor = document.getElementById('manual-editor');
-      const saveManualBtn = document.getElementById('save-manual-btn');
+      // Unified Content Manager Logic
+      const editor = document.getElementById('content-editor');
+      const loadManualBtn = document.getElementById('load-manual-btn');
+      const loadNoticeBtn = document.getElementById('load-notice-btn');
+      const saveManualBtn = document.getElementById('save-as-manual-btn');
+      const publishNoticeBtn = document.getElementById('publish-as-notice-btn');
+      const sourceLabel = document.getElementById('current-source-label');
 
-      // Load content
-      try {
-          const res = await fetch('/api/manual');
-          const data = await res.json();
-          if (data.success && data.content) {
-              manualEditor.value = data.content;
-          }
-      } catch (e) {
-          console.error("Failed to load manual:", e);
-      }
-
-      // Save content
-      saveManualBtn.addEventListener('click', async () => {
-          const content = manualEditor.value;
-          
-          saveManualBtn.disabled = true;
-          saveManualBtn.textContent = "保存中...";
+      // Helper to load content
+      async function loadContent(type) {
+          const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const label = type === 'manual' ? '使用说明' : '全站告示';
           
           try {
-              const res = await fetch('/api/manual', {
+              editor.disabled = true;
+              sourceLabel.textContent = `加载中...`;
+              
+              const res = await fetch(endpoint);
+              const data = await res.json();
+              
+              if (data.success && data.content) {
+                  editor.value = data.content;
+                  sourceLabel.textContent = `当前加载: ${label}`;
+              } else {
+                  editor.value = '';
+                  sourceLabel.textContent = `当前加载: ${label} (为空)`;
+              }
+          } catch (e) {
+              console.error(`Failed to load ${type}:`, e);
+              alert(`加载${label}失败: ` + e.message);
+              sourceLabel.textContent = '加载失败';
+          } finally {
+              editor.disabled = false;
+          }
+      }
+
+      // Load Buttons
+      loadManualBtn.addEventListener('click', () => loadContent('manual'));
+      loadNoticeBtn.addEventListener('click', () => loadContent('notice'));
+
+      // Save Helper
+      async function saveContent(type) {
+          const content = editor.value;
+          const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const label = type === 'manual' ? '使用说明' : '全站告示';
+          const btn = type === 'manual' ? saveManualBtn : publishNoticeBtn;
+          const originalText = btn.textContent;
+          
+          try {
+              btn.disabled = true;
+              btn.textContent = "处理中...";
+              
+              const res = await fetch(endpoint, {
                   method: 'PUT',
                   headers: {
                       'Content-Type': 'application/json',
@@ -129,63 +160,24 @@
               const data = await res.json();
               
               if(data.success) {
-                  alert("保存成功！");
+                  alert(`${label} ${type === 'manual' ? '保存' : '发布'}成功！`);
               } else {
-                  alert("保存失败: " + data.error);
+                  alert(`操作失败: ` + data.error);
               }
           } catch(e) {
               alert("错误: " + e.message);
           } finally {
-              saveManualBtn.disabled = false;
-              saveManualBtn.textContent = "保存说明";
+              btn.disabled = false;
+              btn.textContent = originalText;
           }
-      });
-
-      // Notice Editor Logic
-      const noticeEditor = document.getElementById('notice-editor');
-      const saveNoticeBtn = document.getElementById('save-notice-btn');
-
-      // Load notice content
-      try {
-          const res = await fetch('/api/notice');
-          const data = await res.json();
-          if (data.success && data.content) {
-              noticeEditor.value = data.content;
-          }
-      } catch (e) {
-          console.error("Failed to load notice:", e);
       }
 
-      // Save notice
-      saveNoticeBtn.addEventListener('click', async () => {
-          const content = noticeEditor.value;
-          
-          saveNoticeBtn.disabled = true;
-          saveNoticeBtn.textContent = "发布中...";
-          
-          try {
-              const res = await fetch('/api/notice', {
-                  method: 'PUT',
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': sessionStorage.getItem('hkwl_auth_token')
-                  },
-                  body: JSON.stringify({ content })
-              });
-              const data = await res.json();
-              
-              if(data.success) {
-                  alert("发布成功！用户下次登录将看到此告示。");
-              } else {
-                  alert("发布失败: " + data.error);
-              }
-          } catch(e) {
-              alert("错误: " + e.message);
-          } finally {
-              saveNoticeBtn.disabled = false;
-              saveNoticeBtn.textContent = "发布告示";
-          }
-      });
+      // Save Buttons
+      saveManualBtn.addEventListener('click', () => saveContent('manual'));
+      publishNoticeBtn.addEventListener('click', () => saveContent('notice'));
+      
+      // Load manual by default
+      loadContent('manual');
     });
   </script>
 </body>

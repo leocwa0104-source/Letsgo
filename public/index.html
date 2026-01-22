@@ -150,6 +150,7 @@
                         <p>点击查看详细计划</p>
                       </div>
                     </a>
+                    <button class="btn-rename-plan" title="重命名计划" data-id="${plan.id}" data-title="${plan.title || '未命名计划'}">✎</button>
                     <button class="btn-delete-plan" title="删除计划" data-id="${plan.id}" data-title="${plan.title || '未命名计划'}">×</button>
                   `;
                   grid.appendChild(div);
@@ -170,6 +171,33 @@
                               renderPlans(); // Re-render logic
                           } else {
                               alert('删除失败，请重试。');
+                          }
+                      }
+                  });
+              });
+
+              // Add event listeners for rename buttons
+              document.querySelectorAll('.btn-rename-plan').forEach(btn => {
+                  btn.addEventListener('click', async function(e) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const id = this.dataset.id;
+                      const oldTitle = this.dataset.title;
+                      
+                      const newTitle = prompt("请输入新的计划名称：", oldTitle);
+                      if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
+                          const originalText = this.textContent;
+                          this.textContent = "⏳";
+                          this.disabled = true;
+                          
+                          try {
+                              await HKWL.renamePlan(id, newTitle.trim());
+                              renderPlans();
+                          } catch (err) {
+                              console.error(err);
+                              alert("重命名失败，请重试");
+                              this.textContent = originalText;
+                              this.disabled = false;
                           }
                       }
                   });

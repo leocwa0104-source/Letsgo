@@ -271,6 +271,32 @@ const HKWL = (() => {
       return newId;
   }
 
+  async function renamePlan(id, newTitle) {
+      if (!newTitle) return false;
+      
+      // 1. Update Index
+      const plans = getPlans();
+      const plan = plans.find(p => p.id === id);
+      if (!plan) return false;
+      
+      plan.title = newTitle;
+      window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+
+      // 2. Update Settings for that plan
+      const settingsKey = Auth.getUserKey(`${id}_wishlist_settings`);
+      let settings = {};
+      try {
+          const raw = window.localStorage.getItem(settingsKey);
+          if (raw) settings = JSON.parse(raw);
+      } catch(e) {}
+      
+      settings.title = newTitle;
+      window.localStorage.setItem(settingsKey, JSON.stringify(settings));
+
+      // 3. Sync
+      return await syncToCloud();
+  }
+
   function deletePlan(id) {
       let plans = getPlans();
       const index = plans.findIndex(p => p.id === id);

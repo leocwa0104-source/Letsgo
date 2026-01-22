@@ -7,10 +7,17 @@
   <script>
     // Critical fix: Clear invalid tokens immediately before any code runs
     try {
+      // Check localStorage (legacy)
       const t = localStorage.getItem("hkwl_auth_token");
       if (t && /[^\x00-\x7F]/.test(t)) {
-        console.warn("Cleaned up invalid token");
+        console.warn("Cleaned up invalid token from localStorage");
         localStorage.removeItem("hkwl_auth_token");
+      }
+      // Check sessionStorage (current)
+      const s = sessionStorage.getItem("hkwl_auth_token");
+      if (s && /[^\x00-\x7F]/.test(s)) {
+        console.warn("Cleaned up invalid token from sessionStorage");
+        sessionStorage.removeItem("hkwl_auth_token");
       }
     } catch(e) {}
   </script>

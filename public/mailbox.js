@@ -96,7 +96,7 @@ const Mailbox = (() => {
         try {
             // Add timestamp to prevent caching
             const res = await fetch(`/api/messages?t=${Date.now()}`, {
-                headers: { 'Authorization': localStorage.getItem('hkwl_auth_token') }
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
 
@@ -230,7 +230,7 @@ const Mailbox = (() => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': localStorage.getItem('hkwl_auth_token')
+                    'Authorization': sessionStorage.getItem('hkwl_auth_token')
                 },
                 body: JSON.stringify({ content })
             });
@@ -257,7 +257,7 @@ const Mailbox = (() => {
         try {
             await fetch(`/api/messages/${id}/read`, {
                 method: 'PUT',
-                headers: { 'Authorization': localStorage.getItem('hkwl_auth_token') }
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
         } catch (e) { console.error(e); }
     }

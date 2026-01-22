@@ -14,19 +14,19 @@ const CloudSync = (() => {
     ? `http://${hostname}:3000/api` 
     : "/api";
 
-  let token = localStorage.getItem("hkwl_auth_token");
+  let token = sessionStorage.getItem("hkwl_auth_token");
 
   // Immediate cleanup of invalid tokens on module load to prevent issues
   if (token && /[^\x00-\x7F]/.test(token)) {
       console.warn("[CloudSync] Invalid token detected on load, clearing.");
-      localStorage.removeItem("hkwl_auth_token");
+      sessionStorage.removeItem("hkwl_auth_token");
       token = null;
   }
 
   function setToken(t) {
     token = t;
-    if (t) localStorage.setItem("hkwl_auth_token", t);
-    else localStorage.removeItem("hkwl_auth_token");
+    if (t) sessionStorage.setItem("hkwl_auth_token", t);
+    else sessionStorage.removeItem("hkwl_auth_token");
   }
 
   async function request(endpoint, method = "GET", body = null) {

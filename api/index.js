@@ -230,12 +230,17 @@ router.get('/messages', authenticate, async (req, res) => {
     const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
     const isAdmin = adminUsername && currentUsername === adminUsername;
 
-    let query = {};
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
 
+    let query = {};
+    
     if (isAdmin) {
       // Admin Logic:
-      // 1. See all messages sent TO admin (from any user)
-      // 2. See all messages sent BY admin (Announcements)
+      // 1. See all messages sent TO 'admin' (from users)
+      // 2. See all messages sent BY 'admin' (replies or announcements)
+      // 3. See all messages sent TO 'all_users' (Announcements) - though #2 covers those sent by admin
       query = {
         $or: [
           { receiver: 'admin' },
@@ -256,10 +261,15 @@ router.get('/messages', authenticate, async (req, res) => {
       };
     }
 
-    const messages = await Message.find(query).sort({ timestamp: 1 }).lean(); // Sort oldest to newest for chat flow
+    // Performance Optimization: Limit to recent messages by default
+    const totalCount = await Message.countDocuments(query);
+    const messages = await Message.find(query)
+      .sort({ timestamp: -1 }) // Newest first
+      .skip(skip)
+      .limit(limit)
+      .lean();
     
-    console.log(`[GET Messages] User: ${currentUsername}, IsAdmin: ${isAdmin}, Count: ${messages.length}`);
-    console.log(`[GET Messages] Query:`, JSON.stringify(query));
+    console.log(`[GET Messages] User: ${currentUsername}, IsAdmin: ${isAdmin}, Count: ${messages.length}, Total: ${totalCount}`);
 
     const result = messages.map(msg => {
       const isSenderAdmin = adminUsername && msg.sender === adminUsername;
@@ -281,6 +291,9 @@ router.get('/messages', authenticate, async (req, res) => {
     res.json({ 
       success: true, 
       messages: result,
+      total: totalCount,
+      page,
+      limit,
       currentUser: currentUsername,
       isAdmin: isAdmin,
       debug_info: {

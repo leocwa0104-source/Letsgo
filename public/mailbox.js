@@ -166,7 +166,8 @@ const Mailbox = (() => {
 
         try {
             // Add timestamp to prevent caching
-            const res = await fetch(`/api/messages?t=${Date.now()}`, {
+            // Default limit 50 enforced by backend if not specified, but let's be explicit or just use default.
+            const res = await fetch(`/api/messages?t=${Date.now()}&limit=50`, {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
@@ -175,6 +176,17 @@ const Mailbox = (() => {
                 cachedMessages = data.messages || [];
                 cachedIsAdmin = data.isAdmin;
                 renderMessages();
+                
+                // Show hint if there are more messages
+                if (data.total > cachedMessages.length) {
+                    const hint = document.createElement('div');
+                    hint.style.textAlign = 'center';
+                    hint.style.color = '#999';
+                    hint.style.fontSize = '0.8rem';
+                    hint.style.padding = '1rem';
+                    hint.textContent = `仅显示最近 ${cachedMessages.length} 条消息 (共 ${data.total} 条)`;
+                    list.appendChild(hint);
+                }
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }

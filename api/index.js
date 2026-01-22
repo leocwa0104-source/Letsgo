@@ -18,9 +18,10 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public'), { extensions: ['html', 'htm'] }));
 
 // Connect to MongoDB
-let isConnected = false;
 const connectDB = async () => {
-  if (isConnected) return;
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
   
   if (!process.env.MONGODB_URI) {
     console.warn('Warning: MONGODB_URI is not defined.');
@@ -28,8 +29,7 @@ const connectDB = async () => {
   }
   
   try {
-    const db = await mongoose.connect(process.env.MONGODB_URI);
-    isConnected = db.connections[0].readyState;
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB Connected');
   } catch (err) {
     console.error('MongoDB Connection Error:', err);
@@ -297,6 +297,8 @@ router.post('/messages', authenticate, async (req, res) => {
       receiver = 'admin';
     }
 
+    console.log(`[Message] From: ${currentUsername}, To: ${receiver}, IsAdmin: ${isAdmin}`);
+
     const message = new Message({
       sender: currentUsername,
       receiver: receiver,
@@ -305,10 +307,10 @@ router.post('/messages', authenticate, async (req, res) => {
     });
 
     await message.save();
-    res.json({ success: true, message });
+    res.json({ success: true, message, debug_receiver: receiver });
   } catch (e) {
     console.error('Send Message Error:', e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message, stack: process.env.NODE_ENV === 'development' ? e.stack : undefined });
   }
 });
 

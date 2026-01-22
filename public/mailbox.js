@@ -238,10 +238,12 @@ const Mailbox = (() => {
                 input.value = '';
                 await loadMessages(); // Reload to see new message
             } else {
-                alert('发送失败: ' + data.error);
+                console.error('Send failed:', data);
+                alert(`发送失败: ${data.error || '未知错误'}`);
             }
         } catch (e) {
-            alert('网络错误');
+            console.error('Network error:', e);
+            alert(`发送请求失败: ${e.message}`);
         } finally {
             btn.disabled = false;
             btn.textContent = originalText;

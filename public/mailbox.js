@@ -124,7 +124,7 @@ const Mailbox = (() => {
             inboxBtn.style.borderBottom = '2px solid transparent';
         }
         
-        renderMessages();
+        loadMessages(); // Reload data from server with new tab filter
     }
 
     function open() {
@@ -148,8 +148,7 @@ const Mailbox = (() => {
                 input.placeholder = '发送消息给管理员 (仅管理员可见)...';
             }
         }
-
-        loadMessages();
+        // loadMessages called by switchTab
     }
 
     function close() {
@@ -167,7 +166,7 @@ const Mailbox = (() => {
         try {
             // Add timestamp to prevent caching
             // Default limit 50 enforced by backend if not specified, but let's be explicit or just use default.
-            const res = await fetch(`/api/messages?t=${Date.now()}&limit=50`, {
+            const res = await fetch(`/api/messages?t=${Date.now()}&limit=50&type=${currentTab}`, {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
@@ -204,38 +203,12 @@ const Mailbox = (() => {
         const isAdmin = cachedIsAdmin;
 
         if (!messages || messages.length === 0) {
-            list.innerHTML = '<div style="text-align: center; color: #999; padding-top: 3rem;">暂无消息</div>';
+            list.innerHTML = `<div style="text-align: center; color: #999; padding-top: 3rem;">${currentTab === 'inbox' ? '没有收到的消息' : '没有发送的消息'}</div>`;
             return;
         }
 
-        // Filter based on currentTab
-        // Inbox: !isMe
-        // Sent: isMe
-        const filteredMsgs = messages.filter(msg => {
-            if (currentTab === 'inbox') return !msg.isMe;
-            if (currentTab === 'sent') return msg.isMe;
-            return true;
-        });
-        
-        if (filteredMsgs.length === 0) {
-             list.innerHTML = `<div style="text-align: center; color: #999; padding-top: 3rem;">${currentTab === 'inbox' ? '没有收到的消息' : '没有发送的消息'}</div>`;
-             return;
-        }
-
-        // Messages are sorted by timestamp asc (oldest -> newest) in backend.
-        // We want to display newest at top? Or chat style (newest at bottom)?
-        // User asked for "modules", which implies a list. Usually lists (email style) are newest at top.
-        // Chat style is newest at bottom.
-        // The previous implementation was chat style (scrolled to bottom).
-        // If we split into inbox/sent, email style (newest top) is often better.
-        // But let's stick to the previous visual style (bubbles) for now, which usually implies chat style.
-        // However, with "Inbox" and "Sent", it feels more like email.
-        // Let's reverse the order for display so newest is at the top, which makes more sense for a "List" view.
-        // Actually, if I keep bubbles, maybe chat style is still better?
-        // "Inbox" usually implies a list of threads or messages.
-        // Let's try Newest at Top for this "Inbox/Sent" view.
-        
-        const sortedMsgs = [...filteredMsgs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Messages are already filtered by backend
+        const sortedMsgs = messages; // Backend already sorts by timestamp desc (newest first)
         
         sortedMsgs.forEach(msg => {
             // Use server-side calculated isMe

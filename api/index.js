@@ -233,32 +233,31 @@ router.get('/messages', authenticate, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
+    const type = req.query.type || 'inbox'; // 'inbox' or 'sent'
 
     let query = {};
     
     if (isAdmin) {
-      // Admin Logic:
-      // 1. See all messages sent TO 'admin' (from users)
-      // 2. See all messages sent BY 'admin' (replies or announcements)
-      // 3. See all messages sent TO 'all_users' (Announcements) - though #2 covers those sent by admin
-      query = {
-        $or: [
-          { receiver: 'admin' },
-          { sender: currentUsername }
-        ]
-      };
+      if (type === 'sent') {
+        // Admin sent: messages sent by 'admin'
+        query = { sender: currentUsername };
+      } else {
+        // Admin inbox: messages sent TO 'admin'
+        query = { receiver: 'admin' };
+      }
     } else {
-      // Regular User Logic:
-      // 1. See all messages sent TO 'all_users' (Announcements from Admin)
-      // 2. See messages sent BY myself (My feedback history)
-      // 3. (Optional) See messages sent specifically TO me (if Private Messaging existed, but for now just announcements)
-      query = {
-        $or: [
-          { receiver: 'all_users' },
-          { sender: currentUsername },
-          { receiver: currentUsername } // Just in case we add PMs later
-        ]
-      };
+      if (type === 'sent') {
+        // User sent: messages sent BY user
+        query = { sender: currentUsername };
+      } else {
+        // User inbox: messages sent TO 'all_users' (Announcements) or TO this user (if any)
+        query = {
+          $or: [
+            { receiver: 'all_users' },
+            { receiver: currentUsername }
+          ]
+        };
+      }
     }
 
     // Performance Optimization: Limit to recent messages by default

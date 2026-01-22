@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 
 const User = require('./models/User');
 const UserData = require('./models/UserData');
+const Message = require('./models/Message');
 
 const app = express();
 app.use(cors());
@@ -199,6 +200,93 @@ router.post('/data', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Message Routes ---
+
+// Get Messages
+router.get('/messages', authenticate, async (req, res) => {
+  try {
+    const isAdmin = process.env.ADMIN_USERNAME === req.user.username;
+    let query = {};
+
+    if (isAdmin) {
+      // Admin sees messages sent to 'admin'
+      query = { receiver: 'admin' };
+    } else {
+      // User sees messages sent to 'all_users' or specifically to them
+      query = { 
+        $or: [
+          { receiver: 'all_users' },
+          { receiver: req.user.username }
+        ]
+      };
+    }
+
+    const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50);
+    
+    // Add a flag to indicate if the message is read by the current user
+    const result = messages.map(msg => ({
+      ...msg.toObject(),
+      isRead: msg.readBy.includes(req.user.username)
+    }));
+
+    res.json({ success: true, messages: result });
+  } catch (e) {
+    console.error('Get Messages Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Send Message
+router.post('/messages', authenticate, async (req, res) => {
+  try {
+    const { content, receiver } = req.body;
+    if (!content) return res.status(400).json({ error: '内容不能为空' });
+
+    const isAdmin = process.env.ADMIN_USERNAME === req.user.username;
+
+    // Default receiver logic
+    let targetReceiver = receiver;
+    if (!targetReceiver) {
+        targetReceiver = isAdmin ? 'all_users' : 'admin';
+    }
+
+    if (!isAdmin && targetReceiver !== 'admin') {
+       return res.status(403).json({ error: '普通用户只能发送给管理员' });
+    }
+
+    const message = new Message({
+      sender: req.user.username,
+      receiver: targetReceiver,
+      content,
+      readBy: [req.user.username] // Sender has "read" it
+    });
+
+    await message.save();
+    res.json({ success: true, message });
+  } catch (e) {
+    console.error('Send Message Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Mark Message as Read
+router.put('/messages/:id/read', authenticate, async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    if (!message.readBy.includes(req.user.username)) {
+      message.readBy.push(req.user.username);
+      await message.save();
+    }
+    
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Mark Read Error:', e);
     res.status(500).json({ error: e.message });
   }
 });

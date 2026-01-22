@@ -35,6 +35,21 @@ const HKWL = (() => {
               // Only show System Settings button on Index page (Home)
               const path = window.location.pathname;
               if (path.endsWith('index.html') || path === '/' || path.endsWith('/')) {
+                  const mailboxBtn = document.createElement('button');
+                  mailboxBtn.textContent = '信箱';
+                  mailboxBtn.style.background = 'rgba(255,255,255,0.2)';
+                  mailboxBtn.style.border = 'none';
+                  mailboxBtn.style.color = 'white';
+                  mailboxBtn.style.padding = '0.3rem 0.8rem';
+                  mailboxBtn.style.borderRadius = '4px';
+                  mailboxBtn.style.cursor = 'pointer';
+                  mailboxBtn.onclick = () => {
+                      if (typeof Mailbox !== 'undefined') {
+                          Mailbox.open();
+                      }
+                  };
+                  userDiv.appendChild(mailboxBtn);
+
                   const settingsBtn = document.createElement('button');
                   settingsBtn.textContent = '系统设置';
                   settingsBtn.style.background = 'rgba(255,255,255,0.2)';

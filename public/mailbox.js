@@ -1,10 +1,45 @@
 const Mailbox = (() => {
     let modal = null;
+    let badgeElement = null;
 
     function init() {
         // Create modal structure if not exists
         if (!document.getElementById('mailbox-modal')) {
             createModal();
+        }
+    }
+
+    function setBadge(el) {
+        badgeElement = el;
+        checkUnread();
+        // Poll every minute
+        setInterval(checkUnread, 60000);
+    }
+
+    async function checkUnread() {
+        if (!badgeElement) return;
+        // Only check if user is logged in
+        if (!sessionStorage.getItem('hkwl_auth_token')) return;
+
+        try {
+            const res = await fetch(`/api/messages?t=${Date.now()}`, {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.messages)) {
+                const count = data.messages.filter(m => !m.isMe && !m.isRead).length;
+                updateBadgeUI(count);
+            }
+        } catch (e) { console.error("Check unread failed", e); }
+    }
+
+    function updateBadgeUI(count) {
+        if (!badgeElement) return;
+        if (count > 0) {
+            badgeElement.textContent = count > 99 ? '99+' : count;
+            badgeElement.style.display = 'flex';
+        } else {
+            badgeElement.style.display = 'none';
         }
     }
 
@@ -85,6 +120,8 @@ const Mailbox = (() => {
 
     function close() {
         if (modal) modal.style.display = 'none';
+        // Refresh badge when closing to reflect read status
+        checkUnread();
     }
 
     async function loadMessages() {
@@ -264,6 +301,8 @@ const Mailbox = (() => {
 
     return {
         open,
-        init
+        init,
+        setBadge,
+        checkUnread
     };
 })();

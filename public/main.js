@@ -37,18 +37,44 @@ const HKWL = (() => {
               if (path.endsWith('index.html') || path === '/' || path.endsWith('/')) {
                   const mailboxBtn = document.createElement('button');
                   mailboxBtn.textContent = '信箱';
+                  mailboxBtn.style.position = 'relative';
                   mailboxBtn.style.background = 'rgba(255,255,255,0.2)';
                   mailboxBtn.style.border = 'none';
                   mailboxBtn.style.color = 'white';
                   mailboxBtn.style.padding = '0.3rem 0.8rem';
                   mailboxBtn.style.borderRadius = '4px';
                   mailboxBtn.style.cursor = 'pointer';
+                  
+                  // Badge for unread messages
+                  const badge = document.createElement('div');
+                  badge.style.position = 'absolute';
+                  badge.style.top = '-5px';
+                  badge.style.right = '-5px';
+                  badge.style.backgroundColor = '#ff4d4f';
+                  badge.style.color = 'white';
+                  badge.style.fontSize = '0.7rem';
+                  badge.style.height = '16px';
+                  badge.style.minWidth = '16px';
+                  badge.style.padding = '0 4px';
+                  badge.style.borderRadius = '8px';
+                  badge.style.display = 'none'; // Hidden by default
+                  badge.style.alignItems = 'center';
+                  badge.style.justifyContent = 'center';
+                  badge.style.fontWeight = 'bold';
+                  badge.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+                  mailboxBtn.appendChild(badge);
+
                   mailboxBtn.onclick = () => {
                       if (typeof Mailbox !== 'undefined') {
                           Mailbox.open();
                       }
                   };
                   userDiv.appendChild(mailboxBtn);
+                  
+                  // Initialize Badge
+                  if (typeof Mailbox !== 'undefined') {
+                      Mailbox.setBadge(badge);
+                  }
 
                   const settingsBtn = document.createElement('button');
                   settingsBtn.textContent = '系统设置';

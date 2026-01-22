@@ -2358,8 +2358,8 @@ const HKWL = (() => {
         const settings = loadSettings();
         const defaultCenter = settings.mapCenter
           ? [settings.mapCenter.lng, settings.mapCenter.lat]
-          : [114.173355, 22.320048];
-        const defaultZoom = settings.mapCenter ? settings.mapCenter.zoom : 11;
+          : [105.0, 35.0];
+        const defaultZoom = settings.mapCenter ? settings.mapCenter.zoom : 4;
 
         const map = new AMap.Map("map-container", {
           zoom: defaultZoom,
@@ -2561,11 +2561,11 @@ const HKWL = (() => {
         plugins: ["AMap.AutoComplete", "AMap.PlaceSearch"],
       })
         .then(function (AMap) {
-          const defaultCenter = [114.173355, 22.320048];
+          const defaultCenter = [105.0, 35.0];
           const center = currentMapCenter
             ? [currentMapCenter.lng, currentMapCenter.lat]
             : defaultCenter;
-          const zoom = currentMapCenter ? currentMapCenter.zoom : 11;
+          const zoom = currentMapCenter ? currentMapCenter.zoom : 4;
 
           const map = new AMap.Map("map-container", {
             zoom: zoom,

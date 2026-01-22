@@ -12,63 +12,106 @@
   </script>
   <script src="https://webapi.amap.com/loader.js"></script>
   <style>
+    /* Global Layout Fixes for SPA Feel */
+    body {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; /* Prevent body scroll, handle inside slides */
+    }
+    .site-header {
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+
     /* Slider Styles */
     .view-wrapper {
+      flex: 1; /* Fill remaining height */
       overflow: hidden;
       width: 100%;
       position: relative;
+      margin: 0 !important; /* Override .container */
+      padding: 0 !important; /* Override .container */
+      max-width: none !important; /* Override .container */
     }
     .view-slider {
       display: flex;
       width: 200%;
+      height: 100%;
       transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
     }
     .view-slide {
       width: 50%;
+      height: 100%;
       flex-shrink: 0;
       position: relative;
-      /* Ensure min-height for layout */
-      min-height: calc(100vh - 120px);
+      overflow: hidden; /* Contain scrolls */
+      box-sizing: border-box;
     }
     
-    /* Adjust Block View Layout for Slider */
+    /* Block View Layout Overrides */
     #block-view.layout-main {
-      display: block;
-    }
-    #block-view .main-column {
-      position: absolute;
-      top: 0; /* Relative to slide */
-      height: calc(100vh - 140px);
+      display: flex;
+      padding: 1rem;
+      gap: 1.5rem;
+      background-color: #f4f5f7;
     }
     
-    /* Map Styles from map-view.html */
+    /* Sidebar (Taskbar) */
+    #block-view .main-column {
+      position: relative !important; /* Override fixed from styles.css */
+      top: auto; left: auto; bottom: auto;
+      width: 320px;
+      height: 100%;
+      margin: 0;
+      overflow-y: auto; /* Internal scrolling */
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 2rem;
+    }
+    
+    /* Main Content (Plan List) */
+    #block-view .side-column {
+      margin-left: 0 !important; /* Override styles.css */
+      flex: 1;
+      height: 100%;
+      overflow-y: auto; /* Internal scrolling */
+      padding-bottom: 2rem;
+      width: auto;
+    }
+    
+    /* Map Styles */
     .map-container {
       position: relative;
       width: 100%;
-      height: calc(100vh - 120px);
+      height: 100%;
       display: flex;
       flex-direction: column;
+      padding: 0; /* Full bleed */
     }
     #map-container {
       flex: 1;
       width: 100%;
       background: white;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      border-radius: 8px;
+      box-shadow: none;
+      border-radius: 0;
       overflow: hidden;
     }
     .controls {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-shrink: 0;
-      justify-content: flex-end;
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      z-index: 150;
+      margin: 0;
+      background: rgba(255,255,255,0.9);
+      padding: 5px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
     .day-selector select {
       padding: 5px 10px;
       font-size: 1rem;
-      border: 2px solid #333;
+      border: 1px solid #ddd;
       border-radius: 4px;
       background: white;
     }
@@ -127,7 +170,7 @@
     </div>
   </header>
 
-  <main class="container view-wrapper">
+  <main class="view-wrapper">
     <div class="view-slider" id="view-slider">
         <!-- Block View -->
         <div class="view-slide layout-main" id="block-view">

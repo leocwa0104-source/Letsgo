@@ -135,6 +135,35 @@
                   btn.textContent = "创建账号";
               }
           });
+
+          // Clear All Messages Logic
+          document.getElementById('clear-all-msgs-btn').addEventListener('click', async () => {
+              if(!confirm("警告：确定要清空所有用户的信箱消息吗？\n\n此操作将永久删除数据库中的所有消息记录，且无法恢复！")) return;
+              
+              const btn = document.getElementById('clear-all-msgs-btn');
+              const originalText = btn.textContent;
+              btn.disabled = true;
+              btn.textContent = "正在清空...";
+              
+              try {
+                  const res = await fetch('/api/messages/all/clear', {
+                      method: 'DELETE',
+                      headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                  });
+                  const data = await res.json();
+                  
+                  if(data.success) {
+                      alert("操作成功：所有信箱消息已清空。");
+                  } else {
+                      alert("操作失败: " + (data.error || "未知错误"));
+                  }
+              } catch(e) {
+                  alert("网络错误: " + e.message);
+              } finally {
+                  btn.disabled = false;
+                  btn.textContent = originalText;
+              }
+          });
       }
     });
   </script>

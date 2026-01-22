@@ -140,7 +140,7 @@ const HKWL = (() => {
                   
                   // Trigger admin check
                   checkAndAddAdminBtn();
-              } else if (path.endsWith('planner.html')) {
+              } else if (path.endsWith('planner.html') || path.endsWith('map-view.html')) {
                   const settingsBtn = document.createElement('button');
                   settingsBtn.textContent = '设置';
                   settingsBtn.style.background = 'rgba(255,255,255,0.2)';

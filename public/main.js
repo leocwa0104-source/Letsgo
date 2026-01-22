@@ -199,8 +199,8 @@ const HKWL = (() => {
         data[indexKey] = localStorage.getItem(indexKey);
     }
     
-    // Fire and forget (don't await to block UI)
-    CloudSync.pushData(data).catch(e => console.error("Cloud push failed", e));
+    // Return the promise so callers can await if needed
+    return CloudSync.pushData(data).catch(e => console.error("Cloud push failed", e));
   }
 
   async function syncFromCloud() {
@@ -252,16 +252,21 @@ const HKWL = (() => {
       }
   }
 
-  function createPlan(title) {
+  async function createPlan(title) {
       const plans = getPlans();
       const newId = 'plan_' + Date.now();
       const newPlan = { id: newId, title: title || '新计划', createdAt: Date.now() };
       plans.push(newPlan);
-      savePlans(plans);
+      
+      // Save plans locally
+      window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
       
       // Initialize settings for the new plan
       const settingsKey = Auth.getUserKey(`${newId}_wishlist_settings`);
       window.localStorage.setItem(settingsKey, JSON.stringify({ title: newPlan.title }));
+      
+      // Sync everything once and await
+      await syncToCloud();
       
       return newId;
   }
@@ -2644,7 +2649,7 @@ const HKWL = (() => {
         });
     }
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       
       const title = titleInput.value.trim();
@@ -2658,11 +2663,26 @@ const HKWL = (() => {
         title: title || (isNew ? "未命名计划" : settings.title),
         mapCenter: currentMapCenter,
       };
-      saveSettings(newSettings);
+      
+      // Save and wait for sync to complete before redirecting
+      const saveBtn = document.getElementById("save-btn");
+      const originalText = saveBtn ? saveBtn.textContent : "";
+      if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "保存中...";
+      }
+      
+      await saveSettings(newSettings);
+      
+      if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
+      }
+
       showToast(isNew ? "计划已创建" : "设置已保存", "success");
       setTimeout(() => {
         window.location.href = `planner.html?id=${currentPlanId}`;
-      }, 1000);
+      }, 500); // Reduced delay since we already awaited sync
     });
   }
 

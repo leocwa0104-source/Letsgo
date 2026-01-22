@@ -398,9 +398,19 @@
 
       renderPlans();
 
-      document.getElementById('create-plan-btn').addEventListener('click', function() {
-        const id = HKWL.createPlan("新计划");
-        window.location.href = `settings.html?id=${id}&new=true`;
+      document.getElementById('create-plan-btn').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = "创建中...";
+        try {
+            const id = await HKWL.createPlan("新计划");
+            window.location.href = `settings.html?id=${id}&new=true`;
+        } catch(e) {
+            console.error(e);
+            btn.disabled = false;
+            btn.textContent = "+ 创建旅行计划";
+            alert("创建失败，请重试");
+        }
       });
     });
   </script>

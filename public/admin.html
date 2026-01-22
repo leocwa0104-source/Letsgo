@@ -184,7 +184,10 @@
       // Save Helper
       async function saveContent(type) {
           const content = editor.value;
+          // Notice uses POST (create new), Manual uses PUT (update)
           const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const method = type === 'manual' ? 'PUT' : 'POST';
+          
           const label = type === 'manual' ? '使用说明' : '告示';
           const btn = type === 'manual' ? saveManualBtn : publishNoticeBtn;
           const originalText = btn.textContent;
@@ -199,7 +202,7 @@
               btn.textContent = "处理中...";
               
               const res = await fetch(endpoint, {
-                  method: 'PUT',
+                  method: method,
                   headers: {
                       'Content-Type': 'application/json',
                       'Authorization': sessionStorage.getItem('hkwl_auth_token')

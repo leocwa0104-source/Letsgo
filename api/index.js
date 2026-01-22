@@ -501,7 +501,8 @@ router.get('/notice', async (req, res) => {
        if (requestedTarget === 'all') {
          query = { $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] };
        }
-       const notice = await Notice.findOne(query);
+       // Get the LATEST notice for this target
+       const notice = await Notice.findOne(query).sort({ lastUpdated: -1 });
        return res.json({
          success: true,
          content: notice ? notice.content : '',
@@ -540,8 +541,8 @@ router.get('/notice', async (req, res) => {
   }
 });
 
-// Update Notice (Admin Only)
-router.put('/notice', authenticate, async (req, res) => {
+// Create Notice (Admin Only) - Always creates a new record (History)
+router.post('/notice', authenticate, async (req, res) => {
   try {
     const { content, targetUser = 'all' } = req.body;
     
@@ -553,31 +554,17 @@ router.put('/notice', authenticate, async (req, res) => {
       return res.status(403).json({ error: '权限不足：只有管理员可以编辑告示' });
     }
 
-    // Update or Create Notice for the specific target
-    let query = { targetUser };
-    if (targetUser === 'all') {
-      query = { $or: [{ targetUser: 'all' }, { targetUser: { $exists: false } }] };
-    }
-
-    let notice = await Notice.findOne(query);
-    if (notice) {
-      notice.content = content;
-      notice.lastUpdated = Date.now();
-      notice.updatedBy = currentUsername;
-      // Ensure targetUser is set correctly if it was missing (legacy docs)
-      if (!notice.targetUser) notice.targetUser = 'all';
-    } else {
-      notice = new Notice({
-        content,
-        updatedBy: currentUsername,
-        targetUser
-      });
-    }
+    // Always create a NEW notice
+    const notice = new Notice({
+      content,
+      updatedBy: currentUsername,
+      targetUser
+    });
 
     await notice.save();
     res.json({ success: true });
   } catch (e) {
-    console.error('Update Notice Error:', e);
+    console.error('Create Notice Error:', e);
     res.status(500).json({ error: e.message });
   }
 });

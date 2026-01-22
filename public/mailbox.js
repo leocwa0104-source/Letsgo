@@ -164,8 +164,14 @@ const Mailbox = (() => {
             
             const time = new Date(msg.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             
-            // Use senderIsAdmin flag from backend if available, or just sender name
-            const senderName = msg.senderIsAdmin ? '管理员' : msg.sender;
+            // Use senderDisplay from backend if available, otherwise fallback to senderIsAdmin logic or raw sender
+            let senderName = msg.sender;
+            if (msg.senderDisplay) {
+                senderName = msg.senderDisplay;
+            } else if (msg.senderIsAdmin) {
+                senderName = '管理员';
+            }
+            
             meta.textContent = isMe ? `${time}` : `${senderName} · ${time}`;
 
             const content = document.createElement('div');

@@ -234,15 +234,22 @@ router.get('/messages', authenticate, async (req, res) => {
     const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50);
     
     // Add a flag to indicate if the message is read by the current user
-    const adminUsername = process.env.ADMIN_USERNAME;
-    const result = messages.map(msg => ({
-      ...msg.toObject(),
-      isRead: msg.readBy.includes(req.user.username),
-      // Fix: robustly check if sender is admin, handling potential undefined
-      senderIsAdmin: adminUsername && msg.sender === adminUsername,
-      // Fix: Calculate isMe on server side to avoid client-side mismatch issues
-      isMe: msg.sender === req.user.username
-    }));
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    
+    const result = messages.map(msg => {
+      const msgObj = msg.toObject();
+      const isSenderAdmin = adminUsername && msg.sender === adminUsername;
+      
+      return {
+        ...msgObj,
+        isRead: msg.readBy.includes(req.user.username),
+        senderIsAdmin: isSenderAdmin,
+        // Calculate isMe on server side
+        isMe: msg.sender === req.user.username,
+        // Pre-calculate display name
+        senderDisplay: isSenderAdmin ? '管理员' : msg.sender
+      };
+    });
 
     res.json({ success: true, messages: result });
   } catch (e) {

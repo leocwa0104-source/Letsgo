@@ -208,59 +208,68 @@ router.post('/data', authenticate, async (req, res) => {
 
 // Get Messages
 router.get('/messages', authenticate, async (req, res) => {
-  // Prevent caching to ensure isMe logic is always correct for the current user
+  // Prevent caching strictly
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.setHeader('Surrogate-Control', 'no-store');
 
   try {
-    const isAdmin = process.env.ADMIN_USERNAME === req.user.username;
+    const currentUsername = req.user.username;
+    // Check if current user is admin based on ENV variable
+    // Note: In a real app, this should be in the User database model
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
     let query = {};
 
     if (isAdmin) {
-      // Admin sees messages sent to 'admin' OR sent by themselves
-      query = { 
+      // Admin Logic:
+      // 1. See all messages sent TO admin (from any user)
+      // 2. See all messages sent BY admin (Announcements)
+      query = {
         $or: [
           { receiver: 'admin' },
-          { sender: req.user.username }
+          { sender: currentUsername }
         ]
       };
     } else {
-      // User sees messages sent to 'all_users', specifically to them, OR sent by themselves
-      query = { 
+      // Regular User Logic:
+      // 1. See all messages sent TO 'all_users' (Announcements from Admin)
+      // 2. See messages sent BY myself (My feedback history)
+      // 3. (Optional) See messages sent specifically TO me (if Private Messaging existed, but for now just announcements)
+      query = {
         $or: [
           { receiver: 'all_users' },
-          { receiver: req.user.username },
-          { sender: req.user.username }
+          { sender: currentUsername },
+          { receiver: currentUsername } // Just in case we add PMs later
         ]
       };
     }
 
-    const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50).lean();
-    
-    // Add a flag to indicate if the message is read by the current user
-    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const messages = await Message.find(query).sort({ timestamp: 1 }).lean(); // Sort oldest to newest for chat flow
     
     const result = messages.map(msg => {
       const isSenderAdmin = adminUsername && msg.sender === adminUsername;
       
       return {
-        ...msg,
         _id: msg._id.toString(),
-        isRead: msg.readBy ? msg.readBy.includes(req.user.username) : false,
-        senderIsAdmin: isSenderAdmin,
-        // Calculate isMe on server side - STRICTLY
-        isMe: msg.sender === req.user.username,
-        senderDisplay: isSenderAdmin ? '管理员' : msg.sender
+        content: msg.content,
+        timestamp: msg.timestamp,
+        sender: msg.sender,
+        receiver: msg.receiver,
+        // Derived fields for frontend convenience
+        isMe: msg.sender === currentUsername,
+        isAnnouncement: msg.receiver === 'all_users',
+        senderDisplay: isSenderAdmin ? '管理员 (公告)' : msg.sender,
+        isRead: msg.readBy ? msg.readBy.includes(currentUsername) : false
       };
     });
 
     res.json({ 
       success: true, 
       messages: result,
-      // Debug info to verify server sees correct user
-      debug_user: req.user.username 
+      currentUser: currentUsername,
+      isAdmin: isAdmin
     });
   } catch (e) {
     console.error('Get Messages Error:', e);
@@ -271,26 +280,28 @@ router.get('/messages', authenticate, async (req, res) => {
 // Send Message
 router.post('/messages', authenticate, async (req, res) => {
   try {
-    const { content, receiver } = req.body;
+    const { content } = req.body;
     if (!content) return res.status(400).json({ error: '内容不能为空' });
 
-    const isAdmin = process.env.ADMIN_USERNAME === req.user.username;
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
 
-    // Default receiver logic
-    let targetReceiver = receiver;
-    if (!targetReceiver) {
-        targetReceiver = isAdmin ? 'all_users' : 'admin';
-    }
-
-    if (!isAdmin && targetReceiver !== 'admin') {
-       return res.status(403).json({ error: '普通用户只能发送给管理员' });
+    let receiver;
+    
+    if (isAdmin) {
+      // Admin always broadcasts to all
+      receiver = 'all_users';
+    } else {
+      // Regular users always send to admin
+      receiver = 'admin';
     }
 
     const message = new Message({
-      sender: req.user.username,
-      receiver: targetReceiver,
+      sender: currentUsername,
+      receiver: receiver,
       content,
-      readBy: [req.user.username] // Sender has "read" it
+      readBy: [currentUsername]
     });
 
     await message.save();

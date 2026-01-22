@@ -146,14 +146,32 @@ const Mailbox = (() => {
             bubble.style.lineHeight = '1.4';
             bubble.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
             
-            if (isMe) {
-                bubble.style.backgroundColor = '#007aff';
-                bubble.style.color = 'white';
-                bubble.style.borderBottomRightRadius = '2px';
+            // Visual distinction for Announcement vs Private Message
+            if (msg.isAnnouncement) {
+                // Announcement Style (e.g., Gold/Yellow tint if from Admin, or just distinct border)
+                if (isMe) {
+                     // Admin viewing their own announcement
+                     bubble.style.backgroundColor = '#f0ad4e'; // Orange-ish
+                     bubble.style.color = 'white';
+                     bubble.style.borderBottomRightRadius = '2px';
+                } else {
+                     // User viewing announcement
+                     bubble.style.backgroundColor = '#fff3cd'; // Light yellow
+                     bubble.style.color = '#856404';
+                     bubble.style.border = '1px solid #ffeeba';
+                     bubble.style.borderBottomLeftRadius = '2px';
+                }
             } else {
-                bubble.style.backgroundColor = 'white';
-                bubble.style.color = '#333';
-                bubble.style.borderBottomLeftRadius = '2px';
+                // Regular Message Style
+                if (isMe) {
+                    bubble.style.backgroundColor = '#007aff';
+                    bubble.style.color = 'white';
+                    bubble.style.borderBottomRightRadius = '2px';
+                } else {
+                    bubble.style.backgroundColor = 'white';
+                    bubble.style.color = '#333';
+                    bubble.style.borderBottomLeftRadius = '2px';
+                }
             }
 
             const meta = document.createElement('div');
@@ -163,12 +181,12 @@ const Mailbox = (() => {
             
             const time = new Date(msg.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             
-            // Use senderDisplay from backend if available, otherwise fallback to senderIsAdmin logic or raw sender
-            let senderName = msg.sender;
-            if (msg.senderDisplay) {
-                senderName = msg.senderDisplay;
-            } else if (msg.senderIsAdmin) {
-                senderName = '管理员';
+            // Use senderDisplay from backend
+            let senderName = msg.senderDisplay || msg.sender;
+            
+            // Add (全员) tag for announcements
+            if (msg.isAnnouncement) {
+                senderName += ' (全员公告)';
             }
             
             meta.textContent = isMe ? `${time}` : `${senderName} · ${time}`;

@@ -92,6 +92,25 @@ const Auth = (() => {
       const user = sessionStorage.getItem(CURRENT_USER_KEY);
       if (!user) return key; 
       return `${user}_${key}`;
+    },
+
+    refreshAdminStatus: async () => {
+      if (typeof CloudSync === 'undefined') return false;
+      try {
+        const res = await CloudSync.checkStatus();
+        if (res.success) {
+          if (res.isAdmin) {
+             sessionStorage.setItem("hkwl_is_admin", "true");
+             return true;
+          } else {
+             sessionStorage.removeItem("hkwl_is_admin");
+             return false;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to refresh admin status", e);
+      }
+      return Auth.isAdmin();
     }
   };
 })();

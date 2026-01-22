@@ -80,6 +80,15 @@ router.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+// Auth Status Check
+router.get('/auth/status', authenticate, (req, res) => {
+  const currentUsername = req.user.username;
+  const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+  const isAdmin = adminUsername && currentUsername === adminUsername;
+  
+  res.json({ success: true, username: currentUsername, isAdmin });
+});
+
 // Register
 router.post('/register', async (req, res) => {
   // Check if Admin restriction is enabled

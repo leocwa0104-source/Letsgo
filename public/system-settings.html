@@ -104,67 +104,89 @@
       }
 
       // Admin Logic
-      if (Auth.isAdmin()) {
-          document.getElementById('admin-section').style.display = 'block';
-          document.getElementById('create-user-btn').addEventListener('click', async () => {
-              const u = document.getElementById('new-username').value.trim();
-              const p = document.getElementById('new-password').value;
-              
-              if(!u || !p) {
-                  alert("请输入用户名和密码");
-                  return;
-              }
-              
-              const btn = document.getElementById('create-user-btn');
-              btn.disabled = true;
-              btn.textContent = "创建中...";
-              
-              try {
-                const res = await Auth.createAccount(u, p);
-                if(res.success) {
-                    alert("创建成功！用户 ID: " + (res.userId || "未知"));
-                    document.getElementById('new-username').value = '';
-                    document.getElementById('new-password').value = '';
-                } else {
-                    alert("创建失败: " + res.message);
-                }
-              } catch(e) {
-                  alert("错误: " + e.message);
-              } finally {
-                  btn.disabled = false;
-                  btn.textContent = "创建账号";
-              }
-          });
+      const initAdminUI = () => {
+        if (Auth.isAdmin()) {
+            document.getElementById('admin-section').style.display = 'block';
+            
+            // Re-bind create user if not already bound (simple check)
+            const createBtn = document.getElementById('create-user-btn');
+            if (createBtn.getAttribute('data-bound') !== 'true') {
+                createBtn.setAttribute('data-bound', 'true');
+                createBtn.addEventListener('click', async () => {
+                    const u = document.getElementById('new-username').value.trim();
+                    const p = document.getElementById('new-password').value;
+                    
+                    if(!u || !p) {
+                        alert("请输入用户名和密码");
+                        return;
+                    }
+                    
+                    const btn = document.getElementById('create-user-btn');
+                    btn.disabled = true;
+                    btn.textContent = "创建中...";
+                    
+                    try {
+                        const res = await Auth.createAccount(u, p);
+                        if(res.success) {
+                            alert("创建成功！用户 ID: " + (res.userId || "未知"));
+                            document.getElementById('new-username').value = '';
+                            document.getElementById('new-password').value = '';
+                        } else {
+                            alert("创建失败: " + res.message);
+                        }
+                    } catch(e) {
+                        alert("错误: " + e.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = "创建账号";
+                    }
+                });
+            }
 
-          // Clear All Messages Logic
-          document.getElementById('clear-all-msgs-btn').addEventListener('click', async () => {
-              if(!confirm("警告：确定要清空所有用户的信箱消息吗？\n\n此操作将永久删除数据库中的所有消息记录，且无法恢复！")) return;
-              
-              const btn = document.getElementById('clear-all-msgs-btn');
-              const originalText = btn.textContent;
-              btn.disabled = true;
-              btn.textContent = "正在清空...";
-              
-              try {
-                  const res = await fetch('/api/messages/all/clear', {
-                      method: 'DELETE',
-                      headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
-                  });
-                  const data = await res.json();
-                  
-                  if(data.success) {
-                      alert("操作成功：所有信箱消息已清空。");
-                  } else {
-                      alert("操作失败: " + (data.error || "未知错误"));
-                  }
-              } catch(e) {
-                  alert("网络错误: " + e.message);
-              } finally {
-                  btn.disabled = false;
-                  btn.textContent = originalText;
-              }
-          });
-      }
+            // Re-bind clear msg if not already bound
+            const clearBtn = document.getElementById('clear-all-msgs-btn');
+            if (clearBtn && clearBtn.getAttribute('data-bound') !== 'true') {
+                clearBtn.setAttribute('data-bound', 'true');
+                clearBtn.addEventListener('click', async () => {
+                    if(!confirm("警告：确定要清空所有用户的信箱消息吗？\n\n此操作将永久删除数据库中的所有消息记录，且无法恢复！")) return;
+                    
+                    const btn = document.getElementById('clear-all-msgs-btn');
+                    const originalText = btn.textContent;
+                    btn.disabled = true;
+                    btn.textContent = "正在清空...";
+                    
+                    try {
+                        const res = await fetch('/api/messages/all/clear', {
+                            method: 'DELETE',
+                            headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                        });
+                        const data = await res.json();
+                        
+                        if(data.success) {
+                            alert("操作成功：所有信箱消息已清空。");
+                        } else {
+                            alert("操作失败: " + (data.error || "未知错误"));
+                        }
+                    } catch(e) {
+                        alert("网络错误: " + e.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                });
+            }
+        }
+      };
+
+      // Initial check
+      initAdminUI();
+
+      // Double check with server to ensure latest permission
+      Auth.refreshAdminStatus().then(isAdmin => {
+          if (isAdmin) {
+              initAdminUI();
+          }
+      });
     });
   </script>
 </body>

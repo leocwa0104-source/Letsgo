@@ -33,12 +33,31 @@
       margin: 0 !important; /* Override .container */
       padding: 0 !important; /* Override .container */
       max-width: none !important; /* Override .container */
+      cursor: grab; /* Show grab cursor on background */
     }
+    .view-wrapper:active {
+      cursor: grabbing;
+    }
+    
+    /* Restore cursor for interactive elements */
+    .view-slide button, 
+    .view-slide a, 
+    .view-slide input, 
+    .view-slide select,
+    .view-slide .card,
+    #map-container {
+      cursor: auto; 
+    }
+    /* Specific overrides */
+    .view-slide .card { cursor: grab; }
+    .view-slide .btn { cursor: pointer; }
+    
     .view-slider {
       display: flex;
       width: 200%;
       height: 100%;
       transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+      will-change: transform;
     }
     .view-slide {
       width: 50%;
@@ -518,70 +537,103 @@
         });
     }
 
-    // --- Swipe Detection ---
+    // --- Swipe & Drag Detection ---
     document.addEventListener("DOMContentLoaded", () => {
       const wrapper = document.querySelector('.view-wrapper');
+      const slider = document.getElementById('view-slider');
       let startX = 0;
       let startY = 0;
-      let startTime = 0;
+      let isDragging = false;
+      let currentTranslateX = 0; // 0 for Block, -50% for Map. We use pixels for dragging.
+      let sliderWidth = 0;
 
-      // Helper to check if event target is interactive (e.g. draggable card, map canvas)
+      // Helper to check if event target is interactive
       function isInteractive(target) {
-        // Check if inside map canvas
         if (target.closest('.amap-container') || target.tagName === 'CANVAS') return true;
-        // Check if interactive elements
         if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select')) return true;
-        // Check if draggable card (simple check)
         if (target.closest('.card')) return true;
         return false;
       }
 
       function handleStart(e) {
-        // If interactive, ignore swipe start
         if (isInteractive(e.target)) return;
         
         startX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
         startY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-        startTime = new Date().getTime();
+        
+        sliderWidth = wrapper.clientWidth;
+        isDragging = true;
+        
+        // Disable transition for real-time dragging
+        slider.style.transition = 'none';
+      }
+
+      function handleMove(e) {
+        if (!isDragging) return;
+        
+        const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const diffX = x - startX;
+        
+        // Calculate new transform
+        // Base: Block = 0, Map = -50%
+        let basePercent = (currentMode === 'block') ? 0 : -50;
+        
+        // Convert diffX to percent of slider width
+        // Slider width is 2 * wrapper width.
+        // So diffX pixels = (diffX / (2 * sliderWidth)) * 100 percent
+        let diffPercent = (diffX / (sliderWidth * 2)) * 100;
+        
+        let newPercent = basePercent + diffPercent;
+        
+        // Limit bounds
+        // Can't go > 0 (left of Block)
+        // Can't go < -50 (right of Map)
+        if (newPercent > 0) newPercent = 0 + (diffPercent * 0.2); // Resistance
+        if (newPercent < -50) newPercent = -50 + (diffPercent * 0.2); // Resistance
+        
+        slider.style.transform = `translateX(${newPercent}%)`;
       }
 
       function handleEnd(e) {
-        if (!startX) return;
-
-        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-        const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-        const diffX = endX - startX;
-        const diffY = endY - startY;
-        const duration = new Date().getTime() - startTime;
-
-        // Reset
-        startX = 0;
-
-        // Thresholds
-        const minSwipeDistance = 50; // px
-        const maxSwipeTime = 500; // ms
-        const verticalLimit = 50; // px (don't trigger if scrolled vertically too much)
-
-        if (duration > maxSwipeTime) return; // Too slow
-        if (Math.abs(diffY) > verticalLimit) return; // Too much vertical movement (scrolling)
+        if (!isDragging) return;
+        isDragging = false;
         
-        if (Math.abs(diffX) > minSwipeDistance) {
-          if (diffX > 0) {
-            // Swipe Right -> Go to Block Mode
-            if (currentMode === 'map') switchMode('block');
-          } else {
-            // Swipe Left -> Go to Map Mode
-            if (currentMode === 'block') switchMode('map');
-          }
+        // Restore transition
+        slider.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+        
+        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const diffX = endX - startX;
+        
+        // Threshold to switch
+        const threshold = 100; // pixels
+        
+        if (currentMode === 'block') {
+            if (diffX < -threshold) {
+                switchMode('map');
+            } else {
+                // Revert
+                slider.style.transform = 'translateX(0%)';
+            }
+        } else {
+            if (diffX > threshold) {
+                switchMode('block');
+            } else {
+                // Revert
+                slider.style.transform = 'translateX(-50%)';
+            }
         }
       }
 
       wrapper.addEventListener('mousedown', handleStart);
       wrapper.addEventListener('touchstart', handleStart, { passive: true });
+      
+      wrapper.addEventListener('mousemove', handleMove);
+      wrapper.addEventListener('touchmove', handleMove, { passive: true });
 
       wrapper.addEventListener('mouseup', handleEnd);
+      wrapper.addEventListener('mouseleave', handleEnd);
       wrapper.addEventListener('touchend', handleEnd);
-      
+
       // Init Data
       const urlParams = new URLSearchParams(window.location.search);
       const planId = urlParams.get('id');

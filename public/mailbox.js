@@ -64,6 +64,22 @@ const Mailbox = (() => {
     function open() {
         if (!modal) createModal();
         modal.style.display = 'flex';
+        
+        // Update UI based on role
+        const isAdmin = Auth.isAdmin();
+        const title = modal.querySelector('h3');
+        const input = document.getElementById('message-input');
+        
+        if (title && input) {
+            if (isAdmin) {
+                title.textContent = '信箱 (全员广播)';
+                input.placeholder = '发送消息给所有用户 (全员可见)...';
+            } else {
+                title.textContent = '联系管理员';
+                input.placeholder = '发送消息给管理员 (仅管理员可见)...';
+            }
+        }
+
         loadMessages();
     }
 

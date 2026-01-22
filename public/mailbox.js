@@ -60,9 +60,15 @@ const Mailbox = (() => {
 
         div.innerHTML = `
             <div style="background: white; width: 90%; max-width: 600px; height: 80vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out;">
-                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fff;">
-                    <h3 style="margin: 0; font-size: 1.2rem; color: #333;">信箱</h3>
-                    <button id="close-mailbox" style="border: none; background: none; font-size: 1.8rem; cursor: pointer; color: #999; line-height: 1;">&times;</button>
+                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; background: #fff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; font-size: 1.2rem; color: #333;">信箱</h3>
+                        <button id="close-mailbox" style="border: none; background: none; font-size: 1.8rem; cursor: pointer; color: #999; line-height: 1;">&times;</button>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <button id="tab-inbox" class="mailbox-tab active" style="padding: 0.5rem 1rem; border: none; background: none; cursor: pointer; font-weight: 500; border-bottom: 2px solid #007aff; color: #007aff;">收件箱</button>
+                        <button id="tab-sent" class="mailbox-tab" style="padding: 0.5rem 1rem; border: none; background: none; cursor: pointer; font-weight: 500; color: #666; border-bottom: 2px solid transparent;">已发送</button>
+                    </div>
                 </div>
                 <div id="message-list" style="flex: 1; overflow-y: auto; padding: 1.5rem; background: #f5f7fa; display: flex; flex-direction: column; gap: 1rem;">
                     <div style="text-align: center; color: #888;">加载中...</div>
@@ -92,13 +98,41 @@ const Mailbox = (() => {
         });
         document.getElementById('close-mailbox').onclick = close;
         document.getElementById('send-message-btn').onclick = sendMessage;
+        
+        document.getElementById('tab-inbox').onclick = () => switchTab('inbox');
+        document.getElementById('tab-sent').onclick = () => switchTab('sent');
 
         modal = div;
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        
+        // Update UI
+        const inboxBtn = document.getElementById('tab-inbox');
+        const sentBtn = document.getElementById('tab-sent');
+        
+        if (tab === 'inbox') {
+            inboxBtn.style.color = '#007aff';
+            inboxBtn.style.borderBottom = '2px solid #007aff';
+            sentBtn.style.color = '#666';
+            sentBtn.style.borderBottom = '2px solid transparent';
+        } else {
+            sentBtn.style.color = '#007aff';
+            sentBtn.style.borderBottom = '2px solid #007aff';
+            inboxBtn.style.color = '#666';
+            inboxBtn.style.borderBottom = '2px solid transparent';
+        }
+        
+        renderMessages();
     }
 
     function open() {
         if (!modal) createModal();
         modal.style.display = 'flex';
+        
+        // Default to inbox
+        switchTab('inbox');
         
         // Update UI based on role
         const isAdmin = Auth.isAdmin();
@@ -138,11 +172,9 @@ const Mailbox = (() => {
             const data = await res.json();
 
             if (data.success) {
-                // Log for debugging
-                console.log("Server Debug Info:", data.debug_info);
-                console.log("Server sees current user as:", data.currentUser);
-                console.log("Is Admin:", data.isAdmin);
-                renderMessages(data.messages, data.isAdmin);
+                cachedMessages = data.messages || [];
+                cachedIsAdmin = data.isAdmin;
+                renderMessages();
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }
@@ -152,19 +184,46 @@ const Mailbox = (() => {
         }
     }
 
-    function renderMessages(messages, isAdmin) {
+    function renderMessages() {
         const list = document.getElementById('message-list');
         list.innerHTML = '';
+        
+        const messages = cachedMessages;
+        const isAdmin = cachedIsAdmin;
 
         if (!messages || messages.length === 0) {
             list.innerHTML = '<div style="text-align: center; color: #999; padding-top: 3rem;">暂无消息</div>';
             return;
         }
 
+        // Filter based on currentTab
+        // Inbox: !isMe
+        // Sent: isMe
+        const filteredMsgs = messages.filter(msg => {
+            if (currentTab === 'inbox') return !msg.isMe;
+            if (currentTab === 'sent') return msg.isMe;
+            return true;
+        });
+        
+        if (filteredMsgs.length === 0) {
+             list.innerHTML = `<div style="text-align: center; color: #999; padding-top: 3rem;">${currentTab === 'inbox' ? '没有收到的消息' : '没有发送的消息'}</div>`;
+             return;
+        }
+
         // Messages are sorted by timestamp asc (oldest -> newest) in backend.
-        // We want to display oldest at top, newest at bottom like chat.
-        // So we use the order as is.
-        const sortedMsgs = messages;
+        // We want to display newest at top? Or chat style (newest at bottom)?
+        // User asked for "modules", which implies a list. Usually lists (email style) are newest at top.
+        // Chat style is newest at bottom.
+        // The previous implementation was chat style (scrolled to bottom).
+        // If we split into inbox/sent, email style (newest top) is often better.
+        // But let's stick to the previous visual style (bubbles) for now, which usually implies chat style.
+        // However, with "Inbox" and "Sent", it feels more like email.
+        // Let's reverse the order for display so newest is at the top, which makes more sense for a "List" view.
+        // Actually, if I keep bubbles, maybe chat style is still better?
+        // "Inbox" usually implies a list of threads or messages.
+        // Let's try Newest at Top for this "Inbox/Sent" view.
+        
+        const sortedMsgs = [...filteredMsgs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         sortedMsgs.forEach(msg => {
             // Use server-side calculated isMe
@@ -173,6 +232,9 @@ const Mailbox = (() => {
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = 'column';
+            // If inbox (received), align left. If sent, align right?
+            // Or just align everything left since it's a list now?
+            // Let's keep the alignment for visual cue.
             item.style.alignItems = isMe ? 'flex-end' : 'flex-start';
             item.style.maxWidth = '100%';
 
@@ -187,7 +249,7 @@ const Mailbox = (() => {
             
             // Visual distinction for Announcement vs Private Message
             if (msg.isAnnouncement) {
-                // Announcement Style (e.g., Gold/Yellow tint if from Admin, or just distinct border)
+                // Announcement Style
                 if (isMe) {
                      // Admin viewing their own announcement
                      bubble.style.backgroundColor = '#f0ad4e'; // Orange-ish
@@ -228,7 +290,25 @@ const Mailbox = (() => {
                 senderName += ' (全员公告)';
             }
             
-            meta.textContent = isMe ? `${time}` : `${senderName} · ${time}`;
+            // In Sent tab (isMe), we might want to see "To: Receiver"?
+            // Current backend response structure for 'receiver' might be needed.
+            // Backend returns message object.
+            // If isMe, sender is me. Receiver is...
+            // Let's check api/index.js.
+            // It returns messages. The schema has sender and receiver.
+            // If I am sender, I want to see who I sent to.
+            // But receiver might be 'admin' or 'all_users' or specific user.
+            
+            if (isMe) {
+                // In Sent box
+                let target = msg.receiver;
+                if (target === 'admin') target = '管理员';
+                if (target === 'all_users') target = '所有用户';
+                meta.textContent = `发送给 ${target} · ${time}`;
+            } else {
+                // In Inbox
+                meta.textContent = `${senderName} · ${time}`;
+            }
 
             // Allow admin to delete their own messages
             if (isMe && isAdmin) {
@@ -266,10 +346,8 @@ const Mailbox = (() => {
             }
         });
         
-        // Scroll to bottom
-        setTimeout(() => {
-            list.scrollTop = list.scrollHeight;
-        }, 0);
+        // No auto-scroll to bottom for Newest-at-Top list style
+        list.scrollTop = 0;
     }
 
     async function sendMessage() {
@@ -295,7 +373,8 @@ const Mailbox = (() => {
 
             if (data.success) {
                 input.value = '';
-                await loadMessages(); // Reload to see new message
+                await loadMessages(); // Reload data
+                switchTab('sent');    // Switch to sent tab to show new message
             } else {
                 console.error('Send failed:', data);
                 alert(`发送失败: ${data.error || '未知错误'}`);

@@ -1470,22 +1470,33 @@ const HKWL = (() => {
       }
     });
 
-    if (listEl.children.length === 0) {
-      const emptyDiv = document.createElement("div");
-      emptyDiv.className = "empty-state";
-      if (list.length > 0) {
-          emptyDiv.innerHTML = `
-            <p>🎉 所有愿望都已安排！</p>
-            <p>查看右侧行程表</p>
-          `;
-      } else {
-          emptyDiv.innerHTML = `
-            <p>还没有任何旅行愿望哦</p>
-            <p>点击右下角“+”添加一个吧！</p>
-          `;
+    function updateWishlistEmptyState() {
+      const existingEmpty = listEl.querySelector(".empty-state");
+      if (existingEmpty) {
+        existingEmpty.remove();
       }
-      listEl.appendChild(emptyDiv);
+
+      const hasCards = listEl.querySelector(".card");
+      if (!hasCards) {
+          const currentList = loadWishlist();
+          const emptyDiv = document.createElement("div");
+          emptyDiv.className = "empty-state";
+          if (currentList.length > 0) {
+              emptyDiv.innerHTML = `
+                <p>🎉 所有愿望都已安排！</p>
+                <p>查看右侧行程表</p>
+              `;
+          } else {
+              emptyDiv.innerHTML = `
+                <p>还没有任何旅行愿望哦</p>
+                <p>点击右下角“+”添加一个吧！</p>
+              `;
+          }
+          listEl.appendChild(emptyDiv);
+      }
     }
+
+    updateWishlistEmptyState();
 
     if (planDaysEl) {
       renderPlanDayTabs();
@@ -1846,6 +1857,7 @@ const HKWL = (() => {
             ) {
               sourceEl.parentElement.removeChild(sourceEl);
             }
+            updateWishlistEmptyState();
 
             const orderedIds = getPlanOrderedIds();
             applyPlanIds(orderedIds);
@@ -1919,6 +1931,7 @@ const HKWL = (() => {
 
             const newOrderedIds = getMainOrderedIds();
             reorderWishlist(newOrderedIds);
+            updateWishlistEmptyState();
           }
         } else if (from === "main") {
           const newOrderedIds = getMainOrderedIds();

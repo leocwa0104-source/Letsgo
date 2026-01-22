@@ -200,7 +200,7 @@ const HKWL = (() => {
     }
     
     // Return the promise so callers can await if needed
-    return CloudSync.pushData(data).catch(e => console.error("Cloud push failed", e));
+    return CloudSync.pushData(data);
   }
 
   async function syncFromCloud() {
@@ -325,23 +325,25 @@ const HKWL = (() => {
     }
   }
 
-  async function saveSettings(settings) {
+  async function saveSettings(settings, planId) {
     try {
       window.localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
       
+      const targetId = planId || currentPlanId;
+
       // Update plan title in index unconditionally to ensure consistency
       if (settings.title) {
           const plans = getPlans();
-          const plan = plans.find(p => p.id === currentPlanId);
+          const plan = plans.find(p => p.id === targetId);
           
           if (plan) {
               plan.title = settings.title;
               window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
           } else {
-              console.warn(`Plan ${currentPlanId} not found in index, reloading plans...`);
+              console.warn(`Plan ${targetId} not found in index, reloading plans...`);
               // Double check with fresh read
               const freshPlans = JSON.parse(window.localStorage.getItem(getPlanIndexKey()) || '[]');
-              const freshPlan = freshPlans.find(p => p.id === currentPlanId);
+              const freshPlan = freshPlans.find(p => p.id === targetId);
               if (freshPlan) {
                   freshPlan.title = settings.title;
                   window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
@@ -351,6 +353,7 @@ const HKWL = (() => {
       return await syncToCloud();
     } catch (e) {
       console.error("保存设置失败", e);
+      return { error: e.message };
     }
   }
 
@@ -2709,11 +2712,17 @@ const HKWL = (() => {
           saveBtn.textContent = "保存中...";
       }
       
-      await saveSettings(newSettings);
+      const res = await saveSettings(newSettings, currentPlanId);
       
       if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.textContent = originalText;
+      }
+
+      if (res && res.error) {
+          showToast("同步失败，请检查网络", "error");
+          console.error("Save/Sync failed", res.error);
+          return;
       }
 
       showToast(isNew ? "计划已创建" : "设置已保存", "success");

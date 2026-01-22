@@ -118,9 +118,13 @@
   <script src="auth-manager.js"></script>
   <script src="mailbox.js"></script>
   <script src="manual.js"></script>
+  <script src="notice.js"></script>
   <script src="main.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", async function () {
+      // Initialize Notice Check
+      await NoticeViewer.checkAndShowNotice();
+
       const grid = document.querySelector('.plan-grid');
       
       function renderPlans() {

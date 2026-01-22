@@ -36,6 +36,15 @@
         <button type="button" id="save-manual-btn" class="btn btn-secondary" style="width: auto;">保存说明</button>
       </section>
 
+      <section id="notice-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>编辑全站告示</h2>
+        <p style="color: #666; margin-bottom: 1rem;">发布新的告示。用户下次登录时会自动看到此告示。</p>
+        <div class="form-group">
+            <textarea id="notice-editor" rows="6" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="输入告示内容..."></textarea>
+        </div>
+        <button type="button" id="save-notice-btn" class="btn btn-secondary" style="width: auto;">发布告示</button>
+      </section>
+
       <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
         <a href="index.html" class="btn btn-secondary">返回首页</a>
       </div>
@@ -129,6 +138,52 @@
           } finally {
               saveManualBtn.disabled = false;
               saveManualBtn.textContent = "保存说明";
+          }
+      });
+
+      // Notice Editor Logic
+      const noticeEditor = document.getElementById('notice-editor');
+      const saveNoticeBtn = document.getElementById('save-notice-btn');
+
+      // Load notice content
+      try {
+          const res = await fetch('/api/notice');
+          const data = await res.json();
+          if (data.success && data.content) {
+              noticeEditor.value = data.content;
+          }
+      } catch (e) {
+          console.error("Failed to load notice:", e);
+      }
+
+      // Save notice
+      saveNoticeBtn.addEventListener('click', async () => {
+          const content = noticeEditor.value;
+          
+          saveNoticeBtn.disabled = true;
+          saveNoticeBtn.textContent = "发布中...";
+          
+          try {
+              const res = await fetch('/api/notice', {
+                  method: 'PUT',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                  },
+                  body: JSON.stringify({ content })
+              });
+              const data = await res.json();
+              
+              if(data.success) {
+                  alert("发布成功！用户下次登录将看到此告示。");
+              } else {
+                  alert("发布失败: " + data.error);
+              }
+          } catch(e) {
+              alert("错误: " + e.message);
+          } finally {
+              saveNoticeBtn.disabled = false;
+              saveNoticeBtn.textContent = "发布告示";
           }
       });
     });

@@ -9,6 +9,7 @@ const User = require('./models/User');
 const UserData = require('./models/UserData');
 const Message = require('./models/Message');
 const Manual = require('./models/Manual');
+const Notice = require('./models/Notice');
 
 const app = express();
 app.use(cors());
@@ -82,12 +83,21 @@ router.get('/', (req, res) => {
 });
 
 // Auth Status Check
-router.get('/auth/status', authenticate, (req, res) => {
-  const currentUsername = req.user.username;
-  const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
-  const isAdmin = adminUsername && currentUsername === adminUsername;
-  
-  res.json({ success: true, username: currentUsername, isAdmin });
+router.get('/auth/status', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+    
+    // Fetch latest user data to get lastNoticeSeenAt
+    const user = await User.findById(req.user.id);
+    const lastNoticeSeenAt = user ? user.lastNoticeSeenAt : null;
+    
+    res.json({ success: true, username: currentUsername, isAdmin, lastNoticeSeenAt });
+  } catch (e) {
+    console.error('Auth Status Error:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Register
@@ -402,6 +412,72 @@ router.put('/manual', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error('Update Manual Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Notice Routes ---
+
+// Get Notice
+router.get('/notice', async (req, res) => {
+  try {
+    const notice = await Notice.findOne();
+    res.json({ 
+      success: true, 
+      content: notice ? notice.content : '',
+      lastUpdated: notice ? notice.lastUpdated : null 
+    });
+  } catch (e) {
+    console.error('Get Notice Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update Notice (Admin Only)
+router.put('/notice', authenticate, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足：只有管理员可以编辑告示' });
+    }
+
+    let notice = await Notice.findOne();
+    if (notice) {
+      notice.content = content;
+      notice.lastUpdated = Date.now();
+      notice.updatedBy = currentUsername;
+    } else {
+      notice = new Notice({
+        content,
+        updatedBy: currentUsername
+      });
+    }
+
+    await notice.save();
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Update Notice Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Acknowledge Notice (User has seen it)
+router.post('/notice/ack', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.lastNoticeSeenAt = Date.now();
+    await user.save();
+    
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Ack Notice Error:', e);
     res.status(500).json({ error: e.message });
   }
 });

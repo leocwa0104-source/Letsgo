@@ -85,6 +85,22 @@ const HKWL = (() => {
                       }
                   };
                   userDiv.appendChild(mailboxBtn);
+
+                  // Notice Board Button
+                  const noticeBtn = document.createElement('button');
+                  noticeBtn.textContent = '最新告示';
+                  noticeBtn.style.background = 'rgba(255,255,255,0.2)';
+                  noticeBtn.style.border = 'none';
+                  noticeBtn.style.color = 'white';
+                  noticeBtn.style.padding = '0.3rem 0.8rem';
+                  noticeBtn.style.borderRadius = '4px';
+                  noticeBtn.style.cursor = 'pointer';
+                  noticeBtn.onclick = () => {
+                      if (typeof NoticeViewer !== 'undefined') {
+                          NoticeViewer.openNoticeBoard();
+                      }
+                  };
+                  userDiv.appendChild(noticeBtn);
                   
                   // Initialize Badge
                   if (typeof Mailbox !== 'undefined') {

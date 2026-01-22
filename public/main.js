@@ -299,7 +299,7 @@ const HKWL = (() => {
     }
   }
 
-  function saveSettings(settings) {
+  async function saveSettings(settings) {
     try {
       window.localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
       // Update plan title in index if changed
@@ -308,10 +308,11 @@ const HKWL = (() => {
           const plan = plans.find(p => p.id === currentPlanId);
           if (plan && plan.title !== settings.title) {
               plan.title = settings.title;
-              savePlans(plans);
+              // Directly save to localStorage to avoid double sync
+              window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
           }
       }
-      syncToCloud();
+      return await syncToCloud();
     } catch (e) {
       console.error("保存设置失败", e);
     }

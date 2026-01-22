@@ -339,6 +339,37 @@ router.put('/messages/:id/read', authenticate, async (req, res) => {
   }
 });
 
+// Delete Message (Admin Only)
+router.delete('/messages/:id', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '只有管理员可以撤回消息' });
+    }
+
+    const message = await Message.findById(req.params.id);
+    if (!message) return res.status(404).json({ error: '消息不存在' });
+
+    // Ensure admin can only delete their own messages (optional, but requested "retract own messages")
+    // If the requirement is "admin can delete ANY message", we remove this check.
+    // The prompt says "admin can retract THEIR OWN messages".
+    if (message.sender !== currentUsername) {
+      return res.status(403).json({ error: '只能撤回自己发送的消息' });
+    }
+
+    await Message.findByIdAndDelete(req.params.id);
+    console.log(`[Delete Message] Admin ${currentUsername} deleted message ${req.params.id}`);
+    
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete Message Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Mount router at /api AND / (to handle Vercel rewrites robustly)
 app.use('/api', router);
 app.use('/', router);

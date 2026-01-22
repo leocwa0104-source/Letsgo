@@ -142,7 +142,7 @@ const Mailbox = (() => {
                 console.log("Server Debug Info:", data.debug_info);
                 console.log("Server sees current user as:", data.currentUser);
                 console.log("Is Admin:", data.isAdmin);
-                renderMessages(data.messages);
+                renderMessages(data.messages, data.isAdmin);
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }
@@ -152,7 +152,7 @@ const Mailbox = (() => {
         }
     }
 
-    function renderMessages(messages) {
+    function renderMessages(messages, isAdmin) {
         const list = document.getElementById('message-list');
         list.innerHTML = '';
 
@@ -230,6 +230,26 @@ const Mailbox = (() => {
             
             meta.textContent = isMe ? `${time}` : `${senderName} · ${time}`;
 
+            // Allow admin to delete their own messages
+            if (isMe && isAdmin) {
+                const deleteBtn = document.createElement('span');
+                deleteBtn.textContent = ' 撤回';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.marginLeft = '0.5rem';
+                deleteBtn.style.color = 'rgba(255, 255, 255, 0.9)'; // White on blue background
+                deleteBtn.style.fontSize = '0.75rem';
+                deleteBtn.style.textDecoration = 'underline';
+                deleteBtn.title = '撤回这条消息';
+                
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if(confirm('确定要撤回这条消息吗？')) {
+                        deleteMessage(msg._id);
+                    }
+                };
+                meta.appendChild(deleteBtn);
+            }
+
             const content = document.createElement('div');
             content.style.wordBreak = 'break-word';
             content.style.whiteSpace = 'pre-wrap';
@@ -297,6 +317,24 @@ const Mailbox = (() => {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
         } catch (e) { console.error(e); }
+    }
+
+    async function deleteMessage(id) {
+        try {
+            const res = await fetch(`/api/messages/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            if (data.success) {
+                loadMessages(); // Reload list
+            } else {
+                alert('撤回失败: ' + (data.error || '未知错误'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('网络错误，撤回失败');
+        }
     }
 
     return {

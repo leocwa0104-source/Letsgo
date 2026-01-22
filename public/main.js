@@ -35,6 +35,21 @@ const HKWL = (() => {
               // Only show System Settings button on Index page (Home)
               const path = window.location.pathname;
               if (path.endsWith('index.html') || path === '/' || path.endsWith('/')) {
+                  const manualBtn = document.createElement('button');
+                  manualBtn.textContent = '使用说明';
+                  manualBtn.style.background = 'rgba(255,255,255,0.2)';
+                  manualBtn.style.border = 'none';
+                  manualBtn.style.color = 'white';
+                  manualBtn.style.padding = '0.3rem 0.8rem';
+                  manualBtn.style.borderRadius = '4px';
+                  manualBtn.style.cursor = 'pointer';
+                  manualBtn.onclick = () => {
+                      if (typeof Manual !== 'undefined') {
+                          Manual.open();
+                      }
+                  };
+                  userDiv.appendChild(manualBtn);
+
                   const mailboxBtn = document.createElement('button');
                   mailboxBtn.textContent = '信箱';
                   mailboxBtn.style.position = 'relative';

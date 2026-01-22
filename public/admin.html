@@ -27,6 +27,15 @@
         <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: auto;">创建账号</button>
       </section>
 
+      <section id="manual-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>编辑使用说明</h2>
+        <p style="color: #666; margin-bottom: 1rem;">在此处编辑网站的使用说明内容。</p>
+        <div class="form-group">
+            <textarea id="manual-editor" rows="10" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; resize: vertical;" placeholder="输入使用说明内容..."></textarea>
+        </div>
+        <button type="button" id="save-manual-btn" class="btn btn-secondary" style="width: auto;">保存说明</button>
+      </section>
+
       <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
         <a href="index.html" class="btn btn-secondary">返回首页</a>
       </div>
@@ -74,6 +83,52 @@
           } finally {
               btn.disabled = false;
               btn.textContent = "创建账号";
+          }
+      });
+
+      // Manual Editor Logic
+      const manualEditor = document.getElementById('manual-editor');
+      const saveManualBtn = document.getElementById('save-manual-btn');
+
+      // Load content
+      try {
+          const res = await fetch('/api/manual');
+          const data = await res.json();
+          if (data.success && data.content) {
+              manualEditor.value = data.content;
+          }
+      } catch (e) {
+          console.error("Failed to load manual:", e);
+      }
+
+      // Save content
+      saveManualBtn.addEventListener('click', async () => {
+          const content = manualEditor.value;
+          
+          saveManualBtn.disabled = true;
+          saveManualBtn.textContent = "保存中...";
+          
+          try {
+              const res = await fetch('/api/manual', {
+                  method: 'PUT',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                  },
+                  body: JSON.stringify({ content })
+              });
+              const data = await res.json();
+              
+              if(data.success) {
+                  alert("保存成功！");
+              } else {
+                  alert("保存失败: " + data.error);
+              }
+          } catch(e) {
+              alert("错误: " + e.message);
+          } finally {
+              saveManualBtn.disabled = false;
+              saveManualBtn.textContent = "保存说明";
           }
       });
     });

@@ -18,6 +18,11 @@
         <a href="index.html" style="color: white; text-decoration: none; margin-right: 1rem; font-size: 1.5rem;">&larr;</a>
         <h1>旅行清单</h1>
     </div>
+    
+    <div class="mode-switcher">
+        <a href="#" class="mode-btn active">积木模式</a>
+        <a href="map-view.html" id="mode-map-btn" class="mode-btn">地图模式</a>
+    </div>
   </header>
 
   <main class="container layout-main">
@@ -35,7 +40,6 @@
           <h2 style="margin: 0;">计划列表</h2>
           <div style="display: flex; gap: 10px;">
             <button onclick="HKWL.autoGenerateTransports()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; background-color: #28a745; color: white; border: none;">✨ 智能交通</button>
-            <a href="map-view.html" id="map-btn" class="btn btn-primary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">🗺 生成地图</a>
           </div>
       </div>
       <div id="plan-days" class="plan-days"></div>
@@ -106,9 +110,9 @@
                   a.href += `?planId=${planId}`;
               }
           });
-          const mapBtn = document.getElementById('map-btn');
-          if (mapBtn) {
-              mapBtn.href += `?id=${planId}`;
+          const modeMapBtn = document.getElementById('mode-map-btn');
+          if (modeMapBtn) {
+            modeMapBtn.href += `?id=${planId}`;
           }
       }
     });

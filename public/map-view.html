@@ -119,10 +119,20 @@
   <script src="https://webapi.amap.com/loader.js"></script>
 </head>
 <body>
-  <div class="map-container">
-    <div class="controls">
-      <a href="#" id="back-link" class="back-btn">&larr; 返回</a>
-      <h1>定制旅游地图</h1>
+  <header class="site-header">
+    <div style="display: flex; align-items: center;">
+        <a href="index.html" style="color: white; text-decoration: none; margin-right: 1rem; font-size: 1.5rem;">&larr;</a>
+        <h1>定制旅游地图</h1>
+    </div>
+    
+    <div class="mode-switcher">
+        <a href="planner.html" id="mode-block-btn" class="mode-btn">积木模式</a>
+        <a href="#" class="mode-btn active">地图模式</a>
+    </div>
+  </header>
+
+  <div class="map-container" style="height: calc(100vh - 70px); margin-top: 0;">
+    <div class="controls" style="justify-content: flex-end;">
       <div class="day-selector">
         <select id="day-select">
           <option value="all">全部行程</option>
@@ -148,8 +158,10 @@
 
       // Initialize Data
       HKWL.setCurrentPlan(planId);
-      const backLink = document.getElementById('back-link');
-      backLink.href = `planner.html?id=${planId}`;
+      const modeBlockBtn = document.getElementById('mode-block-btn');
+      if (modeBlockBtn) {
+          modeBlockBtn.href = `planner.html?id=${planId}`;
+      }
 
       const state = HKWL.loadPlanState();
       const allItems = HKWL.loadWishlist();

@@ -101,7 +101,9 @@ const Mailbox = (() => {
             const data = await res.json();
 
             if (data.success) {
-                renderMessages(data.messages, data.currentUser);
+                // Log for debugging
+                console.log("Server sees current user as:", data.debug_user);
+                renderMessages(data.messages);
             } else {
                 list.innerHTML = `<div style="text-align: center; color: #ff4d4f;">加载失败: ${data.error}</div>`;
             }
@@ -111,7 +113,7 @@ const Mailbox = (() => {
         }
     }
 
-    function renderMessages(messages, serverCurrentUser) {
+    function renderMessages(messages) {
         const list = document.getElementById('message-list');
         list.innerHTML = '';
 
@@ -125,21 +127,9 @@ const Mailbox = (() => {
         // So let's reverse them for display.
         const sortedMsgs = [...messages].reverse();
         
-        // Priority: Use server-provided user identity, fallback to local
-        let currentUser = serverCurrentUser;
-        if (!currentUser) {
-             currentUser = Auth.getCurrentUser();
-        }
-        
-        // Normalize currentUser
-        if (currentUser) currentUser = currentUser.toLowerCase();
-
         sortedMsgs.forEach(msg => {
-            // Robust comparison
-            let sender = msg.sender;
-            if (sender) sender = sender.toLowerCase();
-            
-            const isMe = currentUser && sender === currentUser;
+            // Use server-side calculated isMe
+            const isMe = msg.isMe;
             
             const item = document.createElement('div');
             item.style.display = 'flex';

@@ -247,10 +247,11 @@ router.get('/messages', authenticate, async (req, res) => {
       
       return {
         ...msg,
-        _id: msg._id.toString(), // Ensure ID is string
+        _id: msg._id.toString(),
         isRead: msg.readBy ? msg.readBy.includes(req.user.username) : false,
         senderIsAdmin: isSenderAdmin,
-        // Pre-calculate display name
+        // Calculate isMe on server side - STRICTLY
+        isMe: msg.sender === req.user.username,
         senderDisplay: isSenderAdmin ? '管理员' : msg.sender
       };
     });
@@ -258,7 +259,8 @@ router.get('/messages', authenticate, async (req, res) => {
     res.json({ 
       success: true, 
       messages: result,
-      currentUser: req.user.username // Explicitly tell client who they are authenticated as
+      // Debug info to verify server sees correct user
+      debug_user: req.user.username 
     });
   } catch (e) {
     console.error('Get Messages Error:', e);

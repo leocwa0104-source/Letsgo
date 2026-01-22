@@ -107,10 +107,24 @@ const Mailbox = (() => {
         // We usually want to display oldest at top, newest at bottom like chat.
         // So let's reverse them for display.
         const sortedMsgs = [...messages].reverse();
-        const currentUser = Auth.getCurrentUser();
+        let currentUser = Auth.getCurrentUser();
+        
+        // Fallback: try to parse token if currentUser is null
+        if (!currentUser) {
+             const token = localStorage.getItem('hkwl_auth_token');
+             if (token) {
+                 try {
+                     const parts = token.split(':');
+                     if (parts.length > 1) {
+                         currentUser = decodeURIComponent(parts.slice(1).join(':'));
+                     }
+                 } catch(e) { console.error("Token parse error", e); }
+             }
+        }
 
         sortedMsgs.forEach(msg => {
-            const isMe = msg.sender === currentUser;
+            // Robust comparison using lower case
+            const isMe = currentUser && msg.sender.toLowerCase() === currentUser.toLowerCase();
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = 'column';
@@ -142,7 +156,10 @@ const Mailbox = (() => {
             meta.style.opacity = '0.8';
             
             const time = new Date(msg.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            meta.textContent = isMe ? `${time}` : `${msg.sender} · ${time}`;
+            
+            // Use senderIsAdmin flag from backend if available, or just sender name
+            const senderName = msg.senderIsAdmin ? '管理员' : msg.sender;
+            meta.textContent = isMe ? `${time}` : `${senderName} · ${time}`;
 
             const content = document.createElement('div');
             content.style.wordBreak = 'break-word';

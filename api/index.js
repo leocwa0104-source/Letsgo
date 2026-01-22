@@ -234,9 +234,11 @@ router.get('/messages', authenticate, async (req, res) => {
     const messages = await Message.find(query).sort({ timestamp: -1 }).limit(50);
     
     // Add a flag to indicate if the message is read by the current user
+    const adminUsername = process.env.ADMIN_USERNAME;
     const result = messages.map(msg => ({
       ...msg.toObject(),
-      isRead: msg.readBy.includes(req.user.username)
+      isRead: msg.readBy.includes(req.user.username),
+      senderIsAdmin: msg.sender === adminUsername
     }));
 
     res.json({ success: true, messages: result });

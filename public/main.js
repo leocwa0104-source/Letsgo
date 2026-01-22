@@ -76,6 +76,36 @@ const HKWL = (() => {
                       Mailbox.setBadge(badge);
                   }
 
+                  // Admin Console Button (Only for Admins)
+                  const checkAndAddAdminBtn = async () => {
+                      let isAdmin = Auth.isAdmin();
+                      // Double check if false (might be cache issue)
+                      if (!isAdmin) {
+                          isAdmin = await Auth.refreshAdminStatus();
+                      }
+                      
+                      if (isAdmin) {
+                          const adminBtn = document.createElement('button');
+                          adminBtn.textContent = '管理员控制台';
+                          adminBtn.style.background = '#0c5da5';
+                          adminBtn.style.border = 'none';
+                          adminBtn.style.color = 'white';
+                          adminBtn.style.padding = '0.3rem 0.8rem';
+                          adminBtn.style.borderRadius = '4px';
+                          adminBtn.style.cursor = 'pointer';
+                          adminBtn.style.marginLeft = '0.5rem';
+                          adminBtn.onclick = () => {
+                              window.location.href = 'admin.html';
+                          };
+                          // Insert before Settings button if possible, or append
+                          if (userDiv.contains(settingsBtn)) {
+                              userDiv.insertBefore(adminBtn, settingsBtn);
+                          } else {
+                              userDiv.appendChild(adminBtn);
+                          }
+                      }
+                  };
+                  
                   const settingsBtn = document.createElement('button');
                   settingsBtn.textContent = '系统设置';
                   settingsBtn.style.background = 'rgba(255,255,255,0.2)';
@@ -88,6 +118,9 @@ const HKWL = (() => {
                       window.location.href = 'system-settings.html';
                   };
                   userDiv.appendChild(settingsBtn);
+                  
+                  // Trigger admin check
+                  checkAndAddAdminBtn();
               } else if (path.endsWith('planner.html')) {
                   const settingsBtn = document.createElement('button');
                   settingsBtn.textContent = '设置';

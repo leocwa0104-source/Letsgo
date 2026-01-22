@@ -1473,10 +1473,17 @@ const HKWL = (() => {
     if (listEl.children.length === 0) {
       const emptyDiv = document.createElement("div");
       emptyDiv.className = "empty-state";
-      emptyDiv.innerHTML = `
-        <p>还没有任何旅行愿望哦</p>
-        <p>点击右下角“+”添加一个吧！</p>
-      `;
+      if (list.length > 0) {
+          emptyDiv.innerHTML = `
+            <p>🎉 所有愿望都已安排！</p>
+            <p>查看右侧行程表</p>
+          `;
+      } else {
+          emptyDiv.innerHTML = `
+            <p>还没有任何旅行愿望哦</p>
+            <p>点击右下角“+”添加一个吧！</p>
+          `;
+      }
       listEl.appendChild(emptyDiv);
     }
 

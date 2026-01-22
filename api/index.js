@@ -208,6 +208,12 @@ router.post('/data', authenticate, async (req, res) => {
 
 // Get Messages
 router.get('/messages', authenticate, async (req, res) => {
+  // Prevent caching to ensure isMe logic is always correct for the current user
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+
   try {
     const isAdmin = process.env.ADMIN_USERNAME === req.user.username;
     let query = {};

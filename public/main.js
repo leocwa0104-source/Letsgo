@@ -745,7 +745,7 @@ const HKWL = (() => {
     let planIds = planState.days[currentDay - 1] || [];
     const collapsedIds = new Set(loadCollapsedIds());
 
-    if (!listEl || !clearBtn) {
+    if (!listEl) {
       return;
     }
 

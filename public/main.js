@@ -615,7 +615,6 @@ const HKWL = (() => {
     }
     let list = loadWishlist();
     const listEl = document.getElementById("wish-list");
-    const clearBtn = document.getElementById("clear-all");
     const planListEl = document.getElementById("plan-list");
     const planDaysEl = document.getElementById("plan-days");
     if (planDaysEl) {
@@ -2026,23 +2025,6 @@ const HKWL = (() => {
     if (planListEl) {
       planListEl.addEventListener("pointerdown", handlePointerDown);
     }
-
-    clearBtn.addEventListener("click", () => {
-      if (window.confirm("确定要清空本地的全部旅行项目吗？该操作不可恢复。")) {
-        saveWishlist([]);
-        planState = createEmptyPlanState();
-        currentDay = planState.currentDay;
-        planIds = planState.days[currentDay - 1] || [];
-        savePlanState(planState);
-        listEl.innerHTML = "";
-        if (planListEl) {
-          planListEl.innerHTML = "";
-        }
-        if (planDaysEl) {
-          renderPlanDayTabs();
-        }
-      }
-    });
   }
 
   function initManagePage() {

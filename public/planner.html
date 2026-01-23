@@ -98,6 +98,40 @@
       padding-bottom: 2rem;
       width: auto;
     }
+
+    /* Mobile Responsive Fixes */
+    @media (max-width: 768px) {
+      #block-view.layout-main {
+        flex-direction: column;
+        padding: 0.5rem;
+        gap: 0.5rem;
+      }
+
+      /* Taskbar (Top) */
+      #block-view .main-column {
+        width: 100%;
+        height: 35%; /* Fixed height for top section */
+        min-height: 200px; /* Minimum useful height */
+        padding: 0.8rem;
+        border-bottom: 1px solid #e0e0e0;
+        box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);
+      }
+      
+      /* Make Wish List scrollable within the limited height */
+      #wish-list {
+         flex: 1;
+         overflow-y: auto;
+         min-height: 0; /* Crucial for nested flex scrolling */
+      }
+
+      /* Plan List (Bottom) */
+      #block-view .side-column {
+        width: 100%;
+        height: auto;
+        flex: 1; /* Fill remaining vertical space */
+        padding: 0.5rem;
+      }
+    }
     
     /* Map Styles */
     .map-container {

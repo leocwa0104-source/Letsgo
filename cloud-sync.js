@@ -63,6 +63,16 @@ const CloudSync = (() => {
       if (body) opts.body = JSON.stringify(body);
       
       const res = await fetch(fullUrl, opts);
+      
+      // Handle 401 Unauthorized (Token invalid or User deleted)
+      if (res.status === 401) {
+          console.warn("[CloudSync] 401 Unauthorized received. Logging out.");
+          setToken(null);
+          sessionStorage.clear(); // Clear all session data
+          window.location.replace("login.html");
+          return { error: "Authentication failed. Please login again." };
+      }
+
       // Handle network errors or server offline
       if (!res) throw new Error("Network error");
       
@@ -99,6 +109,10 @@ const CloudSync = (() => {
       return await request("/change-password", "POST", { newPassword });
     },
 
+    updateProfile: async (nickname, avatar) => {
+      return await request("/update-profile", "POST", { nickname, avatar });
+    },
+
     login: async (username, password) => {
       const res = await request("/login", "POST", { username, password });
       if (res.success && res.token) {
@@ -120,13 +134,75 @@ const CloudSync = (() => {
     // Pull data from server
     pullData: async () => {
       if (!token) return { error: "Not logged in" };
-      return await request("/data", "GET");
+      return await request(`/data?t=${Date.now()}`, "GET");
     },
 
     // Check auth status
     checkStatus: async () => {
       if (!token) return { success: false, error: "Not logged in" };
       return await request("/auth/status", "GET");
+    },
+
+    // --- Plan Collaboration APIs ---
+    
+    getPlans: async () => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans?t=${Date.now()}`, "GET");
+    },
+    
+    createPlan: async (title, content, status) => {
+      if (!token) return { error: "Not logged in" };
+      return await request("/plans", "POST", { title, content, status });
+    },
+    
+    getPlan: async (id) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${id}?t=${Date.now()}`, "GET");
+    },
+    
+    updatePlan: async (id, title, content, status) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${id}`, "PUT", { title, content, status });
+    },
+    
+    inviteFriend: async (planId, friendId) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${planId}/invite`, "POST", { friendId });
+    },
+
+    approveInvitation: async (planId, inviteeId) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${planId}/invitations/approve`, "POST", { inviteeId });
+    },
+
+    rejectInvitation: async (planId, inviteeId) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${planId}/invitations/reject`, "POST", { inviteeId });
+    },
+
+    respondFriendRequest: async (requesterUsername, action) => {
+        if (!token) return { error: "Not logged in" };
+        return await request("/friends/respond", "POST", { requesterUsername, action });
+    },
+
+    markMessageRead: async (messageId) => {
+        if (!token) return { error: "Not logged in" };
+        return await request(`/messages/${messageId}/read`, "PUT", {});
+    },
+    
+    removeCollaborator: async (planId, collaboratorId) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${planId}/collaborators/remove`, "POST", { collaboratorId });
+    },
+    
+    leavePlan: async (planId) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${planId}/leave`, "POST", {});
+    },
+    
+    deletePlan: async (id) => {
+      if (!token) return { error: "Not logged in" };
+      return await request(`/plans/${id}`, "DELETE");
     }
   };
 })();

@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>我 - shineshone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+  </script>
+  <script src="https://webapi.amap.com/loader.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .profile-container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    
+    .profile-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    
+    .profile-header {
+      background: linear-gradient(135deg, #0c5da5 0%, #2980b9 100%);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    
+    .avatar-placeholder {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      border: 3px solid rgba(255,255,255,0.5);
+    }
+    
+    .user-name {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .user-id {
+      font-family: monospace;
+      background: rgba(0,0,0,0.2);
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      display: inline-block;
+    }
+    
+    .section-title {
+      padding: 1.5rem 2rem 0.5rem;
+      color: #666;
+      font-size: 0.9rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .settings-list {
+      padding: 0;
+    }
+    
+    .settings-item {
+      display: flex;
+      align-items: center;
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .settings-item:last-child {
+      border-bottom: none;
+    }
+    
+    .settings-item:hover {
+      background: #f9f9f9;
+    }
+    
+    .item-icon {
+      width: 40px;
+      height: 40px;
+      background: #f0f4f8;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 1rem;
+      font-size: 1.2rem;
+      color: #0c5da5;
+    }
+    
+    .item-content {
+      flex: 1;
+    }
+    
+    .item-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 0.2rem;
+    }
+    
+    .item-desc {
+      font-size: 0.85rem;
+      color: #888;
+    }
+    
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    
+    .modal-overlay.show {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    
+    .modal-content {
+      background: white;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 16px;
+      padding: 2rem;
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+    
+    .modal-overlay.show .modal-content {
+      transform: translateY(0);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-close {
+      cursor: pointer;
+      font-size: 2rem;
+      color: #999;
+      padding: 5px 10px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: #555;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #666;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .back-nav {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      color: white;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .back-nav:hover {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="profile-container">
+    <div class="profile-card">
+      <div class="profile-header" style="position: relative;">
+        <a href="index.html" class="back-nav">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          返回首页
+        </a>
+
+        <div class="avatar-placeholder" id="display-avatar">👤</div>
+        <div class="user-name" id="display-nickname">Loading...</div>
+        <div class="user-id" id="display-friend-id">ID: ...</div>
+        <div id="display-username" style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.9; font-family: monospace;"></div>
+      </div>
+      
+      <div class="section-title">个人资料</div>
+      <div class="settings-list">
+        <div class="settings-item" id="open-profile-modal-btn">
+          <div class="item-icon">✏️</div>
+          <div class="item-content">
+            <div class="item-title">编辑资料</div>
+            <div class="item-desc">修改头像和昵称</div>
+          </div>
+          <div style="color: #ccc;">&gt;</div>
+        </div>
+        <div class="settings-item" id="open-home-modal-btn">
+          <div class="item-icon">🏠</div>
+          <div class="item-content">
+            <div class="item-title">我的家</div>
+            <div class="item-desc" id="display-home-address">未设置</div>
+          </div>
+          <div style="color: #ccc;">&gt;</div>
+        </div>
+      </div>
+
+      <div class="section-title">账户安全</div>
+      <div class="settings-list">
+        <div class="settings-item" id="open-pw-modal-btn">
+          <div class="item-icon">🔒</div>
+          <div class="item-content">
+            <div class="item-title">修改密码</div>
+            <div class="item-desc">定期修改密码可以保护账号安全</div>
+          </div>
+          <div style="color: #ccc;">&gt;</div>
+        </div>
+      </div>
+
+      <div class="section-title">系统</div>
+      <div class="settings-list">
+        <div class="settings-item" id="logout-btn">
+          <div class="item-icon" style="color: #dc3545; background: #fff5f5;">🚪</div>
+          <div class="item-content">
+            <div class="item-title" style="color: #dc3545;">退出登录</div>
+            <div class="item-desc">退出当前账号</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="margin:0;">编辑资料</h3>
+        <span class="modal-close" id="close-profile-modal-btn">&times;</span>
+      </div>
+      
+      <div class="form-group">
+        <label>昵称</label>
+        <input type="text" id="edit-nickname" placeholder="输入昵称" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label>头像</label>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <div id="avatar-preview" style="width: 60px; height: 60px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 2rem; overflow: hidden; border: 1px solid #ddd; flex-shrink: 0;">👤</div>
+            <div style="flex: 1;">
+                 <input type="file" id="avatar-file" accept="image/*" style="display: none;">
+                 <button class="btn" style="padding: 0.4rem 0.8rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;" onclick="document.getElementById('avatar-file').click()">选择图片</button>
+                 <span id="file-name" style="font-size: 0.8rem; color: #666; margin-left: 0.5rem;"></span>
+            </div>
+        </div>
+        <small style="color: #999; display: block; margin-top: 5px;">支持上传图片 (自动压缩)</small>
+      </div>
+      
+      <button id="save-profile-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">保存修改</button>
+    </div>
+  </div>
+
+  <!-- Home Modal -->
+  <div id="home-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 style="margin:0;">设置家的位置</h3>
+        <span class="modal-close" id="close-home-modal-btn">&times;</span>
+      </div>
+      
+      <div class="form-group" style="position: relative;">
+        <label>搜索地址</label>
+        <input type="text" id="home-search-input" placeholder="输入小区/街道名称搜索">
+        <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; z-index: 1001; max-height: 200px; overflow-y: auto; display: none;"></div>
+      </div>
+      
+      <div id="home-map-container" style="width: 100%; height: 300px; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #eee;"></div>
+      
+      <div class="form-group">
+        <label>当前选中</label>
+        <div id="selected-home-address" style="padding: 0.8rem; background: #f9f9f9; border-radius: 8px; font-size: 0.9rem; color: #333;">暂未选择</div>
+      </div>
+      
+      <button id="save-home-btn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">保存位置</button>
+    </div>
+  </div>
+
+  <!-- Password Modal -->
+  <div id="password-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="margin:0;">修改密码</h3>
+        <span class="modal-close" id="close-modal-btn">&times;</span>
+      </div>
+      
+      <div class="form-group">
+        <label>新密码</label>
+        <input type="password" id="new-pw" placeholder="输入新密码">
+      </div>
+      <div class="form-group">
+        <label>确认新密码</label>
+        <input type="password" id="confirm-pw" placeholder="再次输入新密码">
+      </div>
+      
+      <button id="save-pw-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">保存修改</button>
+    </div>
+  </div>
+
+  <script src="cloud-sync.js"></script>
+  <script src="auth-manager.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async function() {
+        // --- 1. Init User Info & Auth ---
+        Auth.requireLogin();
+        
+        const username = sessionStorage.getItem("hkwl_current_user");
+        const friendId = sessionStorage.getItem("hkwl_friend_id");
+        
+        let pendingAvatar = null;
+        
+        // Helper: Compress Image
+        const compressImage = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 300;
+                        const MAX_HEIGHT = 300;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.onerror = (err) => reject(err);
+                };
+                reader.onerror = (err) => reject(err);
+            });
+        };
+
+        const nameEl = document.getElementById('display-nickname');
+        const avatarEl = document.getElementById('display-avatar');
+        const idEl = document.getElementById('display-friend-id');
+        const usernameEl = document.getElementById('display-username');
+        const homeAddressEl = document.getElementById('display-home-address');
+        
+        let homeData = null; // Store current home data
+
+        const updateDisplay = () => {
+             const currentNick = Auth.getNickname();
+             const currentAvatar = Auth.getAvatar();
+             
+             if (nameEl) {
+                 nameEl.textContent = currentNick || username || "未知用户";
+             }
+             if (usernameEl && username) {
+                 usernameEl.textContent = `@${username}`;
+             }
+             if (avatarEl) {
+                 if (currentAvatar && (currentAvatar.startsWith('http') || currentAvatar.startsWith('data:'))) {
+                     avatarEl.innerHTML = `<img src="${currentAvatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+                     avatarEl.style.fontSize = '0'; // Hide fallback text
+                 } else {
+                     avatarEl.textContent = currentAvatar || "👤";
+                     avatarEl.style.fontSize = '2.5rem';
+                 }
+             }
+             if (homeAddressEl && homeData) {
+                 homeAddressEl.textContent = homeData.address || homeData.name || "已设置";
+             } else if (homeAddressEl) {
+                 homeAddressEl.textContent = "未设置";
+             }
+        };
+
+        // Fetch user status to get home data
+        try {
+            const token = sessionStorage.getItem('hkwl_auth_token');
+            if (token) {
+                const res = await fetch('/api/auth/status', {
+                    headers: { 'Authorization': token }
+                });
+                const data = await res.json();
+                if (data.success && data.home) {
+                    homeData = data.home;
+                    updateDisplay();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch user status", e);
+        }
+
+        updateDisplay();
+        
+        if (idEl) idEl.textContent = friendId ? `ID: ${friendId}` : "ID: Loading...";
+        
+        // Refresh Friend ID if missing
+        if (!friendId && Auth.refreshAdminStatus) {
+            await Auth.refreshAdminStatus();
+            const newId = sessionStorage.getItem("hkwl_friend_id");
+            if (newId && idEl) idEl.textContent = `ID: ${newId}`;
+        }
+
+        // --- 2. Modal Logic ---
+        const modal = document.getElementById('password-modal');
+        const profileModal = document.getElementById('profile-modal');
+        const homeModal = document.getElementById('home-modal');
+        
+        const openBtn = document.getElementById('open-pw-modal-btn');
+        const openProfileBtn = document.getElementById('open-profile-modal-btn');
+        const openHomeBtn = document.getElementById('open-home-modal-btn');
+        
+        const closeBtn = document.getElementById('close-modal-btn');
+        const closeProfileBtn = document.getElementById('close-profile-modal-btn');
+        const closeHomeBtn = document.getElementById('close-home-modal-btn');
+        
+        const saveBtn = document.getElementById('save-pw-btn');
+        const saveProfileBtn = document.getElementById('save-profile-btn');
+        const saveHomeBtn = document.getElementById('save-home-btn');
+        
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        // --- Map Logic for Home ---
+        let map = null;
+        let mapMarker = null;
+        let mapGeocoder = null;
+        let mapAutocomplete = null;
+        let selectedHomeLocation = null;
+
+        async function initMap() {
+            if (map) return;
+            
+            try {
+                const AMap = await AMapLoader.load({
+                    key: "d9c65691d03429f44f54c935d21a59a7",
+                    version: "2.0",
+                    plugins: ["AMap.Geocoder", "AMap.AutoComplete", "AMap.PlaceSearch"]
+                });
+                
+                map = new AMap.Map("home-map-container", {
+                    zoom: 11,
+                    center: [114.1694, 22.3193], // Default Hong Kong
+                });
+                
+                mapGeocoder = new AMap.Geocoder({ city: "香港" });
+                mapAutocomplete = new AMap.AutoComplete({ city: "香港" });
+                
+                map.on('click', (e) => {
+                    handleMapClick(e.lnglat);
+                });
+                
+                // Bind Search Input
+                const searchInput = document.getElementById('home-search-input');
+                const searchResults = document.getElementById('search-results');
+                
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                         const kw = e.target.value;
+                         if (!kw) {
+                             searchResults.style.display = 'none';
+                             return;
+                         }
+                         mapAutocomplete.search(kw, (status, result) => {
+                             if (status === 'complete' && result.tips) {
+                                 let html = '';
+                                 result.tips.forEach(tip => {
+                                     if (tip.location) {
+                                         html += `<div class="search-item" style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;" data-lng="${tip.location.lng}" data-lat="${tip.location.lat}" data-name="${tip.name}" data-address="${tip.district}${tip.address}">
+                                            <div style="font-weight:bold;">${tip.name}</div>
+                                            <div style="font-size:0.8em; color:#666;">${tip.district || ''} ${tip.address || ''}</div>
+                                         </div>`;
+                                     }
+                                 });
+                                 searchResults.innerHTML = html;
+                                 searchResults.style.display = 'block';
+                                 
+                                 // Bind click events
+                                 searchResults.querySelectorAll('.search-item').forEach(item => {
+                                     item.addEventListener('click', () => {
+                                         const lng = parseFloat(item.getAttribute('data-lng'));
+                                         const lat = parseFloat(item.getAttribute('data-lat'));
+                                         const name = item.getAttribute('data-name');
+                                         const address = item.getAttribute('data-address');
+                                         
+                                         const lnglat = new AMap.LngLat(lng, lat);
+                                         map.setZoomAndCenter(16, lnglat);
+                                         updateMarker(lnglat, name, address);
+                                         
+                                         searchResults.style.display = 'none';
+                                         searchInput.value = name;
+                                     });
+                                 });
+                             }
+                         });
+                    });
+                    
+                    // Hide results when clicking outside
+                    document.addEventListener('click', (e) => {
+                        if (e.target !== searchInput && e.target !== searchResults) {
+                            searchResults.style.display = 'none';
+                        }
+                    });
+                }
+
+            } catch (e) {
+                console.error("Map load failed", e);
+                document.getElementById('home-map-container').innerHTML = '地图加载失败，请刷新重试';
+            }
+        }
+
+        function handleMapClick(lnglat) {
+             if (!mapGeocoder) return;
+             mapGeocoder.getAddress(lnglat, (status, result) => {
+                 if (status === 'complete' && result.regeocode) {
+                     const address = result.regeocode.formattedAddress;
+                     const aoi = result.regeocode.aois && result.regeocode.aois.length > 0 ? result.regeocode.aois[0].name : '';
+                     const name = aoi || address;
+                     
+                     updateMarker(lnglat, name, address);
+                     
+                     const input = document.getElementById('home-search-input');
+                     if (input) input.value = name;
+                 }
+             });
+        }
+
+        function updateMarker(lnglat, name, address) {
+            if (!map) return;
+            
+            if (mapMarker) map.remove(mapMarker);
+            
+            mapMarker = new AMap.Marker({
+                position: lnglat,
+                map: map
+            });
+            
+            selectedHomeLocation = {
+                name: name,
+                address: address,
+                location: {
+                    lat: lnglat.getLat(),
+                    lng: lnglat.getLng()
+                }
+            };
+            
+            const displayEl = document.getElementById('selected-home-address');
+            if (displayEl) {
+                displayEl.textContent = `${name} (${address})`;
+            }
+        }
+
+        const openHomeModal = () => {
+            if (homeModal) {
+                homeModal.classList.add('show');
+                initMap().then(() => {
+                    // If home data exists, show it
+                    if (homeData && homeData.location && map) {
+                        const lnglat = new AMap.LngLat(homeData.location.lng, homeData.location.lat);
+                        map.setZoomAndCenter(16, lnglat);
+                        updateMarker(lnglat, homeData.name, homeData.address);
+                    }
+                });
+            }
+        };
+
+        const closeHomeModal = () => {
+            if (homeModal) homeModal.classList.remove('show');
+        };
+
+        const handleHomeSubmit = async () => {
+             if (!selectedHomeLocation) {
+                 alert('请先在地图上选择位置');
+                 return;
+             }
+             
+             if (!saveHomeBtn) return;
+             const oldText = saveHomeBtn.textContent;
+             saveHomeBtn.textContent = '保存中...';
+             saveHomeBtn.disabled = true;
+             
+             try {
+                const res = await fetch('/api/update-profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                    },
+                    body: JSON.stringify({ home: selectedHomeLocation })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    homeData = data.home; // Update local data
+                    updateDisplay();
+                    closeHomeModal();
+                    alert('家设置成功！');
+                } else {
+                    alert('保存失败: ' + data.error);
+                }
+             } catch (e) {
+                 console.error(e);
+                 alert('保存失败，请检查网络');
+             } finally {
+                 saveHomeBtn.textContent = oldText;
+                 saveHomeBtn.disabled = false;
+             }
+        };
+
+        // Functions
+        const openModal = () => {
+            if (modal) modal.classList.add('show');
+        };
+
+        const openProfileModal = () => {
+            if (profileModal) {
+                const nickInput = document.getElementById('edit-nickname');
+                const avatarPreview = document.getElementById('avatar-preview');
+                const fileInput = document.getElementById('avatar-file');
+                const fileName = document.getElementById('file-name');
+                
+                // Reset pending state
+                pendingAvatar = null;
+                if (fileInput) fileInput.value = '';
+                if (fileName) fileName.textContent = '';
+                
+                // Set initial values
+                if (nickInput) nickInput.value = Auth.getNickname();
+                
+                const currentAvatar = Auth.getAvatar();
+                
+                // Set preview
+                if (avatarPreview) {
+                    if (currentAvatar && (currentAvatar.startsWith('http') || currentAvatar.startsWith('data:'))) {
+                        avatarPreview.innerHTML = `<img src="${currentAvatar}" style="width:100%; height:100%; object-fit:cover;">`;
+                    } else {
+                        avatarPreview.textContent = currentAvatar || "👤";
+                        avatarPreview.innerHTML = currentAvatar || "👤"; // Reset innerHTML in case it was an image
+                        if (!currentAvatar || (!currentAvatar.startsWith('http') && !currentAvatar.startsWith('data:'))) {
+                             avatarPreview.style.fontSize = '2rem';
+                        }
+                    }
+                }
+                
+                profileModal.classList.add('show');
+            }
+        };
+
+        const closeModal = () => {
+            if (modal) modal.classList.remove('show');
+            // Reset inputs
+            const newPw = document.getElementById('new-pw');
+            const confirmPw = document.getElementById('confirm-pw');
+            if (newPw) newPw.value = '';
+            if (confirmPw) confirmPw.value = '';
+        };
+
+        const closeProfileModal = () => {
+            if (profileModal) profileModal.classList.remove('show');
+        };
+
+        const handleLogout = () => {
+            if (confirm('确定要退出登录吗？')) {
+                Auth.logout();
+            }
+        };
+
+        const handleProfileSubmit = async () => {
+            const nickInput = document.getElementById('edit-nickname');
+            
+            const nickname = nickInput ? nickInput.value.trim() : '';
+            let avatar = pendingAvatar;
+            
+            // If no new avatar selected, keep the old one (don't send it, or handle in backend?)
+            // Actually API expects full update. If pendingAvatar is null, it means user didn't change it.
+            // But wait, if user wants to keep current avatar, we should probably send it or let backend handle it.
+            // Current API implementation: if avatar is undefined, it's not updated.
+            // So if pendingAvatar is null, we pass undefined?
+            // Let's check: 
+            // If user didn't pick a file, pendingAvatar is null.
+            // We should pass the CURRENT avatar if we want to keep it?
+            // Or better: if pendingAvatar is null, we just don't include it in the update call if possible.
+            // But Auth.updateProfile takes (nickname, avatar).
+            
+            if (!avatar) {
+                 // If no new file selected, use current avatar
+                 avatar = Auth.getAvatar();
+            }
+            
+            if (!saveProfileBtn) return;
+            const oldText = saveProfileBtn.textContent;
+            saveProfileBtn.textContent = "保存中...";
+            saveProfileBtn.disabled = true;
+            
+            try {
+                const res = await Auth.updateProfile(nickname, avatar);
+                if (res.success) {
+                    updateDisplay();
+                    closeProfileModal();
+                    alert("资料更新成功");
+                } else {
+                    alert(res.message);
+                }
+            } catch (e) {
+                console.error("Profile update error:", e);
+                alert("更新失败: " + e.message);
+            } finally {
+                saveProfileBtn.textContent = oldText;
+                saveProfileBtn.disabled = false;
+            }
+        };
+
+        const handleSubmit = async () => {
+            const newPwInput = document.getElementById('new-pw');
+            const confirmPwInput = document.getElementById('confirm-pw');
+            
+            const newPw = newPwInput ? newPwInput.value : '';
+            const confirmPw = confirmPwInput ? confirmPwInput.value : '';
+            
+            if (!newPw || !confirmPw) {
+                alert("请填写所有密码字段");
+                return;
+            }
+
+            if (newPw !== confirmPw) {
+                alert("两次输入的新密码不一致");
+                return;
+            }
+            
+            if (!saveBtn) return;
+            const oldText = saveBtn.textContent;
+            saveBtn.textContent = "修改中...";
+            saveBtn.disabled = true;
+            
+            try {
+                console.log("[Profile] Submitting password change...");
+                const res = await Auth.changePassword(newPw);
+                console.log("[Profile] Result:", res);
+                alert(res.message);
+                if (res.success) {
+                    closeModal();
+                }
+            } catch(e) {
+                console.error("[Profile] Change password error:", e);
+                alert("修改失败: " + (e.message || "未知错误"));
+            } finally {
+                saveBtn.textContent = oldText;
+                saveBtn.disabled = false;
+            }
+        };
+
+        // Event Listeners
+        if (openBtn) openBtn.addEventListener('click', openModal);
+        if (openProfileBtn) openProfileBtn.addEventListener('click', openProfileModal);
+        if (openHomeBtn) openHomeBtn.addEventListener('click', openHomeModal);
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent bubbling
+                closeModal();
+            });
+        }
+        
+        if (closeProfileBtn) {
+            closeProfileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeProfileModal();
+            });
+        }
+        
+        if (closeHomeBtn) {
+            closeHomeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeHomeModal();
+            });
+        }
+        
+        if (modal) {
+            // Click outside to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+        
+        if (profileModal) {
+            profileModal.addEventListener('click', (e) => {
+                if (e.target === profileModal) closeProfileModal();
+            });
+        }
+
+        if (homeModal) {
+            homeModal.addEventListener('click', (e) => {
+                if (e.target === homeModal) closeHomeModal();
+            });
+        }
+        
+        if (saveBtn) saveBtn.addEventListener('click', handleSubmit);
+        if (saveProfileBtn) saveProfileBtn.addEventListener('click', handleProfileSubmit);
+        if (saveHomeBtn) saveHomeBtn.addEventListener('click', handleHomeSubmit);
+        
+        if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+        const avatarFileInput = document.getElementById('avatar-file');
+        if (avatarFileInput) {
+            avatarFileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const fileName = document.getElementById('file-name');
+                if (fileName) fileName.textContent = file.name;
+                
+                try {
+                    const base64 = await compressImage(file);
+                    pendingAvatar = base64;
+                    
+                    // Update Preview
+                    const avatarPreview = document.getElementById('avatar-preview');
+                    if (avatarPreview) {
+                        avatarPreview.innerHTML = `<img src="${base64}" style="width:100%; height:100%; object-fit:cover;">`;
+                    }
+                } catch (err) {
+                    console.error("Image processing failed", err);
+                    alert("图片处理失败，请重试");
+                }
+            });
+        }
+    });
+  </script>
+</body>
+</html>

@@ -62,17 +62,6 @@ const NoticeViewer = (function() {
                 meta.style.marginBottom = '0.5rem';
                 meta.style.gap = '0.5rem';
 
-                if (notice.targetUser && notice.targetUser !== 'all') {
-                     const badge = document.createElement('span');
-                     badge.textContent = '私信';
-                     badge.style.backgroundColor = '#28a745';
-                     badge.style.color = 'white';
-                     badge.style.padding = '2px 6px';
-                     badge.style.borderRadius = '4px';
-                     badge.style.fontSize = '0.75rem';
-                     meta.appendChild(badge);
-                }
-
                 const date = document.createElement('span');
                 date.textContent = new Date(notice.lastUpdated).toLocaleString();
                 date.style.color = '#999';
@@ -100,10 +89,9 @@ const NoticeViewer = (function() {
         closeBtn.style.width = '100%';
         closeBtn.onclick = async () => {
             modalOverlay.remove();
-            if (isAutoPopup) {
-                // If this was an auto-popup, mark as read
-                await markAsRead();
-            }
+            // Always mark as read when closing the board, 
+            // so that the badge (and server status) is updated.
+            await markAsRead();
         };
         
         modalContent.appendChild(title);
@@ -114,6 +102,18 @@ const NoticeViewer = (function() {
         document.body.appendChild(modalOverlay);
     }
     
+    let noticeBadge = null;
+
+    function setBadge(badge) {
+        noticeBadge = badge;
+    }
+
+    function updateBadge(show) {
+        if (noticeBadge) {
+            noticeBadge.style.display = show ? 'flex' : 'none';
+        }
+    }
+
     // Mark notice as read
     async function markAsRead() {
         try {
@@ -124,13 +124,14 @@ const NoticeViewer = (function() {
                 }
             });
             console.log("Notice marked as read");
+            updateBadge(false);
         } catch (e) {
             console.error("Failed to mark notice as read:", e);
         }
     }
     
     // Check and show notice if needed
-    async function checkAndShowNotice() {
+    async function checkAndShowNotice(isAutoPopup = true) {
         if (!Auth.isLoggedIn()) return;
         
         try {
@@ -141,21 +142,31 @@ const NoticeViewer = (function() {
             const authData = await authRes.json();
             
             // Get notices
-            const noticeRes = await fetch('/api/notice', {
+            const noticeRes = await fetch(`/api/notice?_t=${Date.now()}`, {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const noticeData = await noticeRes.json();
             
-            if (!noticeData.success || !noticeData.notices || noticeData.notices.length === 0) return;
+            if (!noticeData.success || !noticeData.notices || noticeData.notices.length === 0) {
+                updateBadge(false);
+                return;
+            }
             
             const lastSeen = authData.lastNoticeSeenAt ? new Date(authData.lastNoticeSeenAt).getTime() : 0;
             // Check the latest notice (first one)
             const latestNotice = noticeData.notices[0];
             const lastUpdated = latestNotice.lastUpdated ? new Date(latestNotice.lastUpdated).getTime() : 0;
             
-            // If latest notice is newer than last seen, show the board
+            // If latest notice is newer than last seen
             if (lastUpdated > lastSeen) {
-                showNoticeBoard(noticeData.notices, true);
+                updateBadge(true);
+                if (isAutoPopup) {
+                    // Disable auto-popup, let Mailbox handle it in Present section
+                    // showNoticeBoard(noticeData.notices, true);
+                    console.log("New notice detected, suppressing popup for Anchor Present view");
+                }
+            } else {
+                updateBadge(false);
             }
         } catch (e) {
             console.error("Notice check failed:", e);
@@ -165,11 +176,30 @@ const NoticeViewer = (function() {
     // Manual open
     async function openNoticeBoard() {
         try {
-            const res = await fetch('/api/notice', {
+            const res = await fetch(`/api/notice?_t=${Date.now()}`, {
                 headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
             });
             const data = await res.json();
             if (data.success) {
+                // When manually opening, we don't auto-mark as read unless they close it? 
+                // Or maybe we should mark as read immediately?
+                // The current logic marks as read on "Close" (if autoPopup)
+                // But if manual open, maybe we should also clear the badge?
+                // Let's clear the badge if they open it.
+                // But we only mark as read if they click "I know" in auto popup?
+                // Actually, if they see it, it should be marked read.
+                // For now, let's keep the badge logic consistent with markAsRead.
+                // If manual open, we show the list. The badge remains until markAsRead is called?
+                // The user said: "If user is in login state receive new notice... button has marker".
+                // Usually opening the board clears the marker.
+                // So let's call markAsRead when manual open closes?
+                // Or maybe just clear badge locally?
+                // If I clear badge locally but don't mark as read on server, it will reappear on refresh.
+                // So we should probably mark as read when the modal is closed, regardless of how it was opened?
+                // The current implementation only calls markAsRead if isAutoPopup is true.
+                // I should probably change that: if there are unread messages, closing the modal should mark them as read.
+                // But let's stick to the requested scope first.
+                
                 showNoticeBoard(data.notices || [], false);
             } else {
                 alert("无法获取告示");
@@ -179,8 +209,17 @@ const NoticeViewer = (function() {
         }
     }
 
+    // Start polling
+    function startPolling(interval = 60000) {
+        setInterval(() => {
+            checkAndShowNotice(false);
+        }, interval);
+    }
+
     return {
         checkAndShowNotice,
-        openNoticeBoard
+        openNoticeBoard,
+        setBadge,
+        startPolling
     };
 })();

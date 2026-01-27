@@ -1,0 +1,3630 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <title>旅行清单</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="旅行清单">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <script src="pwa-loader.js"></script>
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+    
+    function updatePlanStatusUI() {
+        if (typeof HKWL === 'undefined' || !HKWL.loadPlanState || !HKWL.calculatePlanStatus) return;
+        
+        const planState = HKWL.loadPlanState();
+        const status = HKWL.calculatePlanStatus(planState);
+        
+        const statusEl = document.getElementById('plan-status-badge');
+        if (!statusEl) return;
+        
+        let label = '筹备中';
+        let className = 'status-planning';
+        
+        if (status === 'planning') {
+            label = '筹备中';
+            className = 'status-planning';
+        } else if (status === 'in_progress') {
+            label = '进行中';
+            className = 'status-in-progress';
+        } else if (status === 'completed') {
+            label = '已结束';
+            className = 'status-completed';
+        }
+        
+        statusEl.textContent = label;
+        statusEl.className = 'plan-status-badge ' + className;
+    }
+    
+    // Initial check after a short delay to ensure data load
+    setTimeout(updatePlanStatusUI, 1000);
+
+  </script>
+  <script src="https://webapi.amap.com/loader.js"></script>
+  <style>
+    /* Global Layout Fixes for SPA Feel */
+    body {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; /* Prevent body scroll, handle inside slides */
+    }
+    .site-header {
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+
+    /* Slider Styles */
+    .view-wrapper {
+      flex: 1; /* Fill remaining height */
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+      margin: 0 !important; /* Override .container */
+      padding: 0 !important; /* Override .container */
+      max-width: none !important; /* Override .container */
+      cursor: grab; /* Show grab cursor on background */
+    }
+    .view-wrapper:active {
+      cursor: grabbing;
+    }
+    
+    /* Restore cursor for interactive elements */
+    .view-slide button, 
+    .view-slide a, 
+    .view-slide input, 
+    .view-slide select,
+    .view-slide .card,
+    #map-container {
+      cursor: auto; 
+    }
+    /* Specific overrides */
+    /* .view-slide .card { cursor: grab; } -- Drag Disabled */
+    .view-slide .btn { cursor: pointer; }
+    
+    .view-slider {
+      display: flex;
+      width: 200%;
+      height: 100%;
+      transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+      will-change: transform;
+    }
+    .view-slide {
+      width: 50%;
+      height: 100%;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden; /* Contain scrolls */
+      box-sizing: border-box;
+    }
+    
+    /* Block View Layout Overrides */
+    #block-view.layout-main {
+      display: flex;
+      padding: 1rem;
+      gap: 1.5rem;
+      background-color: #f4f5f7;
+    }
+    
+    /* Sidebar (Taskbar) */
+    #block-view .main-column {
+      position: relative !important; /* Override fixed from styles.css */
+      top: auto; left: auto; bottom: auto;
+      width: 320px;
+      height: 100%;
+      margin: 0;
+      overflow-y: auto; /* Internal scrolling */
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 2rem;
+    }
+    
+    /* Main Content (Plan List) */
+    #block-view .side-column {
+      margin-left: 0 !important; /* Override styles.css */
+      flex: 1;
+      height: 100%;
+      overflow-y: auto; /* Internal scrolling */
+      padding-bottom: 2rem;
+      width: auto;
+    }
+
+    /* Fullscreen Mode Styles */
+    body.fullscreen-active .site-header {
+        display: none !important;
+    }
+    body.fullscreen-active .view-wrapper {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 2000;
+        background: white;
+    }
+    body.fullscreen-active .view-slider {
+        transform: translateX(0) !important;
+    }
+    body.fullscreen-active .controls,
+    body.fullscreen-active .collab-floating-module,
+    body.fullscreen-active .edit-action-panel {
+        z-index: 2100; /* Ensure controls stay on top */
+    }
+    /* Hide floating add button in fullscreen map if desired, or keep it */
+    body.fullscreen-active .floating-add-wrapper {
+        display: none; /* Usually better to hide to focus on map edit */
+    }
+
+    /* Mobile Responsive Fixes */
+    @media (max-width: 768px) {
+      #block-view.layout-main {
+        flex-direction: column;
+        padding: 0.5rem;
+        gap: 0.5rem;
+      }
+
+      /* Taskbar (Top) */
+      #block-view .main-column {
+        width: 100%;
+        height: 35%; /* Fixed height for top section */
+        min-height: 200px; /* Minimum useful height */
+        padding: 0.8rem;
+        border-bottom: 1px solid #e0e0e0;
+        box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);
+      }
+      
+      /* Make Wish List scrollable within the limited height */
+      #wish-list {
+         flex: 1;
+         overflow-y: auto;
+         min-height: 0; /* Crucial for nested flex scrolling */
+      }
+
+      /* Plan List (Bottom) */
+      #block-view .side-column {
+        width: 100%;
+        height: auto;
+        flex: 1; /* Fill remaining vertical space */
+        padding: 0.5rem;
+      }
+    }
+    
+    /* Map Styles */
+    .map-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem; /* Leave background visible */
+      box-sizing: border-box;
+    }
+    #map-container {
+      flex: 1;
+      width: 100%;
+      background: white;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08); /* Soft shadow */
+      border-radius: 16px; /* Soft rounded corners */
+      overflow: hidden;
+    }
+    .controls {
+      position: absolute;
+      top: 2.5rem; /* padding + offset */
+      right: 2.5rem; /* padding + offset */
+      z-index: 1000;
+      margin: 0;
+      background: transparent;
+      padding: 0;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      pointer-events: none; /* Click through to map */
+      min-width: 0;
+    }
+    .day-selector select {
+      padding: 5px 10px;
+      font-size: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+    }
+    
+    /* Custom Marker Styles */
+    .amap-marker-content { white-space: nowrap; }
+    .custom-marker { 
+        display: flex; 
+        align-items: center; 
+        gap: 6px;
+    }
+    .marker-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        flex-shrink: 0;
+        position: relative; /* Ensure ::after is positioned relative to this */
+    }
+    .marker-name { 
+        font-weight: bold; 
+        color: #333; 
+        font-size: 15px; /* Larger than map text (~12px) */
+        text-shadow: 
+            -1px -1px 0 #fff,  
+             1px -1px 0 #fff,
+            -1px  1px 0 #fff,
+             1px  1px 0 #fff; /* White halo for readability */
+        pointer-events: none; /* Let clicks pass to marker */
+    }
+    .type-food .marker-dot { background-color: #FF5722; }
+    .type-place .marker-dot { background-color: #4CAF50; }
+    .type-stay .marker-dot { background-color: #2196F3; }
+    .type-home .marker-dot { 
+        background-color: #722ed1; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        font-size: 10px;
+        color: white;
+    }
+
+
+    .map-module {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .module-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+    .day-selector select {
+        width: 100%; /* Full width */
+        box-sizing: border-box;
+    }
+    .module-placeholder {
+        padding: 8px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        text-align: center;
+        color: #999;
+        font-size: 0.8rem;
+        border: 1px dashed #ddd;
+    }
+
+    /* Edit Mode Styles */
+    .map-edit-btn {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #333;
+        transition: all 0.2s;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .map-edit-btn:hover {
+        background: #f0f0f0;
+        border-color: #ccc;
+    }
+    .map-edit-btn.active {
+        background: #e3f2fd;
+        color: #1976d2;
+        border-color: #2196F3;
+    }
+
+    /* Bottom Action Panel */
+    .edit-action-panel {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 12px 20px;
+        border-radius: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        display: none;
+        align-items: center;
+        gap: 15px;
+        z-index: 1000;
+        white-space: nowrap;
+    }
+    .edit-action-panel.show {
+        display: flex;
+        animation: slideUp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    @keyframes slideUp {
+        from { transform: translate(-50%, 100%); opacity: 0; }
+        to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .panel-text {
+        font-size: 0.9rem;
+        color: #333;
+        font-weight: 500;
+    }
+    .panel-btn {
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: opacity 0.2s;
+    }
+    .panel-btn:hover { opacity: 0.9; }
+    .panel-btn-primary {
+        background: #2196F3;
+        color: white;
+    }
+    .panel-btn-cancel {
+        background: #f5f5f5;
+        color: #666;
+    }
+    
+    /* Marker Selection Styles */
+    .custom-marker { transition: all 0.2s; }
+    .custom-marker.selected .marker-dot {
+        transform: scale(1.3);
+        box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.5);
+        border-color: #2196F3;
+        z-index: 100;
+    }
+    .custom-marker.selected-order .marker-dot::after {
+        content: attr(data-order);
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #FF5722;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        z-index: 101;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    /* Edit mode select dropdown in panel */
+    .panel-select {
+        padding: 5px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        outline: none;
+    }
+      /* Edit Modal */
+    .edit-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+    }
+    .edit-modal-overlay.show {
+        display: flex;
+    }
+    .edit-modal-content {
+        background: white;
+        width: 90%;
+        max-width: 500px;
+        height: 80vh;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+    .edit-modal-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    .edit-modal-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 30px;
+        height: 30px;
+        background: rgba(0,0,0,0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        font-size: 18px;
+        color: #666;
+    }
+    .edit-modal-close:hover {
+        background: rgba(0,0,0,0.2);
+    }
+  /* Collab Floating Module */
+  .collab-floating-module {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 1100; /* Higher than map controls but lower than modals */
+    min-width: 140px;
+    overflow: hidden;
+    user-select: none;
+    backdrop-filter: blur(5px);
+    transition: transform 0.1s, box-shadow 0.2s;
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+  .collab-floating-module:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  }
+  .module-header-drag {
+    background: #f5f5f5;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #666;
+    cursor: grab;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    font-weight: 500;
+    touch-action: none;
+  }
+  .module-header-drag:active {
+    cursor: grabbing;
+  }
+  .module-content {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .collab-avatars {
+    display: flex;
+    align-items: center;
+    padding-left: 5px;
+  }
+  .collab-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin-left: -10px;
+    background: #ddd;
+    object-fit: cover;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .collab-avatar:first-child {
+    margin-left: 0;
+  }
+  .collab-add-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px dashed #ccc;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .collab-add-btn:hover {
+    background: #f0f0f0;
+    border-color: #999;
+    color: #333;
+    transform: scale(1.05);
+  }
+
+  /* --- Map Controls (Global Gear Style) --- */
+  .controls {
+      position: absolute;
+      top: 140px; /* Below Collab Module */
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      pointer-events: none; /* Let clicks pass through container */
+  }
+
+  .controls-toggle {
+      display: flex;
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      pointer-events: auto;
+      margin-bottom: 8px;
+      font-size: 20px;
+      color: #666;
+      border: 1px solid #eee;
+      transition: all 0.2s;
+      touch-action: none;
+  }
+  .controls-toggle:hover {
+      background: #f9f9f9;
+      transform: scale(1.05);
+  }
+  .controls-content {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+  }
+  .controls.expanded .controls-content {
+      display: flex;
+      pointer-events: auto;
+      background: rgba(255,255,255,0.95);
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      min-width: 180px;
+      animation: slideDown 0.2s ease-out;
+  }
+  @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Active/Expanded State for Toggle */
+  .controls.expanded .controls-toggle {
+       background: #e3f2fd;
+       color: #1976d2;
+       border-color: #2196F3;
+   }
+   .controls-toggle:active {
+       transform: scale(0.95);
+   }
+
+   /* Fullscreen Button (Top-Left) */
+   .map-fullscreen-btn {
+       position: absolute;
+       top: 20px;
+       left: 20px;
+       width: 40px;
+       height: 40px;
+       background: white;
+       border-radius: 4px; /* Square-ish like zoom controls */
+       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       cursor: pointer;
+       z-index: 1000;
+       font-size: 20px;
+       color: #666;
+       transition: all 0.2s;
+       border: 1px solid #ddd;
+   }
+   .map-fullscreen-btn:hover {
+       background: #f0f0f0;
+       color: #333;
+   }
+   .map-fullscreen-btn.active {
+       background: #e3f2fd;
+       color: #1976d2;
+       border-color: #2196F3;
+   }
+
+  @media (max-width: 768px) {
+      .controls {
+          top: 140px !important; /* Below Collab Module */
+          right: 10px !important;
+      }
+      
+      /* Mobile specific tweaks */
+      .controls-content {
+          width: 220px;
+          backdrop-filter: blur(5px);
+          background: rgba(255,255,255,0.98);
+      }
+      
+      .controls.expanded .controls-content {
+          animation: slideInRight 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      }
+
+       /* Fix Collab Module Overlap on Mobile - Move ABOVE controls */
+       .collab-floating-module {
+           top: 80px !important;
+           right: 10px !important;
+           transform: scale(0.9);
+           transform-origin: top right;
+       }
+   }
+
+   @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+  }
+
+    /* Header Styles - Refactored for Responsiveness */
+    .header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 10px;
+    }
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+        min-width: 0; /* Enable shrinking */
+        overflow: hidden;
+    }
+    .back-btn {
+        color: #666;
+        text-decoration: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    .header-brand-container {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+    .header-brand-container img {
+        height: 32px;
+        width: 32px;
+    }
+    .header-brand {
+        font-size: 1.5rem;
+        color: #333;
+    }
+    .divider {
+        margin: 0 5px;
+        color: #ccc;
+        flex-shrink: 0;
+    }
+    #plan-title {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: normal;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #plan-name-edit-btn {
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: #999;
+        margin-left: 5px;
+        flex-shrink: 0;
+    }
+    #plan-status-select {
+        margin-left: 10px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        font-size: 0.85rem;
+        background-color: #f9f9f9;
+        color: #555;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .mode-switcher {
+        flex-shrink: 0;
+    }
+
+    .plan-status-badge {
+        margin-left: 10px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    .status-planning {
+        background-color: #2196F3; /* Blue */
+    }
+    .status-in-progress {
+        background-color: #FF9800; /* Orange */
+        box-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
+        animation: pulse-status 2s infinite;
+    }
+    .status-completed {
+        background-color: #4CAF50; /* Green */
+    }
+    @keyframes pulse-status {
+        0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(255, 152, 0, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+    }
+
+    .plan-status-badge {
+        margin-left: 10px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-planning {
+        background-color: #2196F3; /* Blue */
+    }
+    .status-in-progress {
+        background-color: #FF9800; /* Orange */
+        box-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
+        animation: pulse-status 2s infinite;
+    }
+    .status-completed {
+        background-color: #4CAF50; /* Green */
+    }
+    @keyframes pulse-status {
+        0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(255, 152, 0, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+    }
+
+    /* Mobile Header Adjustments */
+    @media (max-width: 600px) {
+        .site-header { padding: 0.5rem 0.8rem !important; }
+        .header-brand { display: none !important; }
+        .header-left { gap: 8px; }
+        .divider { display: none; }
+        #plan-title { font-size: 1rem; }
+        .plan-status-badge { 
+            margin-left: 4px; 
+            padding: 2px 8px; 
+            font-size: 0.75rem;
+        }
+        .mode-btn {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+    }
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+        <div class="header-left">
+            <a href="index.html" class="back-btn">&larr;</a>
+            <a href="index.html" class="header-brand-container">
+                <img src="logo-v2.svg" alt="Logo">
+                <div class="header-brand">
+                    <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
+                </div>
+            </a>
+            <span class="divider">|</span>
+            <h1 id="plan-title">Loading...</h1>
+            <button id="plan-name-edit-btn" title="编辑计划名称">✎</button>
+            <div id="plan-status-badge" class="plan-status-badge status-planning">筹备中</div>
+        </div>
+        
+        <div class="mode-switcher">
+            <a href="javascript:void(0)" id="mode-map-btn" class="mode-btn active" onclick="switchMode('map')">地图模式</a>
+            <a href="javascript:void(0)" id="mode-block-btn" class="mode-btn" onclick="switchMode('block')">积木模式</a>
+        </div>
+    </div>
+  </header>
+
+  <main class="view-wrapper">
+    <div class="view-slider" id="view-slider" style="transform: translateX(0);">
+        <!-- Map View -->
+        <div class="view-slide" id="map-view">
+            <div class="map-container">
+                <div class="map-fullscreen-btn" id="fullscreen-btn" onclick="toggleFullScreen()" title="全屏模式">
+                    <span>⛶</span>
+                </div>
+                <div class="controls" id="map-controls" style="z-index: 1000;">
+                  <div class="controls-toggle" id="controls-toggle-btn" title="切换控制面板">⚙️</div>
+                  <div class="controls-content">
+                    <!-- Search Module -->
+                    <div class="map-module">
+                        <div class="module-header">搜索</div>
+                        <input id="map-search-input" type="text" placeholder="搜索地点..." style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+
+                    <!-- View Module -->
+                    <div class="map-module">
+                        <div class="module-header">视图</div>
+                        <div class="day-selector">
+                          <select id="day-select">
+                            <option value="all">全部行程</option>
+                          </select>
+                        </div>
+                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="show-route-toggle" checked onchange="toggleRouteDisplay()">
+                                <label for="show-route-toggle" style="margin-left: 5px; font-size: 14px; color: #333; cursor: pointer;">显示路线</label>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="show-transport-toggle" checked onchange="toggleRouteDisplay()">
+                                <label for="show-transport-toggle" style="margin-left: 5px; font-size: 14px; color: #333; cursor: pointer;">显示交通</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Module -->
+                    <div class="map-module">
+                        <div class="module-header">编辑</div>
+                        <div class="map-edit-wrapper">
+                            <button class="map-edit-btn" onclick="toggleEditMode('date')">
+                                <span>📅</span> 日期划分
+                            </button>
+                            <button class="map-edit-btn" onclick="toggleEditMode('order')">
+                                <span>🔢</span> 游玩顺序
+                            </button>
+                            <button class="map-edit-btn" onclick="toggleEditMode('transport')">
+                                <span>✨</span> 规划交通
+                            </button>
+                            <button class="map-edit-btn" onclick="toggleEditMode('add-stay')">
+                                <span>🏨</span> 添加住宿
+                            </button>
+
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Bottom Action Panel -->
+                <div id="edit-action-panel" class="edit-action-panel">
+                    <!-- Content injected by JS -->
+                </div>
+                <div id="map-container"></div>
+            </div>
+        </div>
+
+        <!-- Block View -->
+        <div class="view-slide layout-main" id="block-view">
+            <section class="main-column">
+              <h2>任务栏</h2>
+              <div id="wish-list" class="card-list"></div>
+            </section>
+        
+            <aside class="side-column">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                  <h2 style="margin: 0;">计划列表</h2>
+                  <div style="display: flex; gap: 10px;">
+                    <!-- Moved to Map Mode -->
+                  </div>
+              </div>
+              <div id="plan-days" class="plan-days"></div>
+              <div id="plan-list" class="plan-list"></div>
+              <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
+            </aside>
+            <div id="block-view-actions" style="position: absolute; bottom: 90px; right: 20px; z-index: 100;">
+                 <button id="plan-danger-btn" class="btn" style="background:#f44336; color:#fff; display:none; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">删除计划</button>
+            </div>
+        </div>
+    </div>
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="edit-modal-overlay">
+      <div class="edit-modal-content">
+          <div class="edit-modal-close" onclick="closeEditModal()">&times;</div>
+          <iframe id="edit-iframe" class="edit-modal-iframe" src=""></iframe>
+      </div>
+  </div>
+  </main>
+
+  <div class="floating-add-wrapper">
+    <div class="floating-add-buttons">
+      <button id="add-menu-toggle" type="button" class="btn btn-primary floating-add-btn">添加项目</button>
+    </div>
+    <div id="add-menu" class="add-menu">
+      <!-- Hidden as requested
+      <a href="manage.html?type=food" class="btn btn-primary add-menu-item add-menu-item-food">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">美食</span>
+        <span class="add-menu-type-icon add-menu-type-icon-food">🍽</span>
+      </a>
+      <a href="manage.html?type=place" class="btn btn-primary add-menu-item add-menu-item-place">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">景点</span>
+        <span class="add-menu-type-icon add-menu-type-icon-place">🏞</span>
+      </a>
+      <a href="manage.html?type=stay" class="btn btn-primary add-menu-item add-menu-item-stay">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">住宿</span>
+        <span class="add-menu-type-icon add-menu-type-icon-stay">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M7.293 1.5a1 1 0 0 1 1.414 0l6 6A1 1 0 0 1 14.293 9H13.5v5.5a1 1 0 0 1-1 1h-3v-4h-3v4h-3a1 1 0 0 1-1-1V9H1.707a1 1 0 0 1-.707-1.707l6-6Z"
+            />
+          </svg>
+        </span>
+      </a>
+      -->
+      <a href="manage.html?type=transport" class="btn btn-primary add-menu-item add-menu-item-transport">
+        <span class="add-menu-icon">+</span>
+        <span class="add-menu-type-label">交通</span>
+        <span class="add-menu-type-icon add-menu-type-icon-transport">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M3 1.5A1.5 1.5 0 0 1 4.5 0h7A1.5 1.5 0 0 1 13 1.5V9a3 3 0 0 1-3 3h-.5l1.75 2.5a.75.75 0 1 1-1.2.9L8 12.5l-2.05 2.9a.75.75 0 1 1-1.2-.9L6.5 12H6a3 3 0 0 1-3-3V1.5ZM4.5 1a.5.5 0 0 0-.5.5V4h8V1.5a.5.5 0 0 0-.5-.5h-7ZM12 5.5H4v3A1.5 1.5 0 0 0 5.5 10h5A1.5 1.5 0 0 0 12 8.5v-3ZM6 6.5h1.5v2H6v-2Zm2.5 0H10v2H8.5v-2Z"
+            />
+          </svg>
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <div id="collab-floating-module" class="collab-floating-module" style="display: none;">
+    <div id="collab-drag-handle" class="module-header-drag">多人编辑</div>
+    <div class="module-content">
+      <div id="collab-avatars" class="collab-avatars"></div>
+      <button id="collab-add-btn" class="collab-add-btn" onclick="openInviteModal()" title="邀请好友">+</button>
+    </div>
+  </div>
+
+  <script src="cloud-sync.js"></script>
+  <script src="auth-manager.js"></script>
+  <script src="main.js?v=13"></script>
+  <script>
+    let currentMode = 'map';
+    let mapInitialized = false;
+    let map = null;
+    let mapState = { days: [] };
+    let mapAllItems = [];
+    let currentMapSelection = null;
+    let mapInfoWindow = null;
+    let lastHotspotClickTime = 0;
+    let showRoute = true;
+    let showTransportDetails = true;
+    let currentMapRenderId = 0;
+    
+    // --- Edit Mode State ---
+    let editMode = 'none'; // 'none', 'date', 'order', 'transport'
+    let transportOrderMode = 'default'; // 'default', 'custom'
+    // Use Array to allow multiple selection of the same item
+    let selectedMarkerIds = []; 
+    let markerInstances = new Map(); // id -> marker
+    const showToast = HKWL.showToast;
+
+    // Toggle Map Controls (Mobile)
+    function toggleMapControls() {
+        const controls = document.getElementById('map-controls');
+        controls.classList.toggle('expanded');
+    }
+
+    function toggleFullScreen() {
+        document.body.classList.toggle('fullscreen-active');
+        const btn = document.getElementById('fullscreen-btn');
+        const isFull = document.body.classList.contains('fullscreen-active');
+        
+        if (btn) {
+            btn.innerHTML = isFull ? '<span>↩</span>' : '<span>⛶</span>';
+            btn.title = isFull ? '退出全屏' : '全屏模式';
+            
+            if (isFull) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+        
+        // Resize map
+        if (map) {
+            setTimeout(() => map.resize(), 100);
+        }
+    }
+
+    // Initialize Drag for Map Controls Toggle
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggleBtn = document.getElementById('controls-toggle-btn');
+        const controls = document.getElementById('map-controls');
+        
+        if (!toggleBtn || !controls) return;
+
+        let isDragging = false;
+        let startX, startY;
+        let initialRight, initialTop;
+        const moveThreshold = 8; // Increased threshold for better tap detection
+
+        function handleStart(e) {
+            // Only handle left click for mouse
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            
+            // CRITICAL: Stop propagation to prevent map from receiving the event
+            e.stopPropagation();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            startX = clientX;
+            startY = clientY;
+            isDragging = false;
+
+            const computedStyle = window.getComputedStyle(controls);
+            initialRight = parseFloat(computedStyle.right);
+            initialTop = parseFloat(computedStyle.top);
+            
+            if (e.type === 'touchstart') {
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('touchend', handleEnd, { passive: false });
+            } else {
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+            }
+        }
+
+        function handleMove(e) {
+            // CRITICAL: Stop propagation and prevent default immediately
+            // This prevents map dragging and page scrolling
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            if (!isDragging && (Math.abs(deltaX) > moveThreshold || Math.abs(deltaY) > moveThreshold)) {
+                isDragging = true;
+            }
+
+            if (isDragging) {
+                // Moving right (positive deltaX) decreases 'right' value
+                // Moving down (positive deltaY) increases 'top' value
+                const newRight = initialRight - deltaX;
+                const newTop = initialTop + deltaY;
+                
+                controls.style.setProperty('right', `${newRight}px`, 'important');
+                controls.style.setProperty('top', `${newTop}px`, 'important');
+            }
+        }
+
+        function handleEnd(e) {
+            // Stop propagation here too
+            e.stopPropagation();
+
+            if (e.type === 'touchend') {
+                // Prevent default to stop mouse emulation events (click, mousedown, etc.)
+                // This prevents the toggle from firing twice (once for touch, once for click)
+                if (e.cancelable) e.preventDefault();
+                
+                document.removeEventListener('touchmove', handleMove);
+                document.removeEventListener('touchend', handleEnd);
+            } else {
+                document.removeEventListener('mousemove', handleMove);
+                document.removeEventListener('mouseup', handleEnd);
+            }
+
+            if (!isDragging) {
+                toggleMapControls();
+            }
+        }
+
+        toggleBtn.addEventListener('touchstart', handleStart, { passive: false });
+        toggleBtn.addEventListener('mousedown', handleStart);
+        
+        // Also prevent click propagation to be safe
+        toggleBtn.addEventListener('click', (e) => e.stopPropagation());
+        
+        // Prevent map interaction when touching the controls container content
+        const content = controls.querySelector('.controls-content');
+        if (content) {
+            const stopProp = (e) => e.stopPropagation();
+            content.addEventListener('touchstart', stopProp);
+            content.addEventListener('touchmove', stopProp);
+            content.addEventListener('touchend', stopProp);
+            content.addEventListener('mousedown', stopProp);
+            content.addEventListener('mousemove', stopProp); // prevent map hover effects
+        }
+    });
+
+    // Initialize Drag for Collab Floating Module
+    document.addEventListener('DOMContentLoaded', () => {
+        const handle = document.getElementById('collab-drag-handle');
+        const module = document.getElementById('collab-floating-module');
+        
+        if (!handle || !module) return;
+
+        let isDragging = false;
+        let startX, startY;
+        let initialRight, initialTop;
+        const moveThreshold = 5; // px
+
+        function handleStart(e) {
+            // Only handle left click for mouse
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            
+            e.stopPropagation(); // Prevent map interaction
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            startX = clientX;
+            startY = clientY;
+            isDragging = false;
+
+            const computedStyle = window.getComputedStyle(module);
+            initialRight = parseFloat(computedStyle.right);
+            initialTop = parseFloat(computedStyle.top);
+            
+            // Set cursor style
+            handle.style.cursor = 'grabbing';
+
+            if (e.type === 'touchstart') {
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('touchend', handleEnd);
+            } else {
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+            }
+        }
+
+        function handleMove(e) {
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault(); // Prevent scrolling
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            if (!isDragging && (Math.abs(deltaX) > moveThreshold || Math.abs(deltaY) > moveThreshold)) {
+                isDragging = true;
+            }
+
+            if (isDragging) {
+                // Right decreases as we move right (deltaX > 0) -> No, wait.
+                // If I move mouse right (deltaX > 0), the element should move right.
+                // Since it's positioned by 'right', increasing 'right' moves it left.
+                // So moving right (positive deltaX) should DECREASE 'right'.
+                // newRight = initialRight - deltaX
+                
+                // Top increases as we move down (deltaY > 0).
+                // newTop = initialTop + deltaY
+                
+                const newRight = initialRight - deltaX;
+                const newTop = initialTop + deltaY;
+                
+                module.style.setProperty('right', `${newRight}px`, 'important');
+                module.style.setProperty('top', `${newTop}px`, 'important');
+            }
+        }
+
+        function handleEnd(e) {
+            e.stopPropagation();
+            
+            handle.style.cursor = 'grab';
+
+            if (e.type === 'touchend') {
+                document.removeEventListener('touchmove', handleMove);
+                document.removeEventListener('touchend', handleEnd);
+            } else {
+                document.removeEventListener('mousemove', handleMove);
+                document.removeEventListener('mouseup', handleEnd);
+            }
+        }
+
+        handle.addEventListener('touchstart', handleStart, { passive: false });
+        handle.addEventListener('mousedown', handleStart);
+        
+        // Prevent clicks on the handle from bubbling (though it's just a handle)
+        handle.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    function toggleEditMode(mode) {
+        if (editMode === mode) {
+            resetEditState();
+        } else {
+            const currentViewDay = document.getElementById('day-select').value;
+            
+            // Check restrictions
+            if (mode === 'order' || mode === 'transport' || mode === 'add-stay') {
+                if (currentViewDay === 'all') {
+                    let msg = '';
+                    if (mode === 'order') msg = '游玩顺序仅可在单日视图下操作，请先选择具体某一天';
+                    else if (mode === 'transport') msg = '规划交通仅可在单日视图下操作，请先选择具体某一天';
+                    else msg = '添加住宿仅可在单日视图下操作，请先选择具体某一天';
+                    
+                    showToast(msg, 'warning');
+                    return;
+                }
+            }
+
+            editMode = mode;
+            selectedMarkerIds = []; // Clear array
+            
+            if (mode === 'transport') {
+                transportOrderMode = 'default';
+            }
+            
+            document.querySelectorAll('.map-edit-btn').forEach(btn => btn.classList.remove('active'));
+            if (mode === 'date') {
+                 document.querySelector('.map-edit-btn[onclick*="date"]').classList.add('active');
+                 showToast('请选择目标日期，然后点击地图上的项目', 'info');
+            } else if (mode === 'order') {
+                 document.querySelector('.map-edit-btn[onclick*="order"]').classList.add('active');
+                 showToast('请按期望的游玩顺序依次点击项目', 'info');
+            } else if (mode === 'transport') {
+                 document.querySelector('.map-edit-btn[onclick*="transport"]').classList.add('active');
+            } else if (mode === 'add-stay') {
+                 document.querySelector('.map-edit-btn[onclick*="add-stay"]').classList.add('active');
+                 showToast('请在地图上双击以添加住宿点', 'info');
+                 if (map) map.setStatus({ doubleClickZoom: false });
+            }
+            
+            updateEditPanel();
+            updateAllMarkersStyle();
+        }
+    }
+
+    function resetEditState() {
+        if (editMode === 'add-stay' && map) {
+            map.setStatus({ doubleClickZoom: true });
+        }
+        editMode = 'none';
+        transportOrderMode = 'default';
+        selectedMarkerIds = [];
+        document.querySelectorAll('.map-edit-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('edit-action-panel').classList.remove('show');
+        updateAllMarkersStyle();
+    }
+    
+    function setTransportOrderMode(mode) {
+        transportOrderMode = mode;
+        selectedMarkerIds = [];
+        updateAllMarkersStyle();
+        updateEditPanel();
+    }
+
+    async function confirmTransportPlan() {
+        const currentViewDay = document.getElementById('day-select').value;
+        if (currentViewDay === 'all') return;
+        
+        const dayIdx = parseInt(currentViewDay) - 1;
+        
+        try {
+            showToast('正在按顺序计算交通方案...', 'info');
+            await HKWL.autoGenerateTransports(dayIdx, null);
+        } catch (e) {
+            console.error(e);
+            showToast('计算失败，请稍后重试', 'error');
+        }
+        resetEditState();
+    }
+
+    // --- Transport Loop Logic ---
+    let homeInfoCache = null;
+
+    async function ensureHomeInfo() {
+        if (homeInfoCache) return homeInfoCache;
+        try {
+            const res = await fetch('/api/auth/status', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            if (data.success && data.home && data.home.location) {
+                homeInfoCache = data.home;
+                return data.home;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return null;
+    }
+
+    async function addHomeTrip(type) {
+        // type: 'start' | 'end'
+        const home = await ensureHomeInfo();
+        if (!home) {
+            showToast('请先在“个人信息”中设置家的位置', 'warning');
+            return;
+        }
+
+        const currentViewDay = document.getElementById('day-select').value;
+        if (currentViewDay === 'all') {
+            showToast('请先选择具体的一天', 'warning');
+            return;
+        }
+        
+        const dayIdx = parseInt(currentViewDay) - 1;
+        const planState = HKWL.loadPlanState();
+        const dayItems = planState.days[dayIdx] || [];
+        
+        if (dayItems.length === 0) {
+            showToast('当前天没有行程，无法添加', 'warning');
+            return;
+        }
+
+        // Load full items
+        const allItems = HKWL.loadWishlist();
+        const fullDayItems = dayItems.map(id => allItems.find(x => x.id === id)).filter(Boolean);
+        
+        // Exclude transport items to find actual locations
+        const validLocs = fullDayItems.filter(x => x.type !== 'transport');
+        
+        if (validLocs.length === 0) {
+             showToast('当前天没有有效地点，无法规划', 'warning');
+             return;
+        }
+
+        let targetItem, isOriginHome;
+        
+        if (type === 'start') {
+            targetItem = validLocs[0]; // First location
+            isOriginHome = true;
+        } else {
+            targetItem = validLocs[validLocs.length - 1]; // Last location
+            isOriginHome = false;
+        }
+
+        showToast('正在规划路线...', 'info');
+
+        // Construct transport item
+        // Use AMap to calculate distance/time if possible
+        let duration = '计算中...';
+        let distance = '';
+        
+        try {
+            // Simple straight line distance or use Web Service (Not available in pure JS API without plugin sometimes, but we loaded Driving)
+            // We use the same logic as autoGenerateTransports but just for one segment
+            
+            // For now, let's create a placeholder transport item and let the user edit or we can try to fetch.
+            // Better: use the existing route drawing logic to get data if possible? 
+            // Actually, we can just insert a transport item.
+            
+            const transportId = `transport_${Date.now()}`;
+            const newTransport = {
+                id: transportId,
+                type: 'transport',
+                name: isOriginHome ? `从家出发 -> ${targetItem.name}` : `${targetItem.name} -> 回家`,
+                desc: '自动生成的行程',
+                fromId: isOriginHome ? 'HOME' : targetItem.id,
+                toId: isOriginHome ? targetItem.id : 'HOME',
+                fromName: isOriginHome ? '家' : targetItem.name,
+                toName: isOriginHome ? targetItem.name : '家',
+                transportType: 'taxi', // Default
+                duration: '',
+                distance: '',
+                cost: '',
+                createdAt: new Date().toISOString()
+            };
+            
+            // Insert into list
+            HKWL.addItem(newTransport);
+            
+            if (type === 'start') {
+                planState.days[dayIdx].unshift(newTransport.id);
+            } else {
+                planState.days[dayIdx].push(newTransport.id);
+            }
+            
+            HKWL.savePlanState(planState);
+            
+            // Refresh
+            refreshMapData(currentViewDay);
+            if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+            
+            showToast('行程已添加！', 'success');
+            
+        } catch (e) {
+            console.error(e);
+            showToast('添加失败', 'error');
+        }
+    }
+
+    function updateEditPanel() {
+        const panel = document.getElementById('edit-action-panel');
+        if (editMode === 'none') {
+            panel.classList.remove('show');
+            return;
+        }
+
+        let content = '';
+        if (editMode === 'date') {
+            const planState = HKWL.loadPlanState();
+            // Default to baseDate (Day 1)
+            let defaultDate = planState.baseDate || new Date().toISOString().slice(0, 10);
+            
+            // Try to set default date based on current view
+            const currentViewDay = document.getElementById('day-select').value;
+            if (currentViewDay !== 'all') {
+                 const dayIdx = parseInt(currentViewDay) - 1;
+                 const base = new Date(defaultDate);
+                 base.setDate(base.getDate() + dayIdx);
+                 defaultDate = base.toISOString().slice(0, 10);
+            }
+
+            content = `
+                <span class="panel-text">已选 ${selectedMarkerIds.length} 项</span>
+                <span class="panel-text" style="color:#ddd">|</span>
+                <span class="panel-text">移动至:</span>
+                <input type="date" id="edit-target-date" class="panel-select" value="${defaultDate}" style="padding: 4px 8px;">
+                <button class="panel-btn panel-btn-primary" onclick="confirmDateAssign()">确认</button>
+                <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
+            `;
+        } else if (editMode === 'order') {
+            content = `
+                <span class="panel-text">已选 ${selectedMarkerIds.length} 项</span>
+                <button class="panel-btn panel-btn-primary" onclick="confirmOrderSort()">确认排序</button>
+                <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
+            `;
+        } else if (editMode === 'transport') {
+             ensureHomeInfo().then(home => {
+                 let homeButtons = '';
+                 if (home) {
+                     homeButtons = `
+                        <div style="display:flex; gap:8px; border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:8px;">
+                            <button class="panel-btn panel-btn-primary" style="background:#722ed1; border:none;" onclick="addHomeTrip('start')">🏠 从家出发</button>
+                            <button class="panel-btn panel-btn-primary" style="background:#722ed1; border:none;" onclick="addHomeTrip('end')">🏠 回家</button>
+                        </div>
+                     `;
+                 }
+                 
+                 const content = `
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="panel-text" style="font-weight:bold;">规划交通</span>
+                        </div>
+                        ${homeButtons}
+                        <div style="font-size:13px; color:#666;">
+                            将按照当前的游玩顺序自动规划交通
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
+                            <button class="panel-btn panel-btn-primary" onclick="confirmTransportPlan()">生成交通方案</button>
+                            <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
+                        </div>
+                    </div>
+                `;
+                panel.innerHTML = content;
+             });
+             return; // Async update
+        } else if (editMode === 'add-stay') {
+            content = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="panel-text" style="font-weight:bold;">添加住宿</span>
+                </div>
+                <div style="font-size:13px; color:#666;">
+                    双击地图任意位置以添加住宿点
+                </div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">退出</button>
+                </div>
+            `;
+        }
+        
+        panel.innerHTML = content;
+        panel.classList.add('show');
+    }
+    
+    function handleMarkerClick(item, marker) {
+        if (editMode === 'none') {
+            const position = marker.getPosition();
+            openInfoWindow(item, position);
+        } else {
+            // 禁止在排序模式下选择交通类型的项目
+            if (editMode === 'order' && item.type === 'transport') {
+                 return;
+            }
+
+            // Transport mode no longer requires selection
+            if (editMode === 'transport') {
+                showToast('交通规划将自动按照现有游玩顺序生成，无需选择', 'info');
+                return;
+            }
+
+            if (editMode === 'order') {
+                // Allow duplicate selection in order mode
+                selectedMarkerIds.push(item.id);
+            } else {
+                // For other modes (like date), toggle selection (unique)
+                const idx = selectedMarkerIds.indexOf(item.id);
+                if (idx !== -1) {
+                    selectedMarkerIds.splice(idx, 1);
+                } else {
+                    selectedMarkerIds.push(item.id);
+                }
+            }
+            
+            // Update all selected markers to refresh order numbers
+            if (editMode === 'order') {
+                updateAllMarkersStyle();
+            } else {
+                updateMarkerStyle(marker, item.id);
+            }
+            updateEditPanel();
+        }
+    }
+
+    function updateAllMarkersStyle() {
+        markerInstances.forEach((marker, id) => {
+            updateMarkerStyle(marker, id);
+        });
+    }
+
+    function updateMarkerStyle(marker, id) {
+        // Check if selected by finding index (or indices)
+        // For order mode, we want to know ALL indices to display them properly or just the last one?
+        // Actually, for order mode, a marker can be selected multiple times.
+        // But physically it's one marker. We should probably show all order numbers? e.g. "1, 3"
+        
+        const indices = [];
+        selectedMarkerIds.forEach((sid, idx) => {
+            if (sid === id) indices.push(idx + 1);
+        });
+        const isSelected = indices.length > 0;
+
+        const dom = marker.getExtData().dom; 
+        if (dom) {
+            const dot = dom.querySelector('.marker-dot');
+            if (isSelected) {
+                dom.classList.add('selected');
+                if (editMode === 'order' || (editMode === 'transport' && transportOrderMode === 'custom')) {
+                    dom.classList.add('selected-order');
+                    if (dot) {
+                        dot.setAttribute('data-order', indices.join(',')); // Show 1,3
+                    }
+                } else {
+                    dom.classList.remove('selected-order');
+                    if (dot) dot.removeAttribute('data-order');
+                }
+            } else {
+                dom.classList.remove('selected', 'selected-order');
+                if (dot) dot.removeAttribute('data-order');
+            }
+        }
+    }
+
+    function confirmDateAssign() {
+        try {
+            if (selectedMarkerIds.length === 0) {
+                showToast('请先在地图上选择要划分的项目', 'warning');
+                return;
+            }
+            
+            const dateInput = document.getElementById('edit-target-date');
+            if (!dateInput || !dateInput.value) {
+                showToast('请选择有效日期', 'error');
+                return;
+            }
+            
+            const planState = HKWL.loadPlanState();
+            let baseDateStr = planState.baseDate;
+            
+            // Ensure baseDate exists and is valid
+            if (!baseDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
+                baseDateStr = new Date().toISOString().slice(0, 10);
+                planState.baseDate = baseDateStr; // Auto-repair
+            }
+            
+            const targetDateStr = dateInput.value;
+            
+            // Check if date is earlier than baseDate
+            if (targetDateStr < baseDateStr) {
+                 if (!confirm(`选择的日期早于计划开始日期 (${baseDateStr})。是否将其作为第 1 天并更新计划开始日期？`)) {
+                    return;
+                }
+                
+                // Freeze existing implicit dates into explicit titles before changing baseDate
+                if (!planState.titles) planState.titles = [];
+                // Ensure titles array covers all days
+                while(planState.titles.length < planState.days.length) planState.titles.push("");
+                
+                for(let i=0; i<planState.days.length; i++) {
+                    if (!planState.titles[i]) {
+                        const [y, m, d] = baseDateStr.split('-').map(Number);
+                        const date = new Date(y, m - 1, d);
+                        date.setDate(date.getDate() + i);
+                        const mm = String(date.getMonth() + 1).padStart(2, '0');
+                        const dd = String(date.getDate()).padStart(2, '0');
+                        planState.titles[i] = `${date.getFullYear()}-${mm}-${dd}`;
+                    }
+                }
+                
+                planState.baseDate = targetDateStr;
+                baseDateStr = targetDateStr; // Update local var for subsequent logic
+            }
+
+            if (!planState.days) planState.days = [[]];
+            if (!planState.titles) planState.titles = [];
+            
+            // Ensure titles array covers all days
+            while(planState.titles.length < planState.days.length) planState.titles.push("");
+
+            // Helper to determine the date of a specific index
+            const getDateAtIndex = (idx) => {
+                if (planState.titles[idx]) return planState.titles[idx];
+                const [y, m, d] = baseDateStr.split('-').map(Number);
+                const date = new Date(y, m - 1, d);
+                date.setDate(date.getDate() + idx);
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                return `${date.getFullYear()}-${mm}-${dd}`;
+            };
+
+            let targetIndex = -1;
+            
+            // 1. Check if date already exists
+            for (let i = 0; i < planState.days.length; i++) {
+                if (getDateAtIndex(i) === targetDateStr) {
+                    targetIndex = i;
+                    break;
+                }
+            }
+
+            // Force all titles to be explicit before modification to avoid index shift issues
+            for(let i=0; i<planState.days.length; i++) {
+                if (!planState.titles[i]) {
+                    planState.titles[i] = getDateAtIndex(i);
+                }
+            }
+
+            // 2. If not found, find insertion point
+            if (targetIndex === -1) {
+                let insertIndex = planState.days.length;
+                for (let i = 0; i < planState.days.length; i++) {
+                    // We can use explicit titles now
+                    if (planState.titles[i] > targetDateStr) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+                
+                // Insert new day
+                planState.days.splice(insertIndex, 0, []);
+                planState.titles.splice(insertIndex, 0, targetDateStr);
+                targetIndex = insertIndex;
+            } else {
+                // Ensure explicit title is set (already done above, but safe to keep)
+                planState.titles[targetIndex] = targetDateStr;
+            }
+
+            const targetDay = targetIndex + 1; // 1-based for UI
+            
+            const ids = selectedMarkerIds;
+            
+            // Validate IDs against wishlist to remove ghosts AND deduplicate
+            const allItems = HKWL.loadWishlist();
+            // In date mode, we want UNIQUE items
+            const uniqueIds = Array.from(new Set(ids));
+            const validIdSet = new Set(allItems.map(item => item.id));
+
+            // Helper to check if item has valid coordinates for map display
+            const hasValidCoords = (id) => {
+                const item = allItems.find(i => i.id === id);
+                if (!item) return false;
+                // If it's a transport, we consider it 'invisible' for day-existence check in map mode
+                if (item.type === 'transport') return false; 
+                
+                // Check for coords object or location property that implies coordinates
+                if (item.coords && (item.coords.lat || item.coords.lng)) return true;
+                if (item.location && (item.location.lat || item.location.lng)) return true;
+                
+                // Fallback: if it has a valid lng/lat string/number directly on it (legacy)
+                if (item.lng && item.lat) return true;
+                
+                return false;
+            };
+
+            // Clean planState.days from ghost IDs AND deduplicate before moving
+            planState.days = planState.days.map(dayList => {
+                const uniqueIds = new Set();
+                const cleanList = [];
+                dayList.forEach(id => {
+                    // Only keep valid IDs that haven't been added yet (deduplication)
+                    if (validIdSet.has(id) && !uniqueIds.has(id)) {
+                        uniqueIds.add(id);
+                        cleanList.push(id);
+                    }
+                });
+                return cleanList;
+            });
+
+            // Move items (Remove from ALL locations then add to target)
+            // Use uniqueIds for Date Mode to avoid adding same item multiple times
+            uniqueIds.forEach(id => {
+                // Remove ALL instances of this ID from ALL days
+                planState.days.forEach(dayList => {
+                    let idx = dayList.indexOf(id);
+                    while (idx !== -1) {
+                        dayList.splice(idx, 1);
+                        idx = dayList.indexOf(id);
+                    }
+                });
+                // Add to target day
+                if (planState.days[targetIndex]) {
+                     planState.days[targetIndex].push(id);
+                }
+            });
+            
+            // Cleanup empty days
+            const newDays = [];
+            const newTitles = [];
+            
+            for(let i=0; i<planState.days.length; i++) {
+                const dayItems = planState.days[i];
+                // Check if day has ANY items
+                if (dayItems.length > 0) {
+                    // Check if day has at least one visible item on map
+                    const hasVisibleItems = dayItems.some(id => hasValidCoords(id));
+                    
+                    if (hasVisibleItems) {
+                        newDays.push(dayItems);
+                        newTitles.push(planState.titles[i]);
+                    } else {
+                        // If day only has invisible items (transports, no-coord items), 
+                        // we effectively drop this day from the plan view to avoid 'empty' days.
+                        // WARNING: This deletes those invisible items from the schedule!
+                        // This matches user expectation of "clearing empty days".
+                    }
+                }
+            }
+            
+            planState.days = newDays;
+            planState.titles = newTitles;
+            
+            // Re-calculate targetDay (currentDay) based on targetDateStr
+            // because indices might have shifted
+            let newTargetIndex = -1;
+            for(let i=0; i<planState.titles.length; i++) {
+                if (planState.titles[i] === targetDateStr) {
+                    newTargetIndex = i;
+                    break;
+                }
+            }
+            
+            const newTargetDay = newTargetIndex !== -1 ? newTargetIndex + 1 : 1;
+            planState.currentDay = newTargetDay;
+            
+            // Update baseDate if the first day changed
+            if (newTitles.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(newTitles[0])) {
+                planState.baseDate = newTitles[0];
+            }
+            
+            HKWL.savePlanState(planState);
+            mapState = planState; // Update local state immediately
+            showToast('划分成功', 'success');
+            
+            // Update UI immediately
+            const daySelect = document.getElementById('day-select');
+            if (daySelect) {
+                // We need to refresh options first if we added new days
+                updateDaySelector();
+                daySelect.value = newTargetDay;
+            }
+            
+            resetEditState();
+            refreshMapData(newTargetDay);
+        } catch (e) {
+            console.error(e);
+            showToast('操作失败: ' + e.message, 'error');
+        }
+    }
+
+    function confirmOrderSort() {
+        try {
+            if (selectedMarkerIds.length < 2) {
+                showToast('请至少选择两个项目', 'info');
+                return;
+            }
+            
+            const daySelect = document.getElementById('day-select');
+            if (daySelect.value === 'all') {
+                showToast('请先选择具体某一天', 'warning');
+                return;
+            }
+            
+            const currentDayIdx = parseInt(daySelect.value) - 1;
+            const ids = selectedMarkerIds; 
+            const planState = HKWL.loadPlanState();
+            
+            if (!planState.days || !planState.days[currentDayIdx]) {
+                showToast('当前日期无数据', 'error');
+                return;
+            }
+            
+            const targetDayList = planState.days[currentDayIdx];
+            const allItems = HKWL.loadWishlist(); // Get all items to check types
+
+            // Helper to check if item is transport
+            const isTransport = (id) => {
+                const item = allItems.find(i => i.id === id);
+                return item && item.type === 'transport';
+            };
+            
+            // Find insertion index (minimum index of selected items in the current list)
+            // Note: We should ignore transport items when calculating index to be safe, 
+            // but since we are deleting them anyway, we just find the first selected item's position.
+            let minIndex = Infinity;
+            ids.forEach(id => {
+                const idx = targetDayList.indexOf(id);
+                if (idx !== -1 && idx < minIndex) {
+                    minIndex = idx;
+                }
+            });
+            
+            // If items not found (shouldn't happen in view), append
+            if (minIndex === Infinity) minIndex = targetDayList.length;
+            
+            // 1. Remove ALL transport items from the day list (since order changed, old transport is invalid)
+            // 2. Remove selected items to be re-inserted
+            const newDayList = targetDayList.filter(id => {
+                if (isTransport(id)) return false; // Remove transport
+                if (selectedMarkerIds.includes(id)) return false; // Remove selected (will insert back)
+                return true;
+            });
+            
+            // Adjust minIndex if necessary? 
+            // Actually, since we removed transport items that might have been BEFORE minIndex,
+            // the minIndex might point to a different item now.
+            // But we want to insert at the "visual" position.
+            // A safer way is:
+            // Find the item that was at minIndex (or after).
+            // But simpler logic: just append if list is empty, or insert at 0 if minIndex was 0.
+            // Let's rely on relative order of remaining items.
+            // We need to find the "anchor" item that was originally at or after minIndex.
+            
+            // Let's refine the logic:
+            // We want to replace the [range of selected items] with [new ordered items], 
+            // AND remove all transport items.
+            
+            // New approach:
+            // 1. Filter out all transport items from the ORIGINAL list first.
+            const cleanList = targetDayList.filter(id => !isTransport(id));
+            
+            // 2. Find minIndex in the CLEAN list
+            let cleanMinIndex = Infinity;
+             ids.forEach(id => {
+                const idx = cleanList.indexOf(id);
+                if (idx !== -1 && idx < cleanMinIndex) {
+                    cleanMinIndex = idx;
+                }
+            });
+            if (cleanMinIndex === Infinity) cleanMinIndex = cleanList.length;
+
+            // 3. Remove selected items from CLEAN list
+            const finalBaseList = cleanList.filter(id => !selectedMarkerIds.includes(id));
+
+            // 4. Insert at cleanMinIndex
+            if (cleanMinIndex > finalBaseList.length) cleanMinIndex = finalBaseList.length;
+            finalBaseList.splice(cleanMinIndex, 0, ...ids);
+            
+            // Update state
+            planState.days[currentDayIdx] = finalBaseList;
+            
+            HKWL.savePlanState(planState);
+            showToast('游玩顺序已更新 (已清除旧交通方案)', 'success');
+            resetEditState();
+            refreshMapData(currentDayIdx + 1);
+        } catch (e) {
+            console.error(e);
+            showToast('操作失败: ' + e.message, 'error');
+        }
+    }
+
+    function switchMode(mode) {
+        if (currentMode === mode) return;
+        currentMode = mode;
+        
+        const slider = document.getElementById('view-slider');
+        const blockBtn = document.getElementById('mode-block-btn');
+        const mapBtn = document.getElementById('mode-map-btn');
+        
+        if (mode === 'map') {
+            slider.style.transform = 'translateX(0)';
+            blockBtn.classList.remove('active');
+            mapBtn.classList.add('active');
+            
+            // Hide floating buttons in map mode
+            document.querySelector('.floating-add-wrapper').style.display = 'none';
+
+            if (!mapInitialized) {
+                initMapLogic();
+                mapInitialized = true;
+            } else {
+                 if (map) {
+                     setTimeout(() => {
+                         map.resize(); 
+                         const daySelect = document.getElementById('day-select');
+                         // Reload data to ensure sync with block mode changes
+                         mapState = HKWL.loadPlanState();
+                         mapAllItems = HKWL.loadWishlist();
+                         updateDaySelector();
+                         renderMap(daySelect.value);
+                     }, 500);
+                 }
+            }
+        } else {
+            slider.style.transform = 'translateX(-50%)';
+            mapBtn.classList.remove('active');
+            blockBtn.classList.add('active');
+            // Show floating buttons in block mode
+            document.querySelector('.floating-add-wrapper').style.display = 'block';
+            
+            // Sync view
+            if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+        }
+    }
+
+    // --- Home Logic ---
+    let homeMarker = null;
+
+    function renderHomeMarker(homeData) {
+        if (!homeData || !homeData.location || !homeData.location.lat) return;
+        if (!map) return;
+        
+        if (homeMarker) {
+            map.remove(homeMarker);
+        }
+        
+        const position = new AMap.LngLat(homeData.location.lng, homeData.location.lat);
+        
+        const content = document.createElement('div');
+        content.className = 'custom-marker type-home';
+        content.innerHTML = `
+            <div class="marker-dot">🏠</div>
+            <span class="marker-name" style="color: #722ed1;">家</span>
+        `;
+        
+        homeMarker = new AMap.Marker({
+            position: position,
+            content: content,
+            offset: new AMap.Pixel(-15, -15),
+            map: map,
+            zIndex: 200,
+            title: `家: ${homeData.name || homeData.address}`,
+            extData: { dom: content }
+        });
+        
+        homeMarker.on('click', () => {
+             const info = new AMap.InfoWindow({
+                anchor: 'bottom-center',
+                content: `<div style="padding:5px;"><h3>🏠 我的家</h3><p>${homeData.address}</p></div>`,
+                offset: new AMap.Pixel(0, -40)
+            });
+            info.open(map, position);
+        });
+    }
+
+    async function loadHomeMarker() {
+        try {
+            const res = await fetch('/api/auth/status', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            if (data.success && data.home) {
+                renderHomeMarker(data.home);
+            }
+        } catch (e) {
+            console.error("Failed to load home", e);
+        }
+    }
+
+    // --- Map Logic ---
+
+    async function initMapLogic() {
+        mapState = HKWL.loadPlanState();
+        mapAllItems = HKWL.loadWishlist();
+        
+        // Setup Day Selector
+        updateDaySelector();
+        
+        const daySelect = document.getElementById('day-select');
+        daySelect.addEventListener('change', () => {
+            const val = daySelect.value;
+            if (val !== 'all') {
+                const day = parseInt(val);
+                const ps = HKWL.loadPlanState();
+                if (ps.currentDay !== day) {
+                    ps.currentDay = day;
+                    HKWL.savePlanState(ps);
+                }
+            }
+            renderMap(val);
+        });
+
+        await initMap();
+    }
+
+    function updateDaySelector() {
+        const daySelect = document.getElementById('day-select');
+        // Keep first option (All)
+        while (daySelect.options.length > 1) {
+            daySelect.remove(1);
+        }
+        
+        mapState.days.forEach((_, index) => {
+            const option = document.createElement('option');
+            option.value = index + 1;
+            option.textContent = HKWL.formatDayTitle(index + 1, mapState);
+            daySelect.appendChild(option);
+        });
+    }
+
+    async function initMap() {
+        try {
+            const AMap = await AMapLoader.load({
+                key: "8040299dec271ec2928477f709015d3d",
+                version: "2.0",
+                plugins: ["AMap.Scale", "AMap.ToolBar", "AMap.ControlBar", "AMap.Driving", "AMap.Walking", "AMap.Transfer", "AMap.Geocoder", "AMap.PlaceSearch", "AMap.AutoComplete"]
+            });
+            
+            map = new AMap.Map("map-container", {
+                zoom: 4,
+                center: [105.0, 35.0], 
+                viewMode: '3D', 
+                features: ['bg', 'road', 'building', 'point'],
+                doubleClickZoom: false, // Disable double click zoom to support double click add
+                isHotspot: true // Enable hotspot click for easier POI selection
+            });
+            
+            map.addControl(new AMap.Scale());
+            map.addControl(new AMap.ToolBar({ position: 'RB' }));
+
+            // --- Search Logic ---
+            const auto = new AMap.AutoComplete({
+                input: "map-search-input",
+                city: "香港"
+            });
+            const searchPlace = new AMap.PlaceSearch({
+                city: "香港"
+            });
+            
+            auto.on("select", function(e) {
+                const poi = e.poi;
+                if (!poi) return;
+                
+                if (poi.location) {
+                    map.setCenter(poi.location);
+                    map.setZoom(15);
+                    setSelection(poi.name, poi.type, poi.address, poi.location);
+                } else {
+                    searchPlace.search(poi.name, (status, result) => {
+                        if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
+                            const p = result.poiList.pois[0];
+                            map.setCenter(p.location);
+                            map.setZoom(15);
+                            setSelection(p.name, p.type, p.address, p.location);
+                        }
+                    });
+                }
+            });
+
+            mapGeocoder = new AMap.Geocoder({ city: "香港" });
+            mapPlaceSearch = new AMap.PlaceSearch({ city: "香港" });
+            mapInfoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -30) });
+
+            map.on('click', handleMapClick);
+            map.on('dblclick', handleMapDoubleClick);
+            map.on('hotspotclick', handleHotspotClick);
+            
+            const daySelect = document.getElementById('day-select');
+            renderMap(daySelect.value);
+            
+            loadHomeMarker();
+
+        } catch (e) {
+            console.error(e);
+            document.getElementById('map-container').innerHTML = 
+                '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#666;">地图加载失败，请检查网络设置</div>';
+        }
+    }
+
+    function handleHotspotClick(e) {
+        lastHotspotClickTime = Date.now();
+        const lnglat = e.lnglat;
+        if (e && e.id) {
+             mapPlaceSearch.getDetails(e.id, (status, result) => {
+                if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
+                    const poi = result.poiList.pois[0];
+                    setSelection(poi.name, poi.type, poi.address, poi.location);
+                } else {
+                    // Fallback
+                    setSelection(e.name, "风景名胜", "未知地址", lnglat);
+                }
+            });
+        }
+    }
+
+    function handleMapClick(e) {
+        // Prevent conflict with hotspot click (wait 500ms)
+        if (Date.now() - lastHotspotClickTime < 500) return;
+
+        const lnglat = e.lnglat;
+        if (!mapGeocoder || !mapPlaceSearch) return;
+
+        // 1. Check if user clicked on a POI (Hotspot) directly
+        if (e.poi && e.poi.id) {
+            mapPlaceSearch.getDetails(e.poi.id, (status, result) => {
+                if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
+                    const poi = result.poiList.pois[0];
+                    setSelection(poi.name, poi.type, poi.address, poi.location);
+                } else {
+                    // Fallback using basic POI info from event
+                    setSelection(e.poi.name, "风景名胜", "未知地址", e.poi.location || lnglat);
+                }
+            });
+            return;
+        }
+
+        // 2. Search for POI around (Increased radius to 200m for easier selection)
+        mapPlaceSearch.searchNearBy('', lnglat, 200, (status, result) => {
+            if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
+                const poi = result.poiList.pois[0];
+                setSelection(poi.name, poi.type, poi.address, poi.location);
+            } else {
+                // Fallback to Geocode
+                mapGeocoder.getAddress(lnglat, (status, result) => {
+                    if (status === 'complete' && result.regeocode) {
+                         const address = result.regeocode.formattedAddress;
+                         // Try to use a landmark or building as name if available
+                         const aoi = result.regeocode.aois && result.regeocode.aois.length > 0 ? result.regeocode.aois[0].name : "未知地点";
+                         const name = aoi !== "未知地点" ? aoi : address;
+                         setSelection(name, "风景名胜", address, lnglat);
+                    }
+                });
+            }
+        });
+    }
+
+    function setSelection(name, typeRaw, address, location) {
+        // Determine internal type
+        let type = 'place'; // Default
+        const lowerType = (typeRaw || '').toLowerCase();
+        const lowerName = (name || '').toLowerCase();
+        
+        if (lowerType.includes('餐饮') || lowerType.includes('美食') || lowerType.includes('餐厅') || lowerType.includes('咖啡') || lowerType.includes('茶') || lowerType.includes('酒')) {
+            type = 'food';
+        } else if (lowerType.includes('住宿') || lowerType.includes('宾馆') || lowerType.includes('酒店') || lowerType.includes('旅馆')) {
+            type = 'stay';
+        }
+
+        currentMapSelection = {
+            name,
+            address,
+            type, // Internal type
+            location,
+            originalType: typeRaw
+        };
+
+        const content = `
+            <div style="padding: 5px; min-width: 150px;">
+                <h4 style="margin:0 0 5px 0; font-size:14px;">${name}</h4>
+                <p style="margin:0; font-size:12px; color:#666;">${address}</p>
+                <div style="margin-top:5px; font-size:12px; color:#1976d2;">
+                   <span style="display:inline-block; padding:2px 4px; background:#e3f2fd; border-radius:4px;">${type === 'food' ? '美食' : type === 'stay' ? '住宿' : '景点'}</span>
+                   <span style="float:right; color:#999;">双击添加</span>
+                </div>
+            </div>
+        `;
+        
+        mapInfoWindow.setContent(content);
+        mapInfoWindow.open(map, location);
+    }
+
+    function handleMapDoubleClick(e) {
+        if (editMode === 'add-stay') {
+            const lnglat = e.lnglat;
+            showToast('正在添加住宿...', 'info');
+            
+            // Reverse Geocode
+            mapGeocoder.getAddress(lnglat, (status, result) => {
+                let address = '未知地址';
+                let name = '新住宿点';
+                
+                if (status === 'complete' && result.regeocode) {
+                    address = result.regeocode.formattedAddress;
+                    // Prefer POI name, then AOI name, then generic name
+                    const aoi = result.regeocode.aois && result.regeocode.aois.length > 0 ? result.regeocode.aois[0].name : null;
+                    const poi = result.regeocode.pois && result.regeocode.pois.length > 0 ? result.regeocode.pois[0].name : null;
+                    
+                    if (poi) name = poi;
+                    else if (aoi) name = aoi;
+                    // Keep '新住宿点' or use address if really nothing else, but usually address is too long for name
+                }
+                
+                const newItem = {
+                    id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                    name: name,
+                    type: 'stay',
+                    location: name, // Use name as location/title
+                    address: address, // Store full address if needed (though not standard schema, good to have)
+                    coords: { lng: lnglat.getLng(), lat: lnglat.getLat() },
+                    createdAt: new Date().toISOString(),
+                    status: 'pending'
+                };
+                
+                // Add to current day plan directly
+                const currentViewDay = document.getElementById('day-select').value;
+                if (currentViewDay !== 'all') {
+                    const dayIdx = parseInt(currentViewDay) - 1;
+                    const planState = HKWL.loadPlanState();
+                    if (!planState.days[dayIdx]) planState.days[dayIdx] = [];
+                    
+                    // CRITICAL FIX: Add to global item list (SSOT) first!
+                    HKWL.addItem(newItem);
+
+                    planState.days[dayIdx].push(newItem.id); // Push ID, not object
+                    HKWL.savePlanState(planState);
+                    
+                    showToast('住宿已添加到当前日程', 'success');
+                    
+                    // Refresh map to show new marker
+                    refreshMapData(currentViewDay);
+                    
+                    // Also refresh the block view in background so list is up to date
+                    if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+                }
+            });
+            return;
+        }
+
+        // Use current selection if it's close to the double click? 
+        // Or just use the selection we just made (since dblclick involves clicks).
+        // Let's assume the click handler already fired or will fire for the location.
+        // But dblclick might happen fast.
+        
+        if (currentMapSelection) {
+            // Check distance? (Optional)
+            // Just add it.
+            
+            const newItem = {
+                id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                name: currentMapSelection.name,
+                type: currentMapSelection.type,
+                location: currentMapSelection.name, // Use name as location for display usually, or address? The prompt says "Location" field usually takes the name/area. Let's use name.
+                coords: { lng: currentMapSelection.location.lng, lat: currentMapSelection.location.lat },
+                createdAt: new Date().toISOString(),
+                status: 'pending'
+            };
+            
+            // Add extra fields based on type
+            if (newItem.type === 'food') {
+                 // newItem.mealType = '正餐'; // Optional default
+            }
+            
+            HKWL.addItem(newItem);
+            
+            // Auto-assign to current day if selected
+            const daySelect = document.getElementById('day-select');
+            const currentVal = daySelect.value;
+            let addedToDay = false;
+
+            if (currentVal !== 'all') {
+                const dayIndex = parseInt(currentVal) - 1;
+                const planState = HKWL.loadPlanState();
+                
+                // Ensure array structure
+                if (!planState.days) planState.days = [];
+                while (planState.days.length <= dayIndex) {
+                    planState.days.push([]);
+                    if (planState.titles) planState.titles.push("");
+                }
+                
+                planState.days[dayIndex].push(newItem.id);
+                HKWL.savePlanState(planState);
+                mapState = planState;
+                addedToDay = true;
+            }
+            
+            // Close info window
+            mapInfoWindow.close();
+            currentMapSelection = null;
+            
+            // Show feedback
+            const toast = document.createElement('div');
+            toast.textContent = addedToDay 
+                ? `已添加：${newItem.name} (第${currentVal}天)` 
+                : `已添加：${newItem.name}`;
+            toast.style.cssText = `
+                position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+                background: rgba(0,0,0,0.8); color: white; padding: 8px 16px;
+                border-radius: 20px; font-size: 14px; z-index: 9999;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+            
+            // Refresh view
+            if (addedToDay) {
+                // If added to specific day, refresh that day view
+                refreshMapData(currentVal);
+            } else {
+                // If added in 'all' mode (unassigned), switch to 'all' refresh
+                // Note: Unassigned items might not show in 'all' view depending on implementation,
+                // but this preserves previous logic behavior for 'all' mode (minus the forced switch if we were in specific day).
+                refreshMapData('all');
+            }
+        }
+    }
+
+
+    function getItemsForDay(dayIndex) { 
+        if (!mapState.days[dayIndex]) return [];
+        return mapState.days[dayIndex].map(id => mapAllItems.find(item => item.id === id)).filter(Boolean);
+    }
+
+    function getAllItemsOrdered() {
+        let list = [];
+        mapState.days.forEach(dayIds => {
+           list = list.concat(dayIds.map(id => mapAllItems.find(item => item.id === id)).filter(Boolean));
+        });
+        return list;
+    }
+
+    function refreshMapData(targetDay) {
+        const daySelect = document.getElementById('day-select');
+        let currentVal = daySelect.value;
+        
+        mapState = HKWL.loadPlanState();
+        mapAllItems = HKWL.loadWishlist();
+        updateDaySelector(); 
+        
+        if (typeof updatePlanStatusUI === 'function') updatePlanStatusUI();
+        
+        if (targetDay) {
+            currentVal = targetDay;
+        }
+        
+        // Check if currentVal exists in new options
+        let exists = false;
+        for (let i = 0; i < daySelect.options.length; i++) {
+            if (daySelect.options[i].value == currentVal) {
+                exists = true;
+                break;
+            }
+        }
+        
+        if (exists) {
+            daySelect.value = currentVal;
+        } else {
+            daySelect.value = 'all';
+        }
+
+        renderMap(daySelect.value);
+        if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+    }
+
+    function openInfoWindow(item, position) {
+        const info = new AMap.InfoWindow({
+            anchor: 'bottom-center',
+            content: createInfoWindowContent(item),
+            offset: new AMap.Pixel(0, -45)
+        });
+        info.open(map, position);
+    }
+
+    function createInfoWindowContent(item) {
+        const div = document.createElement('div');
+        div.className = 'map-info-window';
+        div.style.padding = '5px';
+        div.style.minWidth = '220px';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = item.name;
+        h3.style.margin = '0 0 8px 0';
+        h3.style.fontSize = '16px';
+        h3.style.borderBottom = '1px solid #eee';
+        h3.style.paddingBottom = '5px';
+        div.appendChild(h3);
+
+
+
+        if (item.desc) {
+            const p = document.createElement('p');
+            p.textContent = item.desc;
+            p.style.fontSize = '12px';
+            p.style.color = '#666';
+            p.style.margin = '0 0 8px 0';
+            div.appendChild(p);
+        }
+        
+        if (item.location) {
+             const p = document.createElement('p');
+             p.textContent = `📍 ${item.location}`;
+             p.style.fontSize = '12px';
+             p.style.margin = '0 0 4px 0';
+             p.style.color = '#888';
+             div.appendChild(p);
+        }
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.marginTop = '10px';
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '4px';
+        btnGroup.style.justifyContent = 'space-between';
+        btnGroup.style.flexWrap = 'wrap';
+        btnGroup.style.borderTop = '1px solid #eee';
+        btnGroup.style.paddingTop = '8px';
+
+        const btnStyle = 'padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; color: white; flex: 1; margin: 0 2px; white-space: nowrap; text-align: center;';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '编辑';
+        editBtn.style.cssText = btnStyle + 'background-color: #1890ff;';
+        editBtn.onclick = () => HKWL.navigateEdit(item.id);
+        
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '删除';
+        delBtn.style.cssText = btnStyle + 'background-color: #ff4d4f;';
+        delBtn.onclick = () => {
+            if(confirm('确定删除？')) {
+                HKWL.deleteItem(item.id);
+                refreshMapData();
+            }
+        };
+
+        btnGroup.appendChild(editBtn);
+        btnGroup.appendChild(delBtn);
+        
+        div.appendChild(btnGroup);
+
+        return div;
+    }
+
+    async function renderMap(dayMode) {
+        if (!map) return;
+        
+        // Increment render ID to invalidate previous async tasks
+        currentMapRenderId++;
+        const myRenderId = currentMapRenderId;
+
+        map.clearMap();
+        markerInstances.clear();
+
+        let items = [];
+        if (dayMode === 'all') {
+            items = getAllItemsOrdered();
+        } else {
+            const dayIndex = parseInt(dayMode) - 1;
+            items = getItemsForDay(dayIndex);
+        }
+
+        if (dayMode === 'all') {
+            const assignedIds = new Set();
+            mapState.days.forEach(dayIds => dayIds.forEach(id => assignedIds.add(id)));
+            
+            const unassignedItems = mapAllItems.filter(item => !assignedIds.has(item.id));
+            items = items.concat(unassignedItems);
+        }
+
+        if (items.length === 0) return;
+
+        let seqIndex = 1;
+        let lastNode = null;
+        const routePromises = [];
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            if (item.type !== 'transport' && item.coords && item.coords.lng && item.coords.lat) {
+                const position = new AMap.LngLat(item.coords.lng, item.coords.lat);
+                
+                let typeClass = "";
+                if (item.type === 'food') typeClass = "type-food";
+                if (item.type === 'place') typeClass = "type-place";
+                if (item.type === 'stay') typeClass = "type-stay";
+                
+                const markerDiv = document.createElement('div');
+                markerDiv.className = `custom-marker ${typeClass}`;
+                
+                let indexBadge = '';
+                if (dayMode !== 'all') {
+                     indexBadge = `<div style="
+                        position:absolute; 
+                        top:-6px; right:-6px; 
+                        background:#ff4d4f; color:white; 
+                        border-radius:50%; width:16px; height:16px; 
+                        font-size:10px; font-weight:bold;
+                        display:flex; justify-content:center; align-items:center;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+                        z-index: 10;">${seqIndex}</div>`;
+                }
+                
+                markerDiv.innerHTML = `
+                    <div class="marker-dot">${indexBadge}</div>
+                    <span class="marker-name">${item.name}</span>
+                `;
+                
+                const marker = new AMap.Marker({
+                    position: position,
+                    content: markerDiv,
+                    offset: new AMap.Pixel(-10, -10),
+                    map: map,
+                    anchor: 'center',
+                    zIndex: 100,
+                    extData: { dom: markerDiv }
+                });
+                
+                marker.on('click', () => handleMarkerClick(item, marker));
+                markerInstances.set(item.id, marker);
+                
+                seqIndex++;
+
+                if ((showRoute || showTransportDetails) && lastNode) {
+                    const startPos = lastNode.position;
+                    const endPos = position;
+                    let transportItem = null;
+                    // Find transport between nodes
+                     for (let j = lastNode.originalIndex + 1; j < i; j++) {
+                        if (items[j].type === 'transport') {
+                            transportItem = items[j];
+                            break; 
+                        }
+                    }
+                    // Async call without await to parallelize
+                    routePromises.push(drawRoute(startPos, endPos, transportItem, myRenderId));
+                }
+                lastNode = { position, originalIndex: i };
+            }
+        }
+        
+        // Fit view to markers immediately
+        map.setFitView(null, false, [50, 50, 50, 50]);
+        
+        // Optional: Wait for routes to finish? (Just for debugging or final adjustments)
+        // Promise.allSettled(routePromises);
+    }
+
+    function toggleRouteDisplay() {
+        const routeCheck = document.getElementById('show-route-toggle');
+        const transportCheck = document.getElementById('show-transport-toggle');
+        
+        showRoute = routeCheck ? routeCheck.checked : true;
+        showTransportDetails = transportCheck ? transportCheck.checked : true;
+        
+        const daySelect = document.getElementById('day-select');
+        renderMap(daySelect.value);
+    }
+
+    async function drawRoute(start, end, transportItem, renderId) {
+        if (!map) return;
+        if (renderId && renderId !== currentMapRenderId) return;
+
+        // Optimization: For long distances (>100km), always use simple direct line
+        // to avoid API timeouts and inaccurate route plotting.
+        const startLngLat = new AMap.LngLat(start.lng, start.lat);
+        const endLngLat = new AMap.LngLat(end.lng, end.lat);
+        if (startLngLat.distance(endLngLat) > 100000) {
+            drawSimpleRoute(start, end, renderId);
+            return;
+        }
+        
+        const hasTransport = !!transportItem;
+        const shouldDrawTransport = showTransportDetails && hasTransport;
+        
+        if (shouldDrawTransport) {
+            let mode = 'driving';
+            // Determine mode based on transport item content
+            if (transportItem.name.includes('步行') || transportItem.name.includes('🚶')) mode = 'walking';
+            else if (transportItem.name.includes('地铁') || transportItem.name.includes('公交') || transportItem.name.includes('🚇') || transportItem.name.includes('bus')) mode = 'transit';
+            
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Route draw timeout')), 5000)
+            );
+    
+            try {
+                let drawPromise;
+                if (mode === 'walking') drawPromise = drawWalkingRoute(start, end, renderId);
+                else if (mode === 'transit') drawPromise = drawTransitRoute(start, end, renderId);
+                else drawPromise = drawDrivingRoute(start, end, "#2196F3", false, renderId); // Blue for driving
+                
+                await Promise.race([drawPromise, timeoutPromise]);
+            } catch (e) {
+                if (renderId && renderId !== currentMapRenderId) return;
+                console.warn('Route draw failed or timed out:', e);
+                // Fallback: only draw simple route if showRoute is enabled
+                if (showRoute) {
+                    drawSimpleRoute(start, end, renderId);
+                }
+            }
+        } else if (showRoute) {
+            // Use driving route (dashed) instead of straight line for better visualization
+            // "如果项目的游玩顺序没有标记，默认按最快路线描绘" -> Use Driving policy
+            try {
+                // We use a shorter timeout for default routes to avoid blocking
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Default route timeout')), 3000)
+                );
+                await Promise.race([
+                    drawDrivingRoute(start, end, "#666", true, renderId), // true for isDashed
+                    timeoutPromise
+                ]);
+            } catch (e) {
+                if (renderId && renderId !== currentMapRenderId) return;
+                // Fallback to simple straight dashed line on timeout/error
+                drawSimpleRoute(start, end, renderId);
+            }
+        }
+    }
+    
+    function drawSimpleRoute(start, end, renderId) {
+        if (renderId && renderId !== currentMapRenderId) return;
+        new AMap.Polyline({
+            path: [start, end],
+            strokeColor: "#666", 
+            strokeWeight: 4,
+            strokeStyle: "dashed",
+            strokeDasharray: [10, 10], // Dashed style
+            map: map
+        });
+    }
+    
+    function drawTransitRoute(start, end, renderId) {
+        return new Promise((resolve) => {
+            let city = '深圳';
+            // Simple bounding box check for HK (approx 113.8-114.5 E, 22.1-22.6 N)
+            if (start.lng > 113.80 && start.lng < 114.50 && start.lat > 22.10 && start.lat < 22.60) {
+                city = '香港';
+            }
+
+            const transfer = new AMap.Transfer({
+                city: city,
+                policy: AMap.TransferPolicy.LEAST_TIME,
+                nightflag: true,
+                extensions: 'all' // Request detailed info, sometimes helps with better route matching
+            });
+            
+            transfer.search(start, end, (status, result) => {
+                if (renderId && renderId !== currentMapRenderId) {
+                    resolve();
+                    return;
+                }
+                if (status === 'complete' && result.plans && result.plans.length) {
+                    const path = [];
+                    // result.plans contains multiple schemes. plans[0] is usually the best match for the policy.
+                    // However, sometimes we might want to check other plans or just trust the first one.
+                    // AMap's "LEAST_TIME" usually works, but "LEAST_WALK" or "NO_SUBWAY" might be defaults if not specified correctly.
+                    // Here we stick with the first plan.
+                    
+                    const segments = result.plans[0].segments;
+                    
+                    segments.forEach(segment => {
+                        // Walking part
+                        if (segment.walking && segment.walking.steps) {
+                            segment.walking.steps.forEach(step => path.push(...step.path));
+                        }
+                        // Transit part
+                        if (segment.transit && segment.transit.path) {
+                            path.push(...segment.transit.path);
+                        }
+                        // Railway part (sometimes separate from transit in intercity)
+                        if (segment.railway && segment.railway.path) {
+                             path.push(...segment.railway.path);
+                        }
+                    });
+
+                    new AMap.Polyline({
+                        path: path,
+                        strokeColor: "#9C27B0", // Purple
+                        strokeWeight: 6,
+                        strokeOpacity: 0.9,
+                        showDir: true,
+                        map: map
+                    });
+                    resolve();
+                } else {
+                    console.log('Transit search failed/no plans:', status, result);
+                    // Fallback to dashed line
+                    new AMap.Polyline({
+                        path: [start, end],
+                        strokeColor: "#9C27B0",
+                        strokeWeight: 4,
+                        strokeStyle: "dashed",
+                        map: map
+                    });
+                    resolve();
+                }
+            });
+        });
+    }
+    
+    function drawWalkingRoute(start, end, renderId) {
+        return new Promise((resolve) => {
+            const walking = new AMap.Walking();
+            walking.search(start, end, (status, result) => {
+                if (renderId && renderId !== currentMapRenderId) {
+                    resolve();
+                    return;
+                }
+                if (status === 'complete' && result.routes && result.routes.length) {
+                    const path = [];
+                    result.routes[0].steps.forEach(step => path.push(...step.path));
+                    new AMap.Polyline({
+                        path: path,
+                        strokeColor: "#4CAF50",
+                        strokeWeight: 6,
+                        strokeOpacity: 0.9,
+                        showDir: true,
+                        map: map
+                    });
+                    resolve();
+                } else {
+                    new AMap.Polyline({ path: [start, end], strokeColor: "#4CAF50", strokeWeight: 4, strokeStyle: "dashed", map: map });
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function drawDrivingRoute(start, end, color, isDashed = false, renderId) {
+        return new Promise((resolve) => {
+            const driving = new AMap.Driving({ policy: AMap.DrivingPolicy.LEAST_TIME });
+            driving.search(start, end, (status, result) => {
+                if (renderId && renderId !== currentMapRenderId) {
+                    resolve();
+                    return;
+                }
+                if (status === 'complete' && result.routes && result.routes.length) {
+                    const path = [];
+                    result.routes[0].steps.forEach(step => path.push(...step.path));
+                    
+                    const options = {
+                        path: path,
+                        strokeColor: color,
+                        strokeWeight: isDashed ? 4 : 6,
+                        strokeOpacity: isDashed ? 0.8 : 0.9,
+                        showDir: true,
+                        map: map
+                    };
+
+                    if (isDashed) {
+                        options.strokeStyle = "dashed";
+                        options.strokeDasharray = [10, 10];
+                    }
+
+                    new AMap.Polyline(options);
+                    resolve();
+                } else {
+                    new AMap.Polyline({ path: [start, end], strokeColor: color, strokeWeight: 4, strokeStyle: "dashed", map: map });
+                    resolve();
+                }
+            });
+        });
+    }
+
+    // --- Page Show (Back Navigation) Sync ---
+    window.addEventListener('pageshow', () => {
+        // Ensure data is fresh when returning from other pages (e.g. manage.html)
+        if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+        if (currentMode === 'map') {
+            refreshMapData();
+        }
+    });
+    
+    // Expose for external calls
+    HKWL.refreshMapView = refreshMapData;
+
+    // --- Swipe & Drag Detection ---
+    document.addEventListener("DOMContentLoaded", () => {
+      const wrapper = document.querySelector('.view-wrapper');
+      const slider = document.getElementById('view-slider');
+      let startX = 0;
+      let startY = 0;
+      let isDragging = false;
+      let currentTranslateX = 0; // Unused in current logic, but conceptually 0 for Map, -50% for Block
+      let sliderWidth = 0;
+
+      // Helper to check if event target is interactive
+      function isInteractive(target) {
+        if (target.closest('.amap-container') || target.tagName === 'CANVAS') return true;
+        if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select')) return true;
+        if (target.closest('.card')) return true;
+        return false;
+      }
+
+      function handleStart(e) {
+        if (isInteractive(e.target)) return;
+        
+        startX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        startY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+        
+        sliderWidth = wrapper.clientWidth;
+        isDragging = true;
+        
+        // Disable transition for real-time dragging
+        slider.style.transition = 'none';
+      }
+
+      function handleMove(e) {
+        if (!isDragging) return;
+        
+        const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const diffX = x - startX;
+        
+        // Calculate new transform
+        // Base: Map = 0, Block = -50%
+        let basePercent = (currentMode === 'map') ? 0 : -50;
+        
+        // Convert diffX to percent of slider width
+        // Slider width is 2 * wrapper width.
+        // So diffX pixels = (diffX / (2 * sliderWidth)) * 100 percent
+        let diffPercent = (diffX / (sliderWidth * 2)) * 100;
+        
+        let newPercent = basePercent + diffPercent;
+        
+        // Limit bounds
+        // Can't go > 0 (left of Map)
+        // Can't go < -50 (right of Block)
+        if (newPercent > 0) newPercent = 0 + (diffPercent * 0.2); // Resistance
+        if (newPercent < -50) newPercent = -50 + (diffPercent * 0.2); // Resistance
+        
+        slider.style.transform = `translateX(${newPercent}%)`;
+      }
+
+      function handleEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        // Restore transition
+        slider.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+        
+        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const diffX = endX - startX;
+        
+        // Threshold to switch
+        const threshold = 100; // pixels
+        
+        if (currentMode === 'map') {
+            if (diffX < -threshold) {
+                switchMode('block');
+            } else {
+                // Revert
+                slider.style.transform = 'translateX(0%)';
+            }
+        } else {
+            if (diffX > threshold) {
+                switchMode('map');
+            } else {
+                // Revert
+                slider.style.transform = 'translateX(-50%)';
+            }
+        }
+      }
+
+      wrapper.addEventListener('mousedown', handleStart);
+      wrapper.addEventListener('touchstart', handleStart, { passive: true });
+      
+      wrapper.addEventListener('mousemove', handleMove);
+      wrapper.addEventListener('touchmove', handleMove, { passive: true });
+
+      wrapper.addEventListener('mouseup', handleEnd);
+      wrapper.addEventListener('mouseleave', handleEnd);
+      wrapper.addEventListener('touchend', handleEnd);
+
+      // Init Data
+    const urlParams = new URLSearchParams(window.location.search);
+    let planId = urlParams.get('id');
+    
+    // Cloud-only: Removed auto-promote logic.
+    HKWL.setCurrentPlan(planId);
+  
+    // Try sync from cloud if planId exists
+    if (planId && HKWL.syncCurrentPlanFromCloud) {
+        HKWL.syncCurrentPlanFromCloud().catch(console.error).finally(() => {
+            HKWL.renderWishlistPage();
+        });
+    } else {
+         HKWL.renderWishlistPage();
+    }
+
+      // Init Map if default mode is map
+      if (currentMode === 'map' && !mapInitialized) {
+          // Hide floating buttons in map mode
+          const floatingBtn = document.querySelector('.floating-add-wrapper');
+          if (floatingBtn) floatingBtn.style.display = 'none';
+          
+          initMapLogic();
+          mapInitialized = true;
+      }
+
+      if (planId) {
+          document.querySelectorAll('a[href^="manage.html"]').forEach(a => {
+              if (a.href.includes('?')) {
+                  a.href += `&planId=${planId}`;
+              } else {
+                  a.href += `?planId=${planId}`;
+              }
+          });
+
+          // Auto-refresh polling for collaboration
+          if (HKWL.syncCurrentPlanFromCloud) {
+              const statusEl = document.getElementById('collab-sync-status');
+              
+              setInterval(async () => {
+                 // Use silent mode (true)
+                 try {
+                     // Check dragState to pause sync while dragging
+                     if (typeof dragState !== 'undefined' && dragState) {
+                         return; 
+                     }
+
+                     /* REMOVED: isLocalDirty blocking
+                     if (HKWL.isLocalDirty && HKWL.isLocalDirty()) {
+                         if (statusEl) {
+                             statusEl.className = 'collab-sync-status dirty';
+                             statusEl.title = "正在编辑... (暂停同步)";
+                         }
+                         return; // Skip poll
+                     }
+                     */
+                     
+                     if (statusEl) {
+                         statusEl.className = 'collab-sync-status syncing';
+                         statusEl.title = "正在同步...";
+                     }
+
+                     const changed = await HKWL.syncCurrentPlanFromCloud(true);
+                     
+                     if (changed) {
+                         console.log("Auto-refresh: Data changed from cloud.");
+
+                         // Update Collaborator Module
+                         if (typeof updateCollabFloatingModule === 'function' && HKWL.getPlans) {
+                             const urlParams = new URLSearchParams(window.location.search);
+                             const pid = urlParams.get('id');
+                             const plans = HKWL.getPlans();
+                             const p = plans.find(plan => plan.id === pid || plan.cloudId === pid);
+                             if (p) {
+                                 updateCollabFloatingModule(p);
+                             }
+                         }
+
+                         if (typeof currentMode !== 'undefined' && currentMode === 'map') {
+                             if (typeof refreshMapData === 'function') refreshMapData();
+                         } else {
+                             // Use optimized refresh if available to avoid re-initializing listeners
+                             if (typeof HKWL.refreshBlockView === 'function') {
+                                 HKWL.refreshBlockView();
+                             } else {
+                                 HKWL.renderWishlistPage();
+                             }
+                         }
+                     }
+                     
+                     if (statusEl) {
+                         statusEl.className = 'collab-sync-status';
+                         statusEl.style.backgroundColor = '#4caf50';
+                         statusEl.title = "已同步";
+                     }
+                 } catch(e) {
+                     console.error("Auto-refresh error", e);
+                     if (statusEl) {
+                         statusEl.className = 'collab-sync-status';
+                         statusEl.style.backgroundColor = '#f44336';
+                         statusEl.title = "同步出错";
+                     }
+                 }
+              }, 2000); // Poll every 2 seconds
+          }
+      }
+    });
+
+  </script>
+  <script>
+  document.addEventListener('focusin', (e) => {
+        const target = e.target;
+        // Check if editing a note or name directly
+        if (target.isContentEditable) {
+             const planItem = target.closest('.plan-item') || target.closest('.card');
+             if (planItem && planItem.dataset.id) {
+                 if (typeof HKWL.setLockedItemId === 'function') {
+                     HKWL.setLockedItemId(planItem.dataset.id);
+                 }
+             }
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        const target = e.target;
+        if (target.isContentEditable) {
+             if (typeof HKWL.setLockedItemId === 'function') {
+                 HKWL.setLockedItemId(null);
+             }
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+     const editModal = document.getElementById('edit-modal');
+     const editIframe = document.getElementById('edit-iframe');
+     
+     window.closeEditModal = function() {
+        editModal.classList.remove('show');
+        editIframe.src = '';
+     }
+     
+     if (typeof HKWL !== 'undefined') {
+         const originalNavigateEdit = HKWL.navigateEdit;
+         HKWL.navigateEdit = function(id) {
+             // Check if we are in map mode. 
+             // currentMode is a global variable in planner.html
+             if (typeof currentMode !== 'undefined' && currentMode === 'map') {
+                 const urlParams = new URLSearchParams(window.location.search);
+                 const planId = urlParams.get('id');
+                 editIframe.src = `manage.html?id=${encodeURIComponent(id)}&planId=${encodeURIComponent(planId || '')}&popup=true`;
+                 editModal.classList.add('show');
+             } else {
+                 originalNavigateEdit(id);
+             }
+         };
+     }
+
+     window.addEventListener('message', (event) => {
+        if (event.data.type === 'edit-complete') {
+            window.closeEditModal();
+            if (typeof refreshMapData === 'function') refreshMapData();
+            if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+        } else if (event.data.type === 'edit-cancel') {
+            window.closeEditModal();
+        }
+    });
+  });
+  </script>
+  <!-- Invite Modal (Deprecated, use Collab Modal) -->
+  <!-- <div id="invite-modal" ...> removed </div> -->
+
+  <!-- Collab Modal -->
+<div id="collab-modal" class="modal-overlay" style="z-index: 2000;">
+  <div class="modal-content" style="max-width: 380px; width: 90%; max-height: 85vh; overflow-y: auto; padding: 1.2rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.8rem;">
+        <h2 style="margin:0; font-size: 1.3rem;">协作管理</h2>
+        <button class="modal-close" onclick="closeCollabModal()" style="font-size: 1.8rem; line-height: 1;">×</button>
+    </div>
+    
+    <div id="collab-loading">正在加载...</div>
+    
+    <div id="collab-content" style="display:none;">
+        <div id="owner-section" style="display:none; margin-bottom: 1rem; background: #fff3e0; padding: 0.8rem; border-radius: 8px;">
+            <h3 style="margin-top:0; font-size: 0.95rem; color: #e65100;">待审批邀请</h3>
+            <ul id="pending-list" class="user-list" style="list-style:none; padding:0;"></ul>
+            <p id="no-pending" style="color:#666; font-style:italic; font-size: 0.85rem;">暂无待审批邀请</p>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <h3 style="margin-top:0; font-size: 0.95rem;">协作成员</h3>
+            <ul id="collaborator-list" class="user-list" style="list-style:none; padding:0;"></ul>
+            <p id="no-collaborators" style="color:#666; font-style:italic; font-size: 0.85rem; display:none;">暂无协作成员</p>
+        </div>
+        
+        <hr style="border:0; border-top:1px solid #eee; margin: 1rem 0;">
+        
+        <div>
+            <h3 style="margin-top:0; font-size: 0.95rem;">邀请新成员</h3>
+            
+            <div style="margin-top: 8px; margin-bottom: 8px;">
+                <div style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">点击好友卡片邀请:</div>
+                <div id="invite-friend-list" style="max-height: 120px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 4px;">
+                    <div style="text-align: center; color: #999; padding: 8px;">加载中...</div>
+                </div>
+            </div>
+
+            <p class="hint" style="font-size: 0.75rem; color: #888; margin:0;">
+                <span id="invite-hint-text">发起者可直接添加成员。</span>
+                <span id="collaborator-hint-text" style="display:none;">非发起者邀请的好友需要经过发起者同意。</span>
+            </p>
+        </div>
+
+        <div style="margin-top: 1.5rem; text-align: right;">
+            <button onclick="closeCollabModal()" class="btn" style="background: #f5f5f5; border: 1px solid #ddd; padding: 5px 14px; font-size: 0.9rem;">关闭</button>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Force check for cloud plan
+(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const planId = urlParams.get('id');
+    // If we have an ID and it's not a 24-char hex string (cloud ID), reject it.
+    // Exceptions: empty ID (new plan?) or null.
+    // If it starts with 'plan_', it's definitely local.
+    if (planId && (planId.startsWith('plan_') || !/^[0-9a-fA-F]{24}$/.test(planId))) {
+        alert("不再支持本地计划。请返回首页创建新计划。");
+        window.location.href = 'index.html';
+    }
+})();
+
+
+
+window.openInviteModal = async function() {
+    console.log("Opening invite modal...");
+    
+    // Ensure we are logged in
+    if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) {
+        alert("请先登录以使用协作功能");
+        return;
+    }
+
+    const modal = document.getElementById('collab-modal');
+    if (!modal) {
+        console.error("Collab modal not found!");
+        return;
+    }
+    // Use 'open' class for styles.css .modal-overlay compatibility
+    modal.classList.add('open');
+    modal.classList.add('show'); 
+    document.body.style.overflow = 'hidden'; 
+    
+    // Load data in parallel
+    await Promise.all([
+        loadCollabData(),
+        loadInviteFriends()
+    ]);
+};
+
+window.loadInviteFriends = async function() {
+    const listContainer = document.getElementById('invite-friend-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '<div style="text-align: center; color: #999; padding: 10px;">加载中...</div>';
+
+    try {
+        const res = await fetch('/api/friends/list', {
+            headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+        });
+        const data = await res.json();
+        
+        if (data.success && data.friends && data.friends.length > 0) {
+            listContainer.innerHTML = data.friends.map(f => {
+                const avatar = f.avatar || '👤';
+                const isImg = avatar.startsWith('http') || avatar.startsWith('data:');
+                const avatarHtml = isImg 
+                    ? `<img src="${avatar}" style="width:24px; height:24px; border-radius:50%; margin-right:8px; object-fit:cover;">`
+                    : `<span style="margin-right:8px; font-size: 1.2rem;">${avatar}</span>`;
+                
+                const displayName = f.nickname || f.username;
+
+                return `
+                <div class="invite-friend-item" onclick="inviteFriendDirectly('${f.friendId}', this.getAttribute('data-name'))" data-name="${escapeHtml(displayName)}" style="display:flex; align-items:center; padding: 8px; cursor:pointer; border-bottom: 1px solid #f9f9f9; transition: background 0.2s;">
+                    ${avatarHtml}
+                    <div style="flex:1;">
+                        <div style="font-size:0.9rem; font-weight:500;">${escapeHtml(displayName)}</div>
+                    </div>
+                    <button class="btn btn-sm" style="font-size:0.7rem; padding: 2px 8px; background: #e3f2fd; color: #1976d2; border:none;">邀请</button>
+                </div>
+                `;
+            }).join('');
+            
+            // Add hover effect via JS or rely on CSS if possible (inline styles used for simplicity)
+            // Let's add simple hover via event delegation if needed, but inline simple styles are okay.
+        } else {
+            listContainer.innerHTML = '<div style="text-align: center; color: #999; padding: 10px;">暂无好友，快去<a href="friends.html" style="color:#3498db;">添加</a>吧</div>';
+        }
+    } catch (e) {
+        console.error("Load friends error", e);
+        listContainer.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 10px;">加载失败</div>';
+    }
+};
+
+window.inviteFriendDirectly = async function(friendId, friendName) {
+    if (!confirm(`确定要邀请 ${friendName} 加入计划吗？`)) return;
+    
+    // Find button to show loading state if possible, or just use toast
+    showToast(`正在邀请 ${friendName}...`, 'info');
+
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const planId = urlParams.get('id');
+        if (!planId) throw new Error("无法获取当前计划ID");
+        
+        const res = await CloudSync.inviteFriend(planId, friendId);
+        if (res.success) {
+            showToast(res.message || '邀请已发送', 'success');
+            await loadCollabData(); 
+        } else {
+            showToast(res.error || '邀请失败', 'error');
+        }
+    } catch (e) {
+        showToast('请求出错: ' + e.message, 'error');
+    }
+};
+
+window.closeCollabModal = function() {
+    const modal = document.getElementById('collab-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.classList.remove('show');
+    }
+    document.body.style.overflow = '';
+};
+
+window.loadCollabData = async function() {
+    const loading = document.getElementById('collab-loading');
+    const content = document.getElementById('collab-content');
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const planId = urlParams.get('id');
+        
+        // If strictly local (no planId), prompt login
+        if (!planId && !CloudSync.isLoggedIn()) {
+            alert("请先登录以使用协作功能");
+            closeCollabModal();
+            return;
+        }
+        
+        // If planId is missing but logged in, we try 'hk' but catch errors
+        const realPlanId = planId || "hk"; 
+        
+        const planRes = await CloudSync.getPlan(realPlanId);
+        
+        if (!planRes.success) {
+            if (planRes.error && planRes.error.includes("Cast to ObjectId failed")) {
+                alert("当前计划尚未同步到云端。请先在设置中登录并同步计划。");
+            } else {
+                alert("无法获取计划信息: " + (planRes.error || "未知错误"));
+            }
+            closeCollabModal();
+            return;
+        }
+        
+        const plan = planRes.plan;
+        const currentUser = Auth.getCurrentUser();
+        const isOwner = plan.owner.username === currentUser;
+        
+        renderCollabUI(plan, isOwner);
+        
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+        
+    } catch (e) {
+        console.error(e);
+        if (loading) loading.textContent = "加载失败: " + e.message;
+    }
+};
+
+// Helper to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+window.renderCollabUI = function(plan, isOwner) {
+    if (typeof updateCollabFloatingModule === 'function') {
+        updateCollabFloatingModule(plan);
+    }
+    const inviteHint = document.getElementById('invite-hint-text');
+    const collabHint = document.getElementById('collaborator-hint-text');
+    if (inviteHint) inviteHint.style.display = isOwner ? 'inline' : 'none';
+    if (collabHint) collabHint.style.display = isOwner ? 'none' : 'inline';
+    
+    const ownerSection = document.getElementById('owner-section');
+    const pendingList = document.getElementById('pending-list');
+    const noPending = document.getElementById('no-pending');
+    
+    if (ownerSection) {
+        if (isOwner) {
+            ownerSection.style.display = 'block';
+            if (pendingList) {
+                pendingList.innerHTML = '';
+                if (plan.pendingInvitations && plan.pendingInvitations.length > 0) {
+                    if (noPending) noPending.style.display = 'none';
+                    plan.pendingInvitations.forEach(inv => {
+                        const li = document.createElement('li');
+                        li.style.display = 'flex';
+                        li.style.justifyContent = 'space-between';
+                        li.style.alignItems = 'center';
+                        li.style.padding = '8px 0';
+                        li.style.borderBottom = '1px solid #eee';
+                        
+                        const requesterName = inv.requester ? (inv.requester.nickname || inv.requester.username || 'Unknown') : 'Unknown';
+                        const inviteeName = inv.invitee ? (inv.invitee.nickname || inv.invitee.username || 'Unknown') : 'Unknown';
+                        const inviteeFriendId = inv.invitee ? inv.invitee.friendId : '';
+                        
+                        li.innerHTML = `
+                            <div>
+                                <div style="font-weight:bold;">${escapeHtml(inviteeName)}</div>
+                                <div style="font-size:0.8rem; color:#666;">由 ${escapeHtml(requesterName)} 邀请</div>
+                            </div>
+                            <div style="display:flex; gap:5px;">
+                                <button class="btn btn-sm btn-primary" onclick="approveInvite('${plan._id}', '${inv.invitee._id}')">同意</button>
+                                <button class="btn btn-sm" style="background:#f44336; color:white;" onclick="rejectInvite('${plan._id}', '${inv.invitee._id}')">拒绝</button>
+                            </div>
+                        `;
+                        pendingList.appendChild(li);
+                    });
+                } else {
+                    if (noPending) noPending.style.display = 'block';
+                }
+            }
+        } else {
+            ownerSection.style.display = 'none';
+        }
+    }
+    
+    const collabList = document.getElementById('collaborator-list');
+    const noCollabs = document.getElementById('no-collaborators');
+    if (collabList) {
+        collabList.innerHTML = '';
+        if (plan.collaborators && plan.collaborators.length > 0) {
+            if (noCollabs) noCollabs.style.display = 'none';
+            plan.collaborators.forEach(collab => {
+                const li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+                li.style.padding = '8px 0';
+                li.style.borderBottom = '1px solid #eee';
+                
+                let actionHtml = '';
+                if (isOwner) {
+                    actionHtml = `<button class="btn btn-sm" style="color:#f44336; padding: 2px 8px;" onclick="removeCollaborator('${plan._id}', '${collab._id}')">移除</button>`;
+                }
+                
+                const displayName = collab.nickname || collab.username;
+                
+                // Avatar logic for list
+                let avatarHtml = '';
+                const avatar = collab.avatar;
+                if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:'))) {
+                    avatarHtml = `<div style="width:32px; height:32px; border-radius:50%; background-image:url('${avatar}'); background-size:cover; background-position:center; flex-shrink:0; margin-right:10px;"></div>`;
+                } else if (avatar && avatar.trim().length > 0) {
+                    avatarHtml = `<div style="width:32px; height:32px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center; font-size:14px; color:#333; flex-shrink:0; margin-right:10px;">${avatar}</div>`;
+                } else {
+                    const src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random';
+                    avatarHtml = `<div style="width:32px; height:32px; border-radius:50%; background-image:url('${src}'); background-size:cover; background-position:center; flex-shrink:0; margin-right:10px;"></div>`;
+                }
+
+                li.innerHTML = `
+                    <div style="display:flex; align-items:center;">
+                        ${avatarHtml}
+                        <div>
+                            <span style="font-weight:500;">${escapeHtml(displayName)}</span>
+                        </div>
+                    </div>
+                    ${actionHtml}
+                `;
+                collabList.appendChild(li);
+            });
+        } else {
+            if (noCollabs) noCollabs.style.display = 'block';
+        }
+    }
+};
+
+
+
+window.approveInvite = async function(planId, inviteeId) {
+    if(!confirm('确认同意该用户加入计划？')) return;
+    try {
+        const res = await CloudSync.approveInvitation(planId, inviteeId);
+        if (res.success) {
+            showToast('已批准', 'success');
+            await loadCollabData();
+        } else {
+            showToast(res.error || '操作失败', 'error');
+        }
+    } catch (e) { showToast(e.message, 'error'); }
+};
+
+window.rejectInvite = async function(planId, inviteeId) {
+    if(!confirm('确认拒绝该申请？')) return;
+    try {
+        const res = await CloudSync.rejectInvitation(planId, inviteeId);
+        if (res.success) {
+            showToast('已拒绝', 'success');
+            await loadCollabData();
+        } else {
+            showToast(res.error || '操作失败', 'error');
+        }
+    } catch (e) { showToast(e.message, 'error'); }
+};
+
+window.removeCollaborator = async function(planId, collaboratorId) {
+    if(!confirm('确认移除该协作成员？')) return;
+    try {
+        const res = await CloudSync.removeCollaborator(planId, collaboratorId);
+        if (res.success) {
+            showToast('已移除', 'success');
+            await loadCollabData();
+        } else {
+            showToast(res.error || '操作失败', 'error');
+        }
+    } catch (e) { showToast(e.message, 'error'); }
+};
+
+// Bind event listener to button explicitly to avoid onclick issues
+document.addEventListener('DOMContentLoaded', function() {
+    const inviteBtn = document.getElementById('invite-btn');
+    if (inviteBtn) {
+        inviteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.openInviteModal();
+        });
+    }
+});
+</script>
+<script>
+// --- Collab Floating Module Logic ---
+window.initCollabModule = async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const planId = urlParams.get('id');
+    // Only proceed if it looks like a cloud plan
+    if (!planId || !/^[0-9a-fA-F]{24}$/.test(planId)) return;
+    
+    // Check login status quietly
+    if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) {
+        return;
+    }
+
+    try {
+        // Fetch plan details to populate avatars
+        const res = await CloudSync.getPlan(planId);
+        if (res.success && res.plan) {
+            updateCollabFloatingModule(res.plan);
+            // Show the module
+            document.getElementById('collab-floating-module').style.display = 'block';
+        }
+    } catch (e) {
+        console.error("Init collab module failed", e);
+    }
+    
+    // Make draggable
+    makeDraggable(document.getElementById("collab-floating-module"));
+};
+
+window.updateCollabFloatingModule = function(plan) {
+    const avatarContainer = document.getElementById('collab-avatars');
+    if (!avatarContainer) return;
+    
+    avatarContainer.innerHTML = '';
+    
+    const users = [];
+    if (plan.owner) users.push({ ...plan.owner, isOwner: true });
+    if (plan.collaborators) users.push(...plan.collaborators);
+    
+    users.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'collab-avatar';
+        div.title = (u.nickname || u.username) + (u.isOwner ? ' (Owner)' : '');
+        
+        const avatar = u.avatar;
+        const displayName = u.nickname || u.username || 'User';
+
+        console.log('[Collab] Rendering avatar for:', displayName, 'Has avatar:', !!avatar, 'Type:', avatar ? (avatar.startsWith('data:') ? 'Base64' : 'Text/URL') : 'None');
+
+        if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:'))) {
+            div.style.backgroundImage = `url('${avatar}')`;
+            div.style.backgroundSize = 'cover';
+            div.style.backgroundPosition = 'center';
+            div.style.backgroundRepeat = 'no-repeat';
+        } else if (avatar && avatar.trim().length > 0) {
+             // Text/Emoji
+             div.textContent = avatar;
+             div.style.display = 'flex';
+             div.style.alignItems = 'center';
+             div.style.justifyContent = 'center';
+             div.style.fontSize = '16px';
+             div.style.backgroundColor = '#f0f0f0';
+             div.style.color = '#333';
+             div.style.overflow = 'hidden'; // Ensure text doesn't spill
+        } else {
+             // Fallback
+             const src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random';
+             div.style.backgroundImage = `url('${src}')`;
+             div.style.backgroundSize = 'cover';
+             div.style.backgroundPosition = 'center';
+             div.style.backgroundRepeat = 'no-repeat';
+        }
+        
+        avatarContainer.appendChild(div);
+    });
+};
+
+function makeDraggable(elmnt) {
+    if (!elmnt) return;
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    const header = document.getElementById("collab-drag-handle");
+    
+    if (header) {
+        header.onmousedown = dragMouseDown;
+        header.ontouchstart = dragTouchStart;
+    } else {
+        elmnt.onmousedown = dragMouseDown;
+        elmnt.ontouchstart = dragTouchStart;
+    }
+
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+    
+    function dragTouchStart(e) {
+        const touch = e.touches[0];
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        document.ontouchend = closeDragElement;
+        document.ontouchmove = elementTouchDrag;
+    }
+
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        elmnt.style.setProperty('top', (elmnt.offsetTop - pos2) + "px", 'important');
+        elmnt.style.setProperty('left', (elmnt.offsetLeft - pos1) + "px", 'important');
+        elmnt.style.setProperty('right', 'auto', 'important');
+        elmnt.style.setProperty('bottom', 'auto', 'important');
+    }
+    
+    function elementTouchDrag(e) {
+        const touch = e.touches[0];
+        pos1 = pos3 - touch.clientX;
+        pos2 = pos4 - touch.clientY;
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        
+        elmnt.style.setProperty('top', (elmnt.offsetTop - pos2) + "px", 'important');
+        elmnt.style.setProperty('left', (elmnt.offsetLeft - pos1) + "px", 'important');
+        elmnt.style.setProperty('right', 'auto', 'important');
+        elmnt.style.setProperty('bottom', 'auto', 'important');
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+    }
+}
+
+// Init on load
+document.addEventListener('DOMContentLoaded', function() {
+    initCollabModule();
+});
+</script>
+</body>
+</html>

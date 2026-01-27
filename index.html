@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <title>shineshone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="shineshone">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="home.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <script src="pwa-loader.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="header-brand-container" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+      <!-- Injected SVG Logo -->
+      <img src="logo-v2.svg" alt="Logo" style="height: 40px; width: 40px;">
+      <div class="header-brand" style="font-size: 1.5rem; color: #333;">
+        <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
+      </div>
+    </a>
+    <div style="flex: 1;"></div> 
+    <!-- User profile / Login button will be injected here by main.js -->
+  </header>
+
+  <main class="bento-container">
+    <!-- 1. The Anchor (Shine) -->
+    <div class="bento-widget widget-anchor">
+      <div class="anchor-slider-container">
+        <div class="anchor-slider">
+          <!-- Slide 1: Default -->
+          <div class="anchor-slide slide-default">
+            <div class="anchor-content">
+              <div class="anchor-label">Default</div>
+              <div class="anchor-title">Hello, Traveler</div>
+              <div class="anchor-message">你上一次感到自由是什么时候？</div>
+              <a href="javascript:void(0)" class="shine-btn switch-to-future">我的计划</a>
+            </div>
+          </div>
+          
+          <!-- Slide 2: Present -->
+          <div class="anchor-slide slide-present">
+            <div class="anchor-content">
+              <div class="anchor-label">Present</div>
+              <div class="anchor-title">当下</div>
+              <div class="anchor-message">暂无进行中的计划</div>
+              <a href="#" class="shine-btn">查看状态</a>
+            </div>
+          </div>
+
+          <!-- Slide 3: Future -->
+          <div class="anchor-slide slide-future">
+            <div class="anchor-content">
+              <div class="anchor-label">Future</div>
+              <div class="anchor-title">未来</div>
+              <div id="future-plans-container" class="plan-circles-container">
+                <!-- Plan circles will be injected here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="anchor-pagination">
+        <span class="dot active" data-index="0"></span>
+        <span class="dot" data-index="1"></span>
+        <span class="dot" data-index="2"></span>
+      </div>
+    </div>
+
+    <!-- 2. The Window (Shone) -->
+    <div class="bento-widget widget-window">
+      <div class="window-overlay"></div>
+      <div class="window-content">
+        <div class="window-tag">Featured Journey</div>
+        <div class="window-title">Alice 的冰岛环岛<br>7日极光之旅</div>
+        <div class="window-author">
+          <div class="author-avatar"></div>
+          <span>by Alice</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. The Spark (Prism) -->
+    <div class="bento-widget widget-spark">
+      <div class="spark-inner">
+        <div class="spark-front">
+          <div class="spark-icon">✨</div>
+          <div class="spark-text">点击翻转获取灵感</div>
+        </div>
+        <div class="spark-back">
+          <div class="spark-icon">🤝</div>
+          <div class="spark-text">寻找同频的旅伴</div>
+          <a href="friends.html" class="shine-btn" style="margin-top: 10px; font-size: 0.9rem; padding: 5px 15px;">去看看</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. The Echo (Shone) -->
+    <div class="bento-widget widget-echo">
+      <div class="echo-stat">
+        <div class="echo-number">0</div>
+        <div class="echo-label">个精彩旅程</div>
+      </div>
+      <div style="font-size: 0.8rem; opacity: 0.5;">
+        Shine your moment, Shone your memory.
+      </div>
+    </div>
+  </main>
+
+  <script src="auth-manager.js"></script>
+  <script src="cloud-sync.js"></script>
+  <script src="mailbox.js"></script>
+  <script src="notice.js"></script>
+  <script src="manual.js"></script>
+  <script src="main.js"></script>
+  <script src="home.js?v=3" defer></script>
+</body>
+</html>

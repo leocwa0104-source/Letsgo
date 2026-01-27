@@ -1,0 +1,44 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Shine Gradient (Present/Sun): Warm Golden Orange -->
+    <linearGradient id="shine-grad" x1="16" y1="16" x2="40" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8008" /> <!-- Vibrant Orange -->
+      <stop offset="1" stop-color="#FFC837" /> <!-- Golden Yellow -->
+    </linearGradient>
+
+    <!-- Shone Gradient (Past/Shadow): Cool Grey/Black -->
+    <linearGradient id="shone-grad" x1="28" y1="16" x2="52" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2c3e50" /> 
+      <stop offset="1" stop-color="#bdc3c7" stop-opacity="0.5" />
+    </linearGradient>
+    
+    <!-- Blur Filter for Shadow -->
+    <filter id="shadow-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+    </filter>
+    
+    <!-- The S Path -->
+    <path id="s-curve" d="M 28 18 
+           C 20 18, 14 22, 14 28 
+           C 14 38, 30 36, 30 44 
+           C 30 52, 22 54, 16 54" 
+           stroke-linecap="round" 
+           stroke-linejoin="round" />
+  </defs>
+
+  <!-- Shone S (Right/Shadow) -->
+  <!-- Applied blur and lower opacity to look like a real shadow -->
+  <use href="#s-curve" 
+       transform="translate(12, 6)" 
+       stroke="url(#shone-grad)" 
+       stroke-width="6" 
+       opacity="0.4"
+       filter="url(#shadow-blur)" />
+
+  <!-- Shine S (Left/Source) -->
+  <use href="#s-curve" 
+       transform="translate(0, 0)" 
+       stroke="url(#shine-grad)" 
+       stroke-width="6" />
+       
+</svg>

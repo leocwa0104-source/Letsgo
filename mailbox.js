@@ -352,9 +352,101 @@ const Mailbox = (() => {
         content.style.wordBreak = 'break-word';
         content.style.whiteSpace = 'pre-wrap';
         content.textContent = msg.content;
-
         bubble.appendChild(meta);
         bubble.appendChild(content);
+
+        // --- Invitation Actions ---
+        if (msg.type === 'invitation' && !isMe && msg.metadata && msg.metadata.planId) {
+            const actionContainer = document.createElement('div');
+            actionContainer.style.marginTop = '0.8rem';
+            actionContainer.style.display = 'flex';
+            actionContainer.style.gap = '0.8rem';
+
+            // Check if already processed (optional, if message content doesn't update, we rely on button state or removal)
+            // But usually we just show buttons.
+            
+            const acceptBtn = document.createElement('button');
+            acceptBtn.textContent = '接受邀请';
+            acceptBtn.style.padding = '0.4rem 0.8rem';
+            acceptBtn.style.border = 'none';
+            acceptBtn.style.borderRadius = '4px';
+            acceptBtn.style.background = '#28a745';
+            acceptBtn.style.color = 'white';
+            acceptBtn.style.cursor = 'pointer';
+            acceptBtn.style.fontSize = '0.85rem';
+            
+            acceptBtn.onclick = async () => {
+                 acceptBtn.disabled = true;
+                 acceptBtn.textContent = '处理中...';
+                 rejectBtn.style.display = 'none';
+                 try {
+                     const myId = Auth.getFriendId();
+                     const res = await CloudSync.approveInvitation(msg.metadata.planId, myId);
+                     
+                     if (res && res.success) {
+                         acceptBtn.textContent = '已接受';
+                         acceptBtn.style.background = '#ccc';
+                         // Optionally refresh plans if we are on plans page
+                         if (typeof renderPlans === 'function') renderPlans();
+                         // Also maybe refresh the message list or mark this message as handled?
+                         // For now, just UI feedback.
+                     } else {
+                         alert("接受失败: " + (res.error || '未知错误'));
+                         acceptBtn.disabled = false;
+                         acceptBtn.textContent = '接受邀请';
+                         rejectBtn.style.display = 'inline-block';
+                     }
+                 } catch(e) {
+                     console.error(e);
+                     alert("操作失败");
+                     acceptBtn.disabled = false;
+                     acceptBtn.textContent = '接受邀请';
+                     rejectBtn.style.display = 'inline-block';
+                 }
+             };
+
+             const rejectBtn = document.createElement('button');
+             rejectBtn.textContent = '拒绝';
+             rejectBtn.style.padding = '0.4rem 0.8rem';
+             rejectBtn.style.border = '1px solid #dc3545';
+             rejectBtn.style.borderRadius = '4px';
+             rejectBtn.style.background = 'white';
+             rejectBtn.style.color = '#dc3545';
+             rejectBtn.style.cursor = 'pointer';
+             rejectBtn.style.fontSize = '0.85rem';
+             
+             rejectBtn.onclick = async () => {
+                  rejectBtn.disabled = true;
+                  rejectBtn.textContent = '...';
+                  acceptBtn.style.display = 'none';
+                  try {
+                     const myId = Auth.getFriendId();
+                     const res = await CloudSync.rejectInvitation(msg.metadata.planId, myId);
+                     
+                     if (res && res.success) {
+                         rejectBtn.textContent = '已拒绝';
+                         rejectBtn.style.color = '#999';
+                         rejectBtn.style.border = '1px solid #ccc';
+                     } else {
+                         alert("拒绝失败: " + (res.error || '未知错误'));
+                         rejectBtn.disabled = false;
+                         rejectBtn.textContent = '拒绝';
+                         acceptBtn.style.display = 'inline-block';
+                     }
+                  } catch(e) {
+                      console.error(e);
+                      alert("操作失败");
+                      rejectBtn.disabled = false;
+                      rejectBtn.textContent = '拒绝';
+                      acceptBtn.style.display = 'inline-block';
+                  }
+             };
+
+            actionContainer.appendChild(acceptBtn);
+            actionContainer.appendChild(rejectBtn);
+            bubble.appendChild(actionContainer);
+        }
+
         item.appendChild(bubble);
 
         if (!isMe && !msg.isRead) {
@@ -431,10 +523,99 @@ const Mailbox = (() => {
         }
     }
 
+    async function getPendingNotifications() {
+        if (!sessionStorage.getItem('hkwl_auth_token')) return [];
+        const notifications = [];
+
+        try {
+            // 1. Fetch Friend Requests
+            try {
+                const resFriends = await fetch('/api/friends/requests', {
+                    headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                });
+                const dataFriends = await resFriends.json();
+                if (dataFriends.success && Array.isArray(dataFriends.requests)) {
+                    dataFriends.requests.forEach(req => {
+                        notifications.push({
+                            kind: 'friend_request',
+                            priority: 1, // High priority
+                            data: req
+                        });
+                    });
+                }
+            } catch(e) { console.error("Fetch friend requests failed", e); }
+
+            // 2. Fetch Messages (Inbox)
+            try {
+                const resMsg = await fetch(`/api/messages?t=${Date.now()}&limit=20&type=inbox`, {
+                    headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                });
+                const dataMsg = await resMsg.json();
+                if (dataMsg.success && Array.isArray(dataMsg.messages)) {
+                    dataMsg.messages.forEach(m => {
+                        if (m.isMe || m.isRead) return;
+
+                        if (m.type === 'invitation' && m.metadata && m.metadata.planId) {
+                            notifications.push({
+                                kind: 'plan_invitation',
+                                priority: 2,
+                                data: m
+                            });
+                        } else if (m.sender === 'admin' || m.type === 'system' || m.sender === 'System') {
+                             notifications.push({
+                                kind: 'system_notification',
+                                priority: 3,
+                                data: m
+                            });
+                        }
+                    });
+                }
+            } catch(e) { console.error("Fetch messages failed", e); }
+
+            // Fetch System Notices (Announcements)
+            try {
+                // 1. Get User Status for lastNoticeSeenAt
+                const resAuth = await fetch('/api/auth/status', {
+                    headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                });
+                const authData = await resAuth.json();
+                const lastSeen = authData.lastNoticeSeenAt ? new Date(authData.lastNoticeSeenAt).getTime() : 0;
+
+                // 2. Get Notices
+                const resNotice = await fetch(`/api/notice?_t=${Date.now()}`, {
+                    headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                });
+                const noticeData = await resNotice.json();
+
+                if (noticeData.success && noticeData.notices && noticeData.notices.length > 0) {
+                    const latestNotice = noticeData.notices[0];
+                    const lastUpdated = latestNotice.lastUpdated ? new Date(latestNotice.lastUpdated).getTime() : 0;
+
+                    if (lastUpdated > lastSeen) {
+                         notifications.push({
+                            kind: 'announcement',
+                            priority: 0, // Highest priority for global announcements? or maybe after friend requests?
+                            // Let's make it high priority (0) so everyone sees it first
+                            data: latestNotice
+                        });
+                    }
+                }
+            } catch(e) { console.error("Fetch notices failed", e); }
+
+            // Sort by priority
+            return notifications.sort((a, b) => a.priority - b.priority);
+
+        } catch (e) {
+            console.error("Failed to fetch pending notifications", e);
+            return [];
+        }
+    }
+
     return {
         open,
         init,
         setBadge,
-        checkUnread
+        checkUnread,
+        getPendingNotifications
     };
 })();

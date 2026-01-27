@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>管理员控制台</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Quill CSS -->
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style>
+    /* Quill Editor Customization */
+    #editor-container {
+      height: 300px;
+      background: white;
+      border-bottom-left-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+    .ql-toolbar {
+      background: #f8f9fa;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="index.html" class="header-brand-container" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+          <img src="logo-v2.svg" alt="Logo" style="height: 32px; width: 32px;">
+          <div class="header-brand" style="font-size: 1.5rem; color: #333;">
+              <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
+          </div>
+        </a>
+        <span style="margin: 0 5px; color: #ccc;">|</span>
+        <h1 style="margin: 0; font-size: 1.2rem; font-weight: normal; color: #666;">管理员控制台</h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="form">
+      <section id="all-users-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>全部用户</h2>
+            <button type="button" id="refresh-users-btn" class="btn btn-secondary" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.9rem;">刷新列表</button>
+        </div>
+        <p style="color: #666; margin-bottom: 1rem;">查看所有已注册用户。您可以删除违规账户（不可恢复）。</p>
+        
+        <div class="table-container" style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <thead>
+                    <tr style="background: #f8f9fa; text-align: left; color: #555;">
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">用户名</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">昵称</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">好友 ID</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">创建时间</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee; text-align: right;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="all-users-list">
+                    <tr><td colspan="5" style="padding: 20px; text-align: center; color: #888;">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+      </section>
+
+      <section id="admin-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>创建新账号</h2>
+        <p style="color: #666; margin-bottom: 1rem;">您可以创建新的普通用户账号。</p>
+        <div class="form-group">
+            <label for="new-username">新用户名</label>
+            <input id="new-username" type="text" placeholder="输入用户名">
+        </div>
+        <div class="form-group">
+            <label for="new-password">新密码</label>
+            <input id="new-password" type="password" placeholder="输入密码">
+        </div>
+        <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: auto;">创建账号</button>
+      </section>
+
+      <section id="content-manager-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>内容发布与管理</h2>
+        <p style="color: #666; margin-bottom: 1rem;">加载现有内容进行编辑，或输入新内容并选择发布目标。</p>
+        
+        <div class="action-buttons" style="margin-bottom: 1rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start;">
+            <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 250px; overflow-y: auto; background: #fff;">
+                <!-- Site-wide Toggle -->
+                <div style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; background: #f9f9f9; padding: 8px; border-radius: 4px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; cursor: pointer; color: #d32f2f;">
+                        <input type="checkbox" id="site-wide-notice-checkbox" style="margin-right: 8px;"> 
+                        发布全站告示 (包含未来用户)
+                    </label>
+                    <div style="font-size: 0.8rem; color: #666; margin-left: 24px; margin-top: 4px; line-height: 1.4;">
+                        勾选后，所有当前及<b>未来注册</b>的用户都能看到此告示。<br>如果不勾选，则仅发送给下方选中的<b>当前用户</b>。
+                    </div>
+                </div>
+
+                <!-- User Selection List -->
+                <div id="user-selection-container">
+                    <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        <label><input type="checkbox" id="select-all-users" /> 全选 (仅限当前列表用户)</label>
+                    </div>
+                    <div id="user-checkbox-list" style="display: flex; flex-direction: column; gap: 5px;">
+                        <!-- Checkboxes will be injected here -->
+                        <div style="color: #888;">加载用户中...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" id="load-manual-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载使用说明</button>
+                <button type="button" id="load-notice-btn" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.3rem 0.8rem; width: auto;">加载告示</button>
+                <span id="current-source-label" style="color: #888; font-size: 0.9rem;">当前: 未加载</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <!-- Quill Editor Container -->
+            <div id="editor-container"></div>
+        </div>
+        
+        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem;">
+            <button type="button" id="save-as-manual-btn" class="btn btn-primary" style="background-color: #28a745; border-color: #28a745; width: auto;">保存为使用说明</button>
+            <button type="button" id="publish-as-notice-btn" class="btn btn-primary" style="background-color: #007aff; border-color: #007aff; width: auto;">发布告示</button>
+        </div>
+      </section>
+
+      <section id="active-notices-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+          <h2>已发布的告示</h2>
+          <p style="color: #666; margin-bottom: 1rem;">查看或撤回当前有效的告示。</p>
+          <div id="notices-list" style="display: flex; flex-direction: column; gap: 1rem;">
+              <div style="text-align: center; color: #888; padding: 1rem;">加载中...</div>
+          </div>
+      </section>
+
+      <section id="homepage-library-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <h2>首页内容库 (CMS)</h2>
+        <p style="color: #666; margin-bottom: 1rem;">管理首页各个板块的随机展示内容。支持图文混排。</p>
+        
+        <!-- Add Content Form -->
+        <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 15px;">添加新内容</h3>
+            <div class="form-group">
+                <label for="cms-module-select">选择板块</label>
+                <select id="cms-module-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="spark">灵感的火花 (Spark)</option>
+                    <option value="window">他人的窗户 (Window)</option>
+                    <option value="anchor">当下的锚点 (Anchor)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="cms-content-title">标题 (可选)</label>
+                <input type="text" id="cms-content-title" placeholder="例如：Hello Traveler" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div class="form-group">
+                <label for="cms-content-text">正文/文案 (可选)</label>
+                <textarea id="cms-content-text" placeholder="输入主要文字内容..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>图片 (可选)</label>
+                <input type="file" id="cms-image-file" accept="image/*" style="margin-bottom: 5px;">
+                <div style="font-size: 0.8rem; color: #999; margin-bottom: 5px;">或者</div>
+                <input type="text" id="cms-image-url" placeholder="输入图片 URL" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                
+                <input type="hidden" id="cms-image-final">
+                <div id="cms-image-preview" style="margin-top: 10px; max-width: 200px; max-height: 200px; display: none;">
+                    <img src="" style="width: 100%; height: auto; border-radius: 4px; border: 1px solid #ddd;">
+                    <button type="button" id="cms-clear-image" style="margin-top: 5px; color: red; border: none; background: none; cursor: pointer; font-size: 0.8rem;">清除图片</button>
+                </div>
+            </div>
+
+            <button type="button" id="cms-add-btn" class="btn btn-secondary">添加到库</button>
+        </div>
+
+        <!-- Content List -->
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 1.1rem;">现有内容库</h3>
+                <select id="cms-filter-module" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd;">
+                    <option value="">全部板块</option>
+                    <option value="spark">灵感的火花</option>
+                    <option value="window">他人的窗户</option>
+                    <option value="anchor">当下的锚点</option>
+                </select>
+            </div>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8f9fa; text-align: left; color: #555;">
+                            <th style="padding: 8px;">板块</th>
+                            <th style="padding: 8px;">标题</th>
+                            <th style="padding: 8px;">内容预览</th>
+                            <th style="padding: 8px;">图片</th>
+                            <th style="padding: 8px; text-align: right;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cms-content-list">
+                        <!-- Items injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+      </section>
+
+      <div class="form-actions" style="margin-top: 2rem; justify-content: center;">
+        <a href="javascript:;" onclick="window.location.replace('index.html')" class="btn btn-secondary">返回首页</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Quill JS -->
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  
+  <script src="cloud-sync.js"></script>
+  <script src="auth-manager.js"></script>
+  <script src="main.js?v=4"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async function () {
+      // Security Check
+      const isAdmin = await Auth.refreshAdminStatus();
+      if (!isAdmin) {
+          alert("权限不足：只有管理员可以访问此页面");
+          window.location.replace("index.html");
+          return;
+      }
+
+      // Initialize Quill
+      var quill = new Quill('#editor-container', {
+        theme: 'snow',
+        placeholder: '在此输入内容...',
+        modules: {
+          toolbar: [
+            [{ 'font': [] }],
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'align': [] }],
+            ['link', 'clean']
+          ]
+        }
+      });
+
+      // Create User Logic
+      document.getElementById('create-user-btn').addEventListener('click', async () => {
+          const u = document.getElementById('new-username').value.trim();
+          const p = document.getElementById('new-password').value;
+          
+          if(!u || !p) {
+              alert("请输入用户名和密码");
+              return;
+          }
+          
+          const btn = document.getElementById('create-user-btn');
+          btn.disabled = true;
+          btn.textContent = "创建中...";
+          
+          try {
+            const res = await Auth.createAccount(u, p);
+            if(res.success) {
+                alert("创建成功！用户 ID: " + (res.userId || "未知"));
+                document.getElementById('new-username').value = '';
+                document.getElementById('new-password').value = '';
+            } else {
+                alert("创建失败: " + res.message);
+            }
+          } catch(e) {
+              alert("错误: " + e.message);
+          } finally {
+              btn.disabled = false;
+              btn.textContent = "创建账号";
+          }
+      });
+
+      // Unified Content Manager Logic
+      const loadManualBtn = document.getElementById('load-manual-btn');
+      const loadNoticeBtn = document.getElementById('load-notice-btn');
+      const saveManualBtn = document.getElementById('save-as-manual-btn');
+      const publishNoticeBtn = document.getElementById('publish-as-notice-btn');
+      const sourceLabel = document.getElementById('current-source-label');
+      
+      const userCheckboxList = document.getElementById('user-checkbox-list');
+      const selectAllCheckbox = document.getElementById('select-all-users');
+      const siteWideCheckbox = document.getElementById('site-wide-notice-checkbox');
+      const userSelectionContainer = document.getElementById('user-selection-container');
+
+      // Toggle User List based on Site-wide checkbox
+      siteWideCheckbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+              userSelectionContainer.style.opacity = '0.5';
+              userSelectionContainer.style.pointerEvents = 'none';
+              // Optional: Uncheck everything or keep as is? 
+              // Let's keep as is, but visual indication is enough.
+          } else {
+              userSelectionContainer.style.opacity = '1';
+              userSelectionContainer.style.pointerEvents = 'auto';
+          }
+      });
+
+      // Load Users for Content Target (Checkboxes)
+      async function loadTargetUsers() {
+          try {
+              const res = await fetch('/api/admin/users', { // Use new endpoint
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              if(data.success && data.users) {
+                  userCheckboxList.innerHTML = '';
+                  
+                  data.users.forEach(u => {
+                      const username = typeof u === 'string' ? u : u.username;
+                      const div = document.createElement('div');
+                      div.innerHTML = `
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" class="user-target-checkbox" value="${username}" style="margin-right: 8px;">
+                            ${username} <span style="color:#888; font-size:0.85em; margin-left:5px;">(${u.nickname || '-'})</span>
+                        </label>
+                      `;
+                      userCheckboxList.appendChild(div);
+                  });
+              }
+          } catch(e) {
+              console.error("Failed to load users for checklist", e);
+              userCheckboxList.innerHTML = '<div style="color: red;">加载失败</div>';
+          }
+      }
+      
+      // Select All Logic
+      selectAllCheckbox.addEventListener('change', (e) => {
+          const checkboxes = document.querySelectorAll('.user-target-checkbox');
+          checkboxes.forEach(cb => cb.checked = e.target.checked);
+      });
+
+      loadTargetUsers(); // Initial Load for Checkboxes
+      
+      // Get Selected Targets Helper
+      function getSelectedTargets() {
+          // If Site-wide is checked, return 'all' explicitly
+          if (siteWideCheckbox.checked) return 'all';
+          
+          const selected = [];
+          document.querySelectorAll('.user-target-checkbox:checked').forEach(cb => {
+              selected.push(cb.value);
+          });
+          
+          if (selected.length === 0) return null; // No selection
+          
+          // NOTE: Even if all users are selected, we return the array of usernames,
+          // NOT 'all'. This ensures it is treated as a specific list (snapshot),
+          // not a future-proof global notice.
+          
+          return selected; // Array of usernames
+      }
+      
+      // --- ALL USERS LIST LOGIC ---
+      const refreshUsersBtn = document.getElementById('refresh-users-btn');
+      const allUsersList = document.getElementById('all-users-list');
+
+      async function renderAllUsers() {
+          allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #888;">加载中...</td></tr>';
+          
+          try {
+              const res = await fetch('/api/admin/users', {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              
+              if (data.success && data.users) {
+                  if (data.users.length === 0) {
+                      allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #888;">暂无用户</td></tr>';
+                      return;
+                  }
+                  
+                  allUsersList.innerHTML = '';
+                  const currentAdmin = Auth.getCurrentUser();
+
+                  data.users.forEach(u => {
+                      const tr = document.createElement('tr');
+                      tr.style.borderBottom = '1px solid #eee';
+                      
+                      // Format Date
+                      const createdDate = u.createdAt ? new Date(u.createdAt).toLocaleString('zh-CN', { hour12: false }) : '未知';
+                      
+                      const isMe = u.username === currentAdmin;
+                      
+                      tr.innerHTML = `
+                          <td style="padding: 10px;">
+                              <div style="font-weight: 500;">${u.username}</div>
+                              ${isMe ? '<span style="font-size: 0.8rem; background: #e3f2fd; color: #0d47a1; padding: 2px 6px; border-radius: 4px;">管理员(我)</span>' : ''}
+                          </td>
+                          <td style="padding: 10px; color: #666;">${u.nickname || '-'}</td>
+                          <td style="padding: 10px; font-family: monospace; color: #555;" title="系统唯一标识: ${u._id}">${u.friendId || '-'}</td>
+                          <td style="padding: 10px; color: #888; font-size: 0.9rem;">${createdDate}</td>
+                          <td style="padding: 10px; text-align: right;">
+                              ${!isMe ? `<button class="btn-delete-user" data-id="${u._id}" data-username="${u.username}" style="padding: 4px 10px; background: #fee; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">注销</button>` : ''}
+                          </td>
+                      `;
+                      
+                      allUsersList.appendChild(tr);
+                  });
+                  
+                  // Bind Delete Events
+                  document.querySelectorAll('.btn-delete-user').forEach(btn => {
+                      btn.addEventListener('click', async (e) => {
+                          const uid = e.target.dataset.id;
+                          const uname = e.target.dataset.username;
+                          
+                          if (confirm(`警告：确定要注销用户 "${uname}" 吗？\n此操作将永久删除该用户的所有数据，且无法恢复！`)) {
+                              // Disable button
+                              e.target.disabled = true;
+                              e.target.textContent = "删除中...";
+                              
+                              try {
+                                  const delRes = await fetch(`/api/admin/users/${uid}`, {
+                                      method: 'DELETE',
+                                      headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                                  });
+                                  const delData = await delRes.json();
+                                  
+                                  if (delData.success) {
+                                      alert(delData.message);
+                                      renderAllUsers(); // Refresh list
+                                      loadTargetUsers(); // Refresh dropdown too
+                                  } else {
+                                      alert("删除失败: " + delData.error);
+                                      e.target.disabled = false;
+                                      e.target.textContent = "注销";
+                                  }
+                              } catch(err) {
+                                  alert("请求出错: " + err.message);
+                                  e.target.disabled = false;
+                                  e.target.textContent = "注销";
+                              }
+                          }
+                      });
+                  });
+                  
+              } else {
+                  allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #d32f2f;">加载失败: ' + (data.error || '未知错误') + '</td></tr>';
+              }
+          } catch(e) {
+              console.error("Failed to load user list", e);
+              allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #d32f2f;">网络错误，请重试</td></tr>';
+          }
+      }
+
+      refreshUsersBtn.addEventListener('click', renderAllUsers);
+      renderAllUsers(); // Initial Load for List
+
+      // Helper to load content
+      async function loadContent(type) {
+          let endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const label = type === 'manual' ? '使用说明' : '告示';
+          
+          if (type === 'notice') {
+              endpoint += `?targetUser=${targetSelect.value}`;
+          }
+
+          try {
+              quill.disable();
+              sourceLabel.textContent = `加载中...`;
+              
+              const res = await fetch(endpoint, {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              
+              if (data.success && data.content) {
+                  // Use dangerouslyPasteHTML to handle both HTML and plain text (best effort)
+                  quill.clipboard.dangerouslyPasteHTML(0, data.content);
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  sourceLabel.textContent = `当前加载: ${targetName}`;
+              } else {
+                  quill.setText('');
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  sourceLabel.textContent = `当前加载: ${targetName} (为空)`;
+              }
+          } catch (e) {
+              console.error(`Failed to load ${type}:`, e);
+              alert(`加载${label}失败: ` + e.message);
+              sourceLabel.textContent = '加载失败';
+          } finally {
+              quill.enable();
+          }
+      }
+
+      // Load Buttons
+      loadManualBtn.addEventListener('click', () => loadContent('manual'));
+      loadNoticeBtn.addEventListener('click', () => loadContent('notice'));
+
+      // Save Helper
+      async function saveContent(type) {
+          // Get HTML content
+          // If editor is empty, root.innerHTML might still contain <p><br></p>, check text length
+          let content = quill.root.innerHTML;
+          if (quill.getText().trim().length === 0 && !content.includes('<img')) {
+              // If visually empty, maybe send empty string? 
+              // But user might want to delete content.
+              // However, Quill usually defaults to <p><br></p>
+              if (content === '<p><br></p>') content = '';
+          }
+
+          // Notice uses POST (create new), Manual uses PUT (update)
+          const endpoint = type === 'manual' ? '/api/manual' : '/api/notice';
+          const method = type === 'manual' ? 'PUT' : 'POST';
+          
+          const label = type === 'manual' ? '使用说明' : '告示';
+          const btn = type === 'manual' ? saveManualBtn : publishNoticeBtn;
+          const originalText = btn.textContent;
+          
+          const payload = { content };
+          if (type === 'notice') {
+              payload.targetUser = targetSelect.value;
+          }
+          
+          try {
+              btn.disabled = true;
+              btn.textContent = "处理中...";
+              
+              const res = await fetch(endpoint, {
+                  method: method,
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                  },
+                  body: JSON.stringify(payload)
+              });
+              const data = await res.json();
+              
+              if(data.success) {
+                  const targetName = type === 'notice' ? targetSelect.options[targetSelect.selectedIndex].text : '使用说明';
+                  alert(`${targetName} 发布成功！`);
+                  
+                  // Refresh list if it's a notice
+                  if (type === 'notice') {
+                      loadActiveNotices();
+                  }
+              } else {
+                  alert(`操作失败: ` + data.error);
+              }
+          } catch(e) {
+              alert("错误: " + e.message);
+          } finally {
+              btn.disabled = false;
+              btn.textContent = originalText;
+          }
+      }
+
+      // Save Buttons
+      saveManualBtn.addEventListener('click', () => saveContent('manual'));
+
+      // Publish Notice
+      publishNoticeBtn.addEventListener('click', async () => {
+          const content = quill.root.innerHTML;
+          if (quill.getText().trim().length === 0) {
+              alert("请输入内容");
+              return;
+          }
+          
+          const targetUser = getSelectedTargets();
+          if (!targetUser) {
+              alert("请至少选择一个发布目标（或勾选全选）");
+              return;
+          }
+
+          if (confirm("确定要发布此告示吗？")) {
+             try {
+                const res = await fetch('/api/notice', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                    },
+                    body: JSON.stringify({ content, targetUser })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert("发布成功！");
+                    loadActiveNotices(); // Refresh list
+                    quill.setContents([]); // Clear editor
+                    sourceLabel.textContent = "当前: 未加载";
+                } else {
+                    alert("发布失败: " + data.error);
+                }
+             } catch(e) {
+                 alert("错误: " + e.message);
+             }
+          }
+      });
+      
+      // Load manual by default
+      loadContent('manual');
+
+      // --- Active Notices Manager ---
+      const noticesList = document.getElementById('notices-list');
+      
+      // Helper to strip HTML for preview
+      function stripHtml(html) {
+          let tmp = document.createElement("DIV");
+          tmp.innerHTML = html;
+          return tmp.textContent || tmp.innerText || "";
+      }
+
+      async function loadActiveNotices() {
+          try {
+              noticesList.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">加载中...</div>';
+              
+              const res = await fetch('/api/admin/notices', {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              
+              if (data.success && data.notices && data.notices.length > 0) {
+                  noticesList.innerHTML = '';
+                  data.notices.forEach(notice => {
+                      const item = document.createElement('div');
+                      item.style.border = '1px solid #eee';
+                      item.style.borderRadius = '8px';
+                      item.style.padding = '1rem';
+                      item.style.backgroundColor = '#f9f9f9';
+                      item.style.display = 'flex';
+                      item.style.justifyContent = 'space-between';
+                      item.style.alignItems = 'start';
+                      item.style.gap = '1rem';
+                      
+                      const targetDisplay = (!notice.targetUser || notice.targetUser === 'all') 
+                          ? '<span style="color:#666; font-size:0.85rem; font-weight:normal;">[所有人]</span>' 
+                          : `<span style="color:#666; font-size:0.85rem; font-weight:normal;">[用户: ${notice.targetUser}]</span>`;
+                          
+                      const date = new Date(notice.lastUpdated).toLocaleString();
+                      
+                      // Strip HTML for preview
+                      const plainText = stripHtml(notice.content);
+                      const contentPreview = plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
+                      
+                      item.innerHTML = `
+                          <div style="flex: 1;">
+                              <div style="margin-bottom: 0.5rem; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                                  ${targetDisplay}
+                                  <span style="color: #999; font-weight: normal; font-size: 0.85rem;">${date}</span>
+                              </div>
+                              <div style="color: #333; white-space: pre-wrap; font-size: 0.95rem;">${contentPreview}</div>
+                          </div>
+                          <button class="btn btn-secondary retract-btn" data-id="${notice._id}" style="color: #ff4d4f; border-color: #ff4d4f; background: white; width: auto; font-size: 0.9rem; padding: 0.3rem 0.8rem;">
+                              撤回
+                          </button>
+                      `;
+                      
+                      noticesList.appendChild(item);
+                  });
+                  
+                  // Add delete listeners
+                  document.querySelectorAll('.retract-btn').forEach(btn => {
+                      btn.addEventListener('click', async (e) => {
+                          if(!confirm('确定要撤回这条告示吗？用户将不再看到它。')) return;
+                          
+                          const id = e.target.dataset.id;
+                          try {
+                              e.target.disabled = true;
+                              e.target.textContent = '处理中...';
+                              
+                              const res = await fetch(`/api/admin/notices/${id}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                              });
+                              const data = await res.json();
+                              
+                              if(data.success) {
+                                  loadActiveNotices(); // Reload list
+                              } else {
+                                  alert('撤回失败: ' + data.error);
+                                  e.target.disabled = false;
+                                  e.target.textContent = '撤回';
+                              }
+                          } catch(err) {
+                              alert('错误: ' + err.message);
+                              e.target.disabled = false;
+                              e.target.textContent = '撤回';
+                          }
+                      });
+                  });
+                  
+              } else {
+                  noticesList.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">暂无已发布的告示</div>';
+              }
+          } catch (e) {
+              console.error("Failed to load notices list", e);
+              noticesList.innerHTML = '<div style="text-align: center; color: red; padding: 1rem;">加载列表失败</div>';
+          }
+      }
+      
+      // Load initially
+      loadActiveNotices();
+
+      // --- CMS LOGIC ---
+      const cmsModuleSelect = document.getElementById('cms-module-select');
+      const cmsTitleInput = document.getElementById('cms-content-title');
+      const cmsTextInput = document.getElementById('cms-content-text');
+      const cmsImageFile = document.getElementById('cms-image-file');
+      const cmsImageUrl = document.getElementById('cms-image-url');
+      const cmsImagePreview = document.getElementById('cms-image-preview');
+      const cmsImageFinal = document.getElementById('cms-image-final');
+      const cmsClearImageBtn = document.getElementById('cms-clear-image');
+      const cmsAddBtn = document.getElementById('cms-add-btn');
+      const cmsContentList = document.getElementById('cms-content-list');
+      const cmsFilterModule = document.getElementById('cms-filter-module');
+
+      // No more type toggle needed since form is unified
+
+      // Handle Image Upload (Base64)
+      cmsImageFile.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                  const base64 = e.target.result;
+                  cmsImageFinal.value = base64;
+                  cmsImagePreview.style.display = 'block';
+                  cmsImagePreview.querySelector('img').src = base64;
+              };
+              reader.readAsDataURL(file);
+          }
+      });
+      
+      // Clear Image
+      cmsClearImageBtn.addEventListener('click', () => {
+          cmsImageFile.value = '';
+          cmsImageUrl.value = '';
+          cmsImageFinal.value = '';
+          cmsImagePreview.style.display = 'none';
+      });
+
+      // Add Content
+      cmsAddBtn.addEventListener('click', async () => {
+          const module = cmsModuleSelect.value;
+          const title = cmsTitleInput.value.trim();
+          const content = cmsTextInput.value.trim();
+          // Use uploaded base64 OR url
+          const image = cmsImageFinal.value || cmsImageUrl.value.trim();
+
+          if (!content && !image && !title) {
+              alert('请输入标题、内容或上传图片（至少一项）');
+              return;
+          }
+
+          try {
+              const res = await fetch('/api/admin/content', {
+                  method: 'POST',
+                  headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': sessionStorage.getItem('hkwl_auth_token') 
+                  },
+                  body: JSON.stringify({
+                      module,
+                      title,
+                      content,
+                      image
+                  })
+              });
+              const data = await res.json();
+
+              if (data.success) {
+                  alert('添加成功！');
+                  // Reset form
+                  cmsTitleInput.value = '';
+                  cmsTextInput.value = '';
+                  cmsImageFinal.value = '';
+                  cmsImageUrl.value = '';
+                  cmsImageFile.value = '';
+                  cmsImagePreview.style.display = 'none';
+                  loadCmsContent(); // Refresh list
+              } else {
+                  alert('添加失败: ' + data.error);
+              }
+          } catch (e) {
+              console.error(e);
+              alert('添加出错');
+          }
+      });
+
+      // Load Content List
+      async function loadCmsContent() {
+          cmsContentList.innerHTML = '<tr><td colspan="5" style="padding: 10px; text-align: center;">加载中...</td></tr>';
+          
+          const filter = cmsFilterModule.value;
+          let url = '/api/admin/content';
+          if (filter) url += `?module=${filter}`;
+
+          try {
+              const res = await fetch(url, {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+
+              if (data.success) {
+                  cmsContentList.innerHTML = '';
+                  if (data.contents.length === 0) {
+                      cmsContentList.innerHTML = '<tr><td colspan="5" style="padding: 10px; text-align: center; color: #888;">暂无内容</td></tr>';
+                      return;
+                  }
+
+                  data.contents.forEach(item => {
+                      const tr = document.createElement('tr');
+                      tr.style.borderBottom = '1px solid #eee';
+                      
+                      let textPreview = item.content.length > 30 ? item.content.substring(0, 30) + '...' : item.content;
+                      let imgPreview = item.image ? `<img src="${item.image}" style="height: 30px; border-radius: 4px;">` : '-';
+                      let titlePreview = item.title || '-';
+
+                      let moduleName = item.module;
+                      if (moduleName === 'spark') moduleName = '灵感火花';
+                      else if (moduleName === 'window') moduleName = '他人窗户';
+                      else if (moduleName === 'anchor') moduleName = '当下的锚点';
+
+                      tr.innerHTML = `
+                          <td style="padding: 8px;">${moduleName}</td>
+                          <td style="padding: 8px;">${titlePreview}</td>
+                          <td style="padding: 8px;">${textPreview}</td>
+                          <td style="padding: 8px;">${imgPreview}</td>
+                          <td style="padding: 8px; text-align: right;">
+                              <button class="btn-delete-cms" data-id="${item._id}" style="color: red; border: none; background: none; cursor: pointer;">删除</button>
+                          </td>
+                      `;
+                      cmsContentList.appendChild(tr);
+                  });
+
+                  // Bind Delete
+                  document.querySelectorAll('.btn-delete-cms').forEach(btn => {
+                      btn.addEventListener('click', async (e) => {
+                          if (confirm('确定删除此内容吗？')) {
+                              const id = e.target.dataset.id;
+                              await fetch(`/api/admin/content/${id}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                              });
+                              loadCmsContent();
+                          }
+                      });
+                  });
+              }
+          } catch (e) {
+              console.error(e);
+              cmsContentList.innerHTML = '<tr><td colspan="5" style="padding: 10px; text-align: center; color: red;">加载失败</td></tr>';
+          }
+      }
+
+      // Initial Load & Filter Listener
+      loadCmsContent();
+      cmsFilterModule.addEventListener('change', loadCmsContent);
+    });
+  </script>
+</body>
+</html>

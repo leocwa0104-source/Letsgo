@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>添加项目</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="site-header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="index.html" class="header-brand-container" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+          <img src="logo-v2.svg" alt="Logo" style="height: 32px; width: 32px;">
+          <div class="header-brand" style="font-size: 1.5rem; color: #333;">
+              <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
+          </div>
+        </a>
+        <span style="margin: 0 5px; color: #ccc;">|</span>
+        <h1 style="margin: 0; font-size: 1.2rem; font-weight: normal; color: #666;">管理项目</h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="wish-form" class="form">
+      <div class="form-group">
+        <label for="name" id="name-label">名称 *</label>
+        <input id="name" name="name" type="text" required />
+        <input type="hidden" id="lng" name="lng" />
+        <input type="hidden" id="lat" name="lat" />
+      </div>
+
+
+      <div id="food-fields">
+        <div class="form-group">
+          <label for="mealType">餐别</label>
+          <select id="mealType" class="meal-type-select" name="mealType">
+            <option value="">请选择</option>
+            <option value="早餐">早餐</option>
+            <option value="正餐">正餐</option>
+            <option value="小吃">小吃</option>
+            <option value="甜品">甜品</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="location">地点 *</label>
+          <input
+            id="location"
+            name="location"
+            type="text"
+            placeholder="例如：尖沙咀、中环、旺角"
+            required
+          />
+        </div>
+      </div>
+
+      <div id="place-fields" hidden>
+        <div class="form-group">
+          <label for="place-location">地点 *</label>
+          <input
+            id="place-location"
+            name="placeLocation"
+            type="text"
+            placeholder="例如：尖沙咀、中环、旺角"
+            required
+          />
+        </div>
+      </div>
+
+      <div id="transport-fields" hidden>
+        <div class="form-group">
+          <label>在途时间 *</label>
+          <div class="time-input-group">
+            <div class="input-wrapper">
+              <input
+                id="travelTimeH"
+                name="travelTimeH"
+                type="number"
+                min="0"
+                value="0"
+                class="short-input"
+                required
+              />
+              <span>h</span>
+            </div>
+            <div class="input-wrapper">
+              <input
+                id="travelTimeM"
+                name="travelTimeM"
+                type="number"
+                min="0"
+                max="59"
+                value="0"
+                class="short-input"
+                required
+              />
+              <span>min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="stay-fields" hidden>
+        <div class="form-group">
+          <label for="stay-location">地点 *</label>
+          <input
+            id="stay-location"
+            name="stayLocation"
+            type="text"
+            placeholder="例如：尖沙咀、中环、旺角"
+            required
+          />
+        </div>
+      </div>
+
+
+
+      <div class="form-actions">
+        <button id="submit-btn" type="submit" class="btn btn-primary">确认添加</button>
+        <a id="cancel-link" href="planner-v2.html" class="btn btn-secondary">返回清单</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="auth-manager.js"></script>
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      let planId = urlParams.get('planId');
+      
+      // Fallback for legacy links (Add mode only)
+      if (!planId && urlParams.get('type')) {
+          planId = urlParams.get('id');
+      }
+
+      if (planId) {
+          HKWL.setCurrentPlan(planId);
+      }
+      
+      HKWL.initManagePage();
+
+      if (planId) {
+          const cancelLink = document.getElementById('cancel-link');
+          if (cancelLink) {
+              if (cancelLink.href.includes('?')) {
+                  cancelLink.href += `&id=${planId}`;
+              } else {
+                  cancelLink.href += `?id=${planId}`;
+              }
+          }
+      }
+    });
+  </script>
+</body>
+</html>

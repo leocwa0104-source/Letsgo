@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="logo-v2.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>旅友 - shineshone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .friends-container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    
+    /* New Header Styles */
+    .nav-header {
+      display: flex;
+      align-items: center;
+      color: #333; /* Changed from white */
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    
+    .back-btn {
+      background: none;
+      border: none;
+      color: #666; /* Changed from white */
+      cursor: pointer;
+      padding: 8px;
+      margin-right: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+    
+    .back-btn:hover {
+      background: rgba(0,0,0,0.05); /* Changed from white/0.2 */
+      color: #333;
+    }
+
+    /* Unified Card Styles */
+    .unified-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      overflow: hidden;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header-section {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 100%;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 50px; /* Rounded pill shape */
+      font-size: 1rem;
+      transition: all 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    
+    .search-input:focus {
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+      outline: none;
+    }
+
+    .search-btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 0 1.5rem;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      white-space: nowrap;
+      transition: background 0.2s;
+      box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .search-btn:hover {
+      background: #2980b9;
+    }
+
+    .search-result {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .content-area {
+      padding: 1.5rem;
+      flex: 1;
+      background: white;
+    }
+
+    .section-label {
+      font-size: 0.9rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .friend-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Slightly wider cards */
+      gap: 1rem;
+    }
+
+    .user-card {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 12px;
+      border: 1px solid #eee;
+      transition: all 0.2s;
+      justify-content: space-between;
+    }
+    
+    .user-card:hover {
+      border-color: #3498db;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+      transform: translateY(-2px);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      background: #3498db;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-right: 1rem;
+    }
+
+    .user-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .user-name {
+      font-weight: bold;
+      font-size: 1rem;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-id {
+      color: #999;
+      font-size: 0.8rem;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #aaa;
+      padding: 4rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.3;
+    }
+
+    /* Request Card Specifics */
+    .request-card {
+      background: #fff8e1;
+      border-color: #ffe0b2;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .accept-btn {
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    
+    .reject-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    /* Chat Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001; /* Higher than styles.css */
+      /* Override styles.css invisible state */
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    .chat-modal {
+      background: white;
+      width: 90%;
+      max-width: 500px;
+      height: 80vh;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .chat-header {
+      padding: 1rem;
+      background: #3498db;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+    }
+
+    .chat-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .message-bubble {
+      max-width: 80%;
+      padding: 0.8rem 1rem;
+      border-radius: 12px;
+      position: relative;
+      word-break: break-word;
+    }
+
+    .msg-received {
+      align-self: flex-start;
+      background: white;
+      border: 1px solid #eee;
+      border-bottom-left-radius: 2px;
+    }
+
+    .msg-sent {
+      align-self: flex-end;
+      background: #3498db;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .msg-time {
+      display: flex;
+      align-items: center;
+      font-size: 0.7rem;
+      margin-top: 4px;
+      opacity: 0.7;
+      min-height: 18px;
+    }
+
+    .chat-input-area {
+      padding: 1rem;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 0.5rem;
+      background: white;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: #3498db;
+    }
+
+    .chat-send-btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 0 1.2rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .chat-send-btn:disabled {
+      background: #ccc;
+    }
+
+    .msg-btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .msg-btn:hover {
+      background: #2980b9;
+    }
+
+    .recall-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      color: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      margin-right: 8px; /* Space between icon and other content if any, though time is auto-margined */
+    }
+    .recall-btn:hover {
+      opacity: 1;
+      background: none;
+      border: none;
+    }
+    .time-text {
+        margin-left: auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- Chat Modal -->
+  <div id="chat-modal-overlay" class="modal-overlay">
+    <div class="chat-modal">
+      <div class="chat-header">
+        <span id="chat-title">Chat</span>
+        <button class="chat-close" onclick="closeChat()">&times;</button>
+      </div>
+      <div id="chat-messages" class="chat-messages">
+        <!-- Messages go here -->
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" class="chat-input" placeholder="输入消息..." autocomplete="off">
+        <button id="chat-send-btn" class="chat-send-btn">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header nav-header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="index.html" class="back-btn" title="返回首页" style="margin-right: 0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </a>
+        <a href="index.html" class="header-brand-container" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+            <img src="logo-v2.svg" alt="Logo" style="height: 32px; width: 32px;">
+            <div class="header-brand" style="font-size: 1.5rem; color: #333;">
+                <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
+            </div>
+        </a>
+        <span style="margin: 0 5px; color: #ccc;">|</span>
+        <div class="logo" style="color: #666; font-weight: normal;">我的旅友</div>
+    </div>
+    <div style="flex: 1;"></div>
+    <!-- User info will be injected here by main.js -->
+  </header>
+
+  <main class="friends-container">
+    <div class="unified-card">
+      <!-- Top Section: Search & Add -->
+      <div class="card-header-section">
+        <div class="search-row">
+          <input type="text" id="friend-search-input" class="search-input" placeholder="输入ID (如: A3K9XP) 添加新旅友" maxlength="6" style="text-transform: uppercase;">
+          <button id="search-btn" class="search-btn">添加</button>
+        </div>
+        <div id="search-result" class="search-result"></div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="content-area">
+        <!-- Friend Requests -->
+        <div id="requests-section" style="display: none; margin-bottom: 2rem;">
+          <div class="section-label" style="color: #e67e22;">新朋友申请</div>
+          <div id="requests-list" class="friend-list"></div>
+        </div>
+
+        <!-- Friend List -->
+        <div class="section-label">旅友列表</div>
+        <div id="friend-list" class="friend-list">
+          <div class="empty-state">
+            <div class="empty-icon">🤝</div>
+            <div>暂无旅友，快去邀请朋友加入吧！</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="cloud-sync.js?v=3"></script>
+  <script src="auth-manager.js"></script>
+  <script src="main.js?v=15"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadFriendRequests();
+        loadFriendList();
+        
+        const searchBtn = document.getElementById('search-btn');
+        const searchInput = document.getElementById('friend-search-input');
+        const resultContainer = document.getElementById('search-result');
+
+        // Handle Enter key
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchBtn.click();
+        });
+
+        searchBtn.addEventListener('click', async () => {
+            const query = searchInput.value.trim().toUpperCase();
+            if (!query) return;
+            if (query.length !== 6) {
+                alert('请输入正确的 6 位 Friend ID');
+                return;
+            }
+            
+            // Check if searching self
+            const myFid = Auth.getFriendId();
+            if (myFid && query === myFid) {
+                resultContainer.innerHTML = '<div style="color: #e67e22;">这是你自己的 ID 哦</div>';
+                resultContainer.style.display = 'block';
+                return;
+            }
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = '搜索中...';
+            resultContainer.style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/friends/search?fid=${query}`, {
+                    headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                });
+                const data = await res.json();
+
+                if (data.success && data.user) {
+                const displayName = data.user.nickname || data.user.username;
+                resultContainer.innerHTML = `
+                    <div class="user-card">
+                        ${getAvatarHtml(data.user.avatar, displayName)}
+                        <div class="user-info">
+                            <span class="user-name">${escapeHtml(displayName)}</span>
+                            <span class="user-id">ID: ${data.user.friendId}</span>
+                        </div>
+                        <button class="add-btn" 
+                            data-fid="${data.user.friendId}" 
+                            data-nickname="${escapeHtml(displayName)}"
+                            onclick="sendFriendRequest(this.dataset.fid, this.dataset.nickname)">添加好友</button>
+                    </div>
+                `;
+            } else {
+                    resultContainer.innerHTML = '<div style="color: #666;">未找到该 ID 对应的用户</div>';
+                }
+            } catch (e) {
+                console.error(e);
+                resultContainer.innerHTML = '<div style="color: #e74c3c;">搜索失败，请稍后重试</div>';
+            } finally {
+                resultContainer.style.display = 'block';
+                searchBtn.disabled = false;
+                searchBtn.textContent = '搜索';
+            }
+        });
+    });
+
+    async function loadFriendRequests() {
+        try {
+            const res = await fetch('/api/friends/requests', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            
+            const section = document.getElementById('requests-section');
+            const list = document.getElementById('requests-list');
+            
+            if (data.success && data.requests && data.requests.length > 0) {
+                section.style.display = 'block';
+                list.innerHTML = data.requests.map(req => {
+                    const displayName = req.fromNickname || req.from;
+                    return `
+                    <div class="user-card request-card">
+                        ${getAvatarHtml(req.fromAvatar, displayName, '#e67e22')}
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(displayName)}</div>
+                            <div class="user-id">请求添加好友</div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="accept-btn" 
+                                data-username="${req.from}" 
+                                data-nickname="${escapeHtml(displayName)}"
+                                onclick="handleRequest(this.dataset.username, 'accept', this.dataset.nickname)">同意</button>
+                            <button class="reject-btn" 
+                                data-username="${req.from}" 
+                                data-nickname="${escapeHtml(displayName)}"
+                                onclick="handleRequest(this.dataset.username, 'reject', this.dataset.nickname)">拒绝</button>
+                        </div>
+                    </div>
+                `}).join('');
+            } else {
+                section.style.display = 'none';
+            }
+        } catch (e) {
+            console.error("Failed to load requests", e);
+        }
+    }
+
+    async function loadFriendList() {
+        const list = document.getElementById('friend-list');
+        list.innerHTML = '<div style="text-align:center; padding:2rem; color:#666;">加载中...</div>';
+        
+        try {
+            const res = await fetch('/api/friends/list', {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            
+            const list = document.getElementById('friend-list');
+            
+            if (data.success && data.friends && data.friends.length > 0) {
+                list.innerHTML = data.friends.map(friend => {
+                    const displayName = friend.nickname || friend.username;
+                    return `
+                    <div class="user-card">
+                        ${getAvatarHtml(friend.avatar, displayName)}
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(displayName)}</div>
+                            <div class="user-id">ID: ${friend.friendId || 'N/A'}</div>
+                        </div>
+                        <button class="msg-btn" data-username="${escapeHtml(friend.username)}" data-nickname="${escapeHtml(displayName)}" onclick="handleMsgBtnClick(this)">私信</button>
+                    </div>
+                `}).join('');
+            } else {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🤝</div>
+                        <div>暂无旅友，快去邀请朋友加入吧！</div>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.error("Failed to load friend list", e);
+            list.innerHTML = '<div style="text-align:center; padding:2rem; color:#e74c3c;">加载失败，请刷新重试</div>';
+        }
+    }
+
+    // Helper to escape HTML to prevent XSS and syntax errors in attributes
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Helper to render Avatar (Image or Initial)
+    function getAvatarHtml(avatar, displayName, bgColor) {
+        if (avatar) {
+            return `<img src="${avatar}" class="user-avatar" style="object-fit: cover; background: none;" alt="${escapeHtml(displayName)}">`;
+        }
+        const color = bgColor || '#3498db';
+        return `<div class="user-avatar" style="background: ${color};">${displayName.charAt(0).toUpperCase()}</div>`;
+    }
+
+    async function handleRequest(username, action, nickname) {
+        const displayName = nickname || username;
+        if (!confirm(action === 'accept' ? `确定同意 ${displayName} 的好友申请吗？` : `确定拒绝 ${displayName} 的好友申请吗？`)) return;
+
+        try {
+            const res = await fetch('/api/friends/respond', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                },
+                body: JSON.stringify({ requesterUsername: username, action })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                // Reload lists
+                loadFriendRequests();
+                loadFriendList();
+                alert(action === 'accept' ? '已同意申请！' : '已拒绝申请');
+            } else {
+                alert('操作失败: ' + (data.error || '未知错误'));
+            }
+        } catch (e) {
+            alert('网络错误');
+        }
+    }
+
+    async function sendFriendRequest(targetFid, nickname) {
+        const confirmMsg = nickname 
+            ? `确定要向 ${nickname} (ID: ${targetFid}) 发送好友申请吗？` 
+            : `确定要向 ID 为 ${targetFid} 的用户发送好友申请吗？`;
+            
+        if (!confirm(confirmMsg)) return;
+        
+        const btn = document.querySelector('.add-btn');
+        if(btn) {
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+        }
+
+        try {
+            const res = await fetch('/api/friends/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                },
+                body: JSON.stringify({ targetFriendId: targetFid })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                alert('好友申请已发送！');
+                if(btn) btn.textContent = '已申请';
+            } else {
+                alert('发送失败: ' + (data.error || '未知错误'));
+                if(btn) {
+                    btn.disabled = false;
+                    btn.textContent = '添加好友';
+                }
+            }
+        } catch (e) {
+            alert('网络错误');
+            if(btn) {
+                btn.disabled = false;
+                btn.textContent = '添加好友';
+            }
+        }
+    }
+
+    // --- Chat Logic ---
+    let currentChatFriend = null;
+    let currentChatNickname = null;
+    let chatPollInterval = null;
+    
+    // Global handler for message buttons (Safe against quote escaping issues)
+    window.handleMsgBtnClick = function(btn) {
+        if (!btn) return;
+        const username = btn.getAttribute('data-username');
+        const nickname = btn.getAttribute('data-nickname');
+        if (username) {
+            openChat(username, nickname);
+        } else {
+            console.error('No username found on button');
+            alert('无法获取用户名');
+        }
+    };
+    
+    // Global DOM elements for chat
+    const chatModalOverlay = document.getElementById('chat-modal-overlay');
+    const chatTitle = document.getElementById('chat-title');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+
+    window.openChat = function(username, nickname) {
+        if (!username) {
+            console.error('openChat called without username');
+            return;
+        }
+        console.log('Opening chat for:', username);
+        
+        currentChatFriend = username;
+        const displayName = nickname || username;
+        currentChatNickname = displayName;
+        
+        // Ensure elements exist
+        if (!chatTitle || !chatModalOverlay || !chatMessages || !chatInput) {
+            console.error('Chat elements not found in DOM');
+            alert('聊天界面加载失败，请刷新页面');
+            return;
+        }
+        
+        chatTitle.textContent = `与 ${displayName} 聊天中`;
+        chatModalOverlay.style.display = 'flex';
+        
+        // Ensure z-index is high enough
+        chatModalOverlay.style.zIndex = '10001';
+        // Ensure visibility by adding 'open' class if styles.css is used
+        chatModalOverlay.classList.add('open');
+        
+        chatInput.value = '';
+        chatMessages.innerHTML = '<div style="text-align:center; padding:1rem; color:#999;">加载中...</div>';
+        
+        loadMessages();
+        
+        // Poll for new messages every 3 seconds
+        if (chatPollInterval) clearInterval(chatPollInterval);
+        chatPollInterval = setInterval(loadMessages, 3000);
+        
+        // Focus input
+        setTimeout(() => chatInput.focus(), 100);
+    };
+
+    window.closeChat = function() {
+        chatModalOverlay.style.display = 'none';
+        currentChatFriend = null;
+        currentChatNickname = null;
+        if (chatPollInterval) {
+            clearInterval(chatPollInterval);
+            chatPollInterval = null;
+        }
+    };
+    
+    // Initialize event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        // Global debugging listener
+        document.body.addEventListener('click', (e) => {
+             // console.log('Click detected on:', e.target);
+        });
+
+        // Close modal when clicking outside
+        chatModalOverlay.addEventListener('click', (e) => {
+            if (e.target === chatModalOverlay) closeChat();
+        });
+
+        // Send on Enter
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        chatSendBtn.addEventListener('click', sendMessage);
+    });
+
+    async function loadMessages() {
+        if (!currentChatFriend) return;
+        
+        try {
+            const res = await fetch(`/api/messages?friend=${encodeURIComponent(currentChatFriend)}&limit=50`, {
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                renderMessages(data.messages);
+            }
+        } catch (e) {
+            console.error("Failed to load messages", e);
+        }
+    }
+
+    function renderMessages(messages) {
+        if (!messages || messages.length === 0) {
+            chatMessages.innerHTML = '<div style="text-align:center; padding:2rem; color:#ccc;">暂无消息，打个招呼吧！</div>';
+            return;
+        }
+
+        // Store scroll position to detect if we should auto-scroll
+        const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop <= chatMessages.clientHeight + 100;
+        
+        const now = Date.now();
+
+        const html = messages.map(msg => {
+            const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            if (msg.isRecalled) {
+                const recalledByName = msg.isMe ? '你' : (currentChatNickname || '对方');
+                return `
+                    <div class="message-bubble ${msg.isMe ? 'msg-sent' : 'msg-received'}" style="background: #f5f5f5; color: #999; border: 1px solid #ddd; padding: 0.5rem 1rem;">
+                        <div style="font-style: italic; font-size: 0.85rem;">${escapeHtml(recalledByName)}撤回了一条消息</div>
+                    </div>
+                `;
+            }
+
+            const msgTime = new Date(msg.timestamp).getTime();
+            const canRecall = msg.isMe && (now - msgTime < 120000); // 2 mins
+            let recallBtnHtml = '';
+            
+            if (canRecall) {
+                // Undo icon
+                recallBtnHtml = `
+                <button class="recall-btn" onclick="recallMessage('${msg._id}')" title="撤回">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.17 8 12.5 8z"/>
+                    </svg>
+                </button>`;
+            }
+
+            return `
+                <div class="message-bubble ${msg.isMe ? 'msg-sent' : 'msg-received'}">
+                    <div>${escapeHtml(msg.content)}</div>
+                    <div class="msg-time" style="color: ${msg.isMe ? 'rgba(255,255,255,0.8)' : '#999'}">
+                        ${recallBtnHtml}
+                        <span class="time-text">${time}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Only update if content changed (simple check)
+        if (chatMessages.innerHTML !== html) {
+             chatMessages.innerHTML = html;
+             // Scroll to bottom on first load or if user was already at bottom
+             if (isAtBottom || chatMessages.scrollTop === 0) {
+                 scrollToBottom();
+             }
+        }
+    }
+
+    window.recallMessage = async function(msgId) {
+        if (!confirm('确定要撤回这条消息吗？')) return;
+        try {
+            const res = await fetch(`/api/messages/${msgId}/recall`, {
+                method: 'POST',
+                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+            });
+            const data = await res.json();
+            if (data.success) {
+                loadMessages();
+            } else {
+                alert('撤回失败: ' + (data.error || '超时或无权限'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('网络错误');
+        }
+    };
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const content = chatInput.value.trim();
+        if (!content || !currentChatFriend) return;
+        
+        // Optimistic UI Update: Clear input and show message immediately
+        const tempMsgId = 'temp-' + Date.now();
+        chatInput.value = '';
+        chatInput.focus();
+        
+        // Remove empty state if present
+        if (chatMessages.querySelector('.empty-state') || chatMessages.textContent.includes('暂无消息')) {
+            chatMessages.innerHTML = '';
+        }
+
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const tempHtml = `
+            <div id="${tempMsgId}" class="message-bubble msg-sent" style="opacity: 0.7;">
+                <div>${escapeHtml(content)}</div>
+                <div class="msg-time" style="color: rgba(255,255,255,0.8)">${time} <span class="sending-status">...</span></div>
+            </div>
+        `;
+        chatMessages.insertAdjacentHTML('beforeend', tempHtml);
+        scrollToBottom();
+        
+        try {
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                },
+                body: JSON.stringify({ 
+                    receiver: currentChatFriend,
+                    content: content
+                })
+            });
+            
+            const data = await res.json();
+            
+            const tempMsgEl = document.getElementById(tempMsgId);
+
+            if (data.success) {
+                // Success: Update style and trigger background reload
+                if (tempMsgEl) {
+                    tempMsgEl.style.opacity = '1';
+                    const status = tempMsgEl.querySelector('.sending-status');
+                    if (status) status.remove();
+                }
+                loadMessages(); 
+            } else {
+                // Failure
+                if (tempMsgEl) {
+                    tempMsgEl.style.backgroundColor = '#e74c3c';
+                    tempMsgEl.title = '发送失败: ' + (data.error || '未知错误');
+                    alert('发送失败: ' + (data.error || '未知错误'));
+                }
+            }
+        } catch (e) {
+            // Network Error
+            const tempMsgEl = document.getElementById(tempMsgId);
+            if (tempMsgEl) {
+                tempMsgEl.style.backgroundColor = '#e74c3c';
+                tempMsgEl.title = '网络错误';
+            }
+            console.error(e);
+            alert('网络错误，消息可能未发送');
+        }
+    }
+
+    // escapeHtml is already defined above at line 561
+
+
+  </script>
+</body>
+</html>

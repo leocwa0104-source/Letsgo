@@ -1,0 +1,553 @@
+/* Shineshone Homepage - Emotional Bento Grid */
+
+/* Grid Container */
+.bento-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 2fr 1fr 0.5fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 20px;
+  height: calc(100vh - 100px); /* Adjust based on header height */
+  min-height: 600px;
+}
+
+/* Base Widget Style */
+.bento-widget {
+  border-radius: 24px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.bento-widget:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 1. The Anchor (Shine) - Top Left */
+.widget-anchor {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%);
+  border-color: rgba(255, 215, 0, 0.2);
+  animation-delay: 0.1s;
+  transition: all 0.5s ease;
+}
+
+/* Shine Mode (Default/Active Plan) */
+.widget-anchor.mode-shine {
+  background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%);
+  border-color: rgba(255, 215, 0, 0.2);
+}
+.widget-anchor.mode-shine:hover {
+  border-color: rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
+}
+.widget-anchor.mode-shine .anchor-title {
+  color: #f59e0b;
+}
+.widget-anchor.mode-shine .shine-btn {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+/* Status Badge */
+.anchor-status {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  animation: fadeIn 0.5s ease;
+}
+
+.anchor-status.status-shine {
+  background: rgba(255, 255, 255, 0.9);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.anchor-status.status-home {
+  background: rgba(255, 255, 255, 0.9);
+  color: #722ed1;
+  border: 1px solid rgba(114, 46, 209, 0.3);
+}
+
+.anchor-status.status-wander {
+  background: rgba(255, 255, 255, 0.9);
+  color: #4b5563;
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Home Mode (Resting/No Plan) */
+.widget-anchor.mode-home {
+  background: linear-gradient(135deg, #f9f0ff 0%, #f3e8ff 100%);
+  border-color: rgba(114, 46, 209, 0.2);
+}
+.widget-anchor.mode-home:hover {
+  border-color: rgba(114, 46, 209, 0.6);
+  box-shadow: 0 0 30px rgba(114, 46, 209, 0.15);
+}
+.widget-anchor.mode-home .anchor-title {
+  color: #722ed1;
+  font-family: 'Playfair Display', serif; /* Use the "Shone" font */
+  font-style: italic;
+}
+.widget-anchor.mode-home .anchor-message {
+  color: #585065;
+}
+.widget-anchor.mode-home .shine-btn {
+  background: linear-gradient(90deg, #722ed1, #531dab);
+  box-shadow: 0 4px 15px rgba(114, 46, 209, 0.3);
+}
+
+.anchor-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.anchor-title {
+  font-family: 'Pacifico', cursive;
+  font-size: 2.5rem;
+  color: #f59e0b;
+  margin-bottom: 1rem;
+}
+
+.anchor-message {
+  font-size: 1.5rem;
+  color: #4b5563;
+  margin-bottom: 2rem;
+  line-height: 1.4;
+}
+
+.shine-btn {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  transition: transform 0.2s;
+}
+
+.shine-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Anchor Slider */
+.anchor-slider-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.anchor-slider {
+  display: flex;
+  width: 300%; /* 3 slides */
+  height: 100%;
+  transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.anchor-slide {
+  width: 33.333%;
+  height: 100%;
+  padding: 0 5px;
+  box-sizing: border-box;
+}
+
+.anchor-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(0,0,0,0.4);
+  margin-bottom: 0.5rem;
+}
+
+/* Pagination */
+.anchor-pagination {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.dot.active {
+  background: #f59e0b;
+  transform: scale(1.2);
+}
+
+/* Slide Specific Styles */
+.slide-default .anchor-title {
+    color: #f59e0b; /* Default Shine Color */
+}
+.slide-present .anchor-title {
+    color: #722ed1; /* Home/Present Color */
+}
+.slide-future .anchor-title {
+    color: #3b82f6; /* Future/Blue Color */
+}
+
+/* Future Mode */
+.widget-anchor.mode-future {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.widget-anchor.mode-future:hover {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+}
+.widget-anchor.mode-future .shine-btn {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Plan Circles in Future Slide */
+.plan-circles-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding: 10px 0;
+}
+
+.plan-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+    position: relative;
+    background: #ccc; /* fallback */
+}
+
+.plan-circle:hover {
+    transform: translateY(-5px) scale(1.1);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    z-index: 2;
+}
+
+/* Status Colors */
+.plan-circle.status-planning { background: linear-gradient(135deg, #a78bfa, #8b5cf6); }
+.plan-circle.status-in_progress { background: linear-gradient(135deg, #fcd34d, #f59e0b); border: 2px solid white; box-shadow: 0 0 0 2px #f59e0b; }
+.plan-circle.status-completed { background: linear-gradient(135deg, #34d399, #10b981); }
+.plan-circle.status-archived { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+
+.plan-circle.add-btn {
+    background: transparent;
+    border: 2px dashed #9ca3af;
+    color: #9ca3af;
+    font-size: 2rem;
+    font-weight: 300;
+}
+.plan-circle.add-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+/* Tooltip for Plan Circle */
+.plan-circle::after {
+    content: attr(data-title);
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    font-weight: normal;
+}
+.plan-circle:hover::after {
+    opacity: 1;
+}
+
+/* 2. The Window (Shone) - Bottom Left */
+.widget-window {
+  grid-column: 1 / 2;
+  grid-row: 2 / 4;
+  background: url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80') center/cover no-repeat;
+  color: white;
+  border: none;
+  animation-delay: 0.2s;
+}
+.widget-window:hover .window-overlay {
+  background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.2));
+}
+
+.window-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.1));
+  transition: background 0.3s;
+}
+
+.window-content {
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+}
+
+.window-tag {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(5px);
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-block;
+  font-size: 0.75rem;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.window-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.8rem;
+  margin-bottom: 15px;
+  line-height: 1.2;
+}
+
+.window-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.author-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ddd;
+}
+
+/* 3. The Spark (Prism) - Top Right */
+.widget-spark {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  background: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  perspective: 1000px;
+  animation-delay: 0.3s;
+}
+
+.spark-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.widget-spark:hover .spark-inner {
+  transform: rotateY(180deg);
+}
+
+.spark-front, .spark-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.spark-front {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0284c7;
+}
+
+.spark-back {
+  background: linear-gradient(135deg, #fdf4ff 0%, #fbcfe8 100%);
+  color: #db2777;
+  transform: rotateY(180deg);
+}
+
+.spark-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.spark-text {
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 4. The Echo (Shone) - Middle Right */
+.widget-echo {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  background: #f8fafc;
+  justify-content: space-between;
+  animation-delay: 0.4s;
+}
+
+.echo-stat {
+  margin-top: 10px;
+}
+
+.echo-number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #334155;
+  line-height: 1;
+}
+
+.echo-label {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-top: 5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bento-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    padding-bottom: 2rem;
+  }
+  
+  .widget-anchor {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    min-height: 400px;
+  }
+  
+  .widget-window {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+    min-height: 300px;
+  }
+  
+  .widget-spark {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+    min-height: 200px;
+  }
+  
+  .widget-echo {
+    grid-column: 1 / 2;
+    grid-row: 4 / 5;
+    min-height: 150px;
+  }
+}
+
+/* Invitation Card Styles */
+.invitation-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(5px);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  animation: fadeInUp 0.5s ease;
+  max-width: 400px;
+}
+
+.shine-btn-primary {
+  background: linear-gradient(90deg, #10b981, #059669);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.shine-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4);
+}
+
+.shine-btn-secondary {
+  background: transparent;
+  color: #6b7280;
+  padding: 0.8rem 1.5rem;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 500;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shine-btn-secondary:hover {
+  background: rgba(107, 114, 128, 0.1);
+  color: #374151;
+  border-color: rgba(107, 114, 128, 0.5);
+}

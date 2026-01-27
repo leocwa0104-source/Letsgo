@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "dev": "node api/index.js",
+    "deploy": "vercel deploy --prod",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -19,5 +20,9 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "mongoose": "^9.1.4"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "vercel": "^50.5.0"
   }
 }

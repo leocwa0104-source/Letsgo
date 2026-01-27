@@ -1,0 +1,44 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Shine Gradient (Present/Sun): Warm Golden Orange -->
+    <!-- Less "cute" (pink), more mature/energetic (sun) -->
+    <linearGradient id="shine-grad" x1="16" y1="16" x2="40" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8008" /> <!-- Vibrant Orange -->
+      <stop offset="1" stop-color="#FFC837" /> <!-- Golden Yellow -->
+    </linearGradient>
+
+    <!-- Shone Gradient (Past/Shadow): Cool Shadow Grey -->
+    <!-- Represents the shadow/memory cast by the light -->
+    <linearGradient id="shone-grad" x1="28" y1="16" x2="52" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#434343" /> <!-- Dark Grey -->
+      <stop offset="1" stop-color="#888888" stop-opacity="0.6" /> <!-- Fading Grey -->
+    </linearGradient>
+  </defs>
+
+  <!-- The Path Definition for 'S' -->
+  <defs>
+    <path id="s-curve" d="M 28 18 
+           C 20 18, 14 22, 14 28 
+           C 14 38, 30 36, 30 44 
+           C 30 52, 22 54, 16 54" 
+           stroke-linecap="round" 
+           stroke-linejoin="round" />
+  </defs>
+
+  <!-- Shone S (Right/Shadow) -->
+  <!-- Transformed to look like a cast shadow: Offset right + down, slightly skewed/flattened if possible, but user asked for "Right S" -->
+  <!-- We place it to the right and slightly lower to mimic a shadow cast by light from Top-Left -->
+  <use href="#s-curve" 
+       transform="translate(14, 4)" 
+       stroke="url(#shone-grad)" 
+       stroke-width="5" 
+       opacity="0.8" />
+
+  <!-- Shine S (Left/Source) -->
+  <!-- The main object -->
+  <use href="#s-curve" 
+       transform="translate(0, 0)" 
+       stroke="url(#shine-grad)" 
+       stroke-width="6" />
+       
+</svg>

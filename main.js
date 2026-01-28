@@ -2037,20 +2037,25 @@ const HKWL = (() => {
     // Phase 3: Share Modal
     function openShareModal(itemId, subItemId, type) { 
         console.log("Opening share modal", { itemId, subItemId, type });
-        
-        const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
-        
-        // Remove blocking check to ensure modal always opens
-        if (collaborators.length === 0) {
-            console.warn("Share modal: No eligible collaborators found.");
-        }
+        // alert("Debug: Opening Share Modal"); // Temporary debug
 
+        let collaborators = [];
+        try {
+            collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
+        } catch (e) {
+            console.error("Error getting collaborators:", e);
+            collaborators = [];
+        }
+        
+        // Always open modal, even if no collaborators
+        
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:10000;';
+        modal.className = 'modal-overlay share-modal-overlay'; // Added unique class
+        // Force high z-index and visibility
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:20000 !important;';
         
         modal.innerHTML = `
-            <div class="modal-content" style="background:#fff;padding:20px;border-radius:12px;width:90%;max-width:320px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <div class="modal-content" style="background:#fff;padding:20px;border-radius:12px;width:90%;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.2);position:relative;z-index:20001;">
                 <h3 style="margin-top:0;margin-bottom:15px;text-align:center;">分享 / 分发</h3>
                 <div class="collaborator-list" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
                     ${collaborators.length > 0 ? collaborators.map(c => `

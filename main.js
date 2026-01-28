@@ -2143,6 +2143,9 @@ const HKWL = (() => {
         });
     }
 
+    // Expose globally for inline onclick handlers
+    window.openShareModal = openShareModal;
+
     function openTicketModal(itemId) {
         const item = getWishlistItem(itemId);
         if (!item) return;

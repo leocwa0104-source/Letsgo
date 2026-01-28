@@ -17,6 +17,90 @@ const HKWL = (() => {
   function getCollapsedKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_collapsed`); }
   function getSettingsKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_settings`); }
 
+  // --- User Feature Helper Functions ---
+  function getUserId() {
+        // Use Auth manager if available, or parse token manually as fallback
+        if (typeof Auth !== 'undefined' && Auth.getUserId) { 
+            // Note: Auth.getUserId() doesn't exist yet, we only saw getCurrentUser()
+            // So we use the manual token parsing method
+        }
+        const token = sessionStorage.getItem('hkwl_auth_token');
+        if (!token) return null;
+        return token.split(':')[0];
+    }
+
+    function getCurrentPlanCollaborators() {
+        if (!currentPlanId) return [];
+        try {
+            const plans = getPlans();
+            const p = plans.find(x => x.id === currentPlanId);
+            // If p.collaborators is populated (objects), map to standardized structure
+            // If it's IDs (strings), we might need to fetch info, but for now assume objects if available
+            // Note: CloudSync/API usually populates this
+            if (p && Array.isArray(p.collaborators)) {
+                return p.collaborators.map(c => {
+                    if (!c) return null;
+                    if (typeof c === 'object') {
+                        return { id: c._id || c.id || c.friendId, name: c.nickname || c.username || c.friendId, avatar: c.avatar };
+                    }
+                    return { id: c, name: c, avatar: null }; // Fallback for raw IDs
+                }).filter(Boolean);
+            }
+        } catch(e) { console.error("Error getting collaborators", e); }
+        return [];
+    }
+
+    function getFeatureEnabled(item, type) {
+      // 1. Check strict user-scoped features first (New Object Format)
+      if (item.features && typeof item.features === 'object' && !Array.isArray(item.features)) {
+              const userId = getUserId();
+              if (!userId) return false;
+              const userFeatures = item.features[userId] || [];
+              return userFeatures.includes(type);
+      }
+      
+      // 2. Fallback to legacy array (Global Shared)
+      if (Array.isArray(item.features)) {
+          return item.features.includes(type);
+      }
+      
+      // 3. Fallback to data existence (Legacy implicit)
+      // Only if features is completely undefined
+      if (!item.features) {
+          if (type === 'tickets' && item.tickets && item.tickets.length > 0) return true;
+          if (type === 'reminders' && item.reminders && item.reminders.length > 0) return true;
+      }
+      
+      return false;
+  }
+
+  function setFeatureEnabled(item, type, isEnabled) {
+      const userId = getUserId();
+      if (!userId) return; // Guard against no user
+
+      // Initialize features object if needed
+      if (!item.features || Array.isArray(item.features)) {
+          const oldFeatures = Array.isArray(item.features) ? item.features : [];
+          item.features = {};
+          // Migrate legacy features to current user so they don't disappear for the editor
+          item.features[userId] = [...oldFeatures];
+      }
+
+      if (!item.features[userId]) {
+          item.features[userId] = [];
+      }
+
+      if (isEnabled) {
+          if (!item.features[userId].includes(type)) {
+              item.features[userId].push(type);
+          }
+      } else {
+          item.features[userId] = item.features[userId].filter(f => f !== type);
+      }
+  }
+  // --- End User Feature Helper Functions ---
+
+
   // Init Header Profile
   document.addEventListener("DOMContentLoaded", () => {
       const header = document.querySelector('.site-header');
@@ -264,6 +348,86 @@ const HKWL = (() => {
       return false;
   }
 
+  // --- Merge Helper ---
+  function mergeItems(baseItems, mineItems, theirsItems) {
+    const baseMap = new Map(baseItems.map(i => [i.id, i]));
+    const mineMap = new Map(mineItems.map(i => [i.id, i]));
+    const theirsMap = new Map(theirsItems.map(i => [i.id, i]));
+    
+    const allIds = new Set([...baseMap.keys(), ...mineMap.keys(), ...theirsMap.keys()]);
+    const result = [];
+    
+    for (const id of allIds) {
+        const inBase = baseMap.has(id);
+        const inMine = mineMap.has(id);
+        const inTheirs = theirsMap.has(id);
+        
+        if (inMine) {
+            if (inTheirs) {
+                // Both have it. Check for changes.
+                const mineItem = mineMap.get(id);
+                const theirsItem = theirsMap.get(id);
+                const baseItem = baseMap.get(id);
+                
+                // If base is missing (new item in both?), assume mine wins conflict
+                if (!baseItem) {
+                     result.push(mineItem);
+                     continue;
+                }
+
+                const mineChanged = JSON.stringify(mineItem) !== JSON.stringify(baseItem);
+                const theirsChanged = JSON.stringify(theirsItem) !== JSON.stringify(baseItem);
+
+                if (mineChanged) {
+                    if (theirsChanged) {
+                        // Conflict: Both changed. Prioritize Local (Mine).
+                        // Optional: Could add conflict flag or merge properties
+                        result.push(mineItem);
+                    } else {
+                        // Only Mine changed. Keep Mine.
+                        result.push(mineItem);
+                    }
+                } else {
+                    if (theirsChanged) {
+                        // Only Theirs changed. Keep Theirs.
+                        result.push(theirsItem);
+                    } else {
+                        // Neither changed. Keep Mine (same as Theirs).
+                        result.push(mineItem);
+                    }
+                }
+            } else {
+                // Mine has it, Theirs doesn't.
+                if (inBase) {
+                    // It was in Base, so Theirs deleted it.
+                    // Action: Delete (Exclude).
+                } else {
+                    // Not in Base. So Mine added it.
+                    // Action: Keep.
+                    result.push(mineMap.get(id));
+                }
+            }
+        } else {
+            // Not in Mine.
+            if (inTheirs) {
+                if (inBase) {
+                    // Was in Base. So Mine deleted it.
+                    // Action: Delete (Exclude).
+                } else {
+                    // Not in Base. So Theirs added it.
+                    // Action: Keep (Take Theirs).
+                    result.push(theirsMap.get(id));
+                }
+            } else {
+                // Not in Mine, Not in Theirs. (Only in Base).
+                // Both deleted it.
+                // Action: Delete.
+            }
+        }
+    }
+    return result;
+  }
+
   async function syncToCloud() {
     if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
     if (isReloading) return;
@@ -308,22 +472,60 @@ const HKWL = (() => {
                 
                 if (currentPlan && (currentPlan.isCloud || currentPlan.cloudId)) {
                     const cloudId = currentPlan.cloudId || currentPlan.id;
-                    const planState = loadPlanState();
-                    const wishlist = loadWishlist();
                     
-                    const content = {
-                        planState: planState,
-                        items: wishlist
-                    };
-                    
-                    // Pass null for title to avoid "rename" permission check for collaborators
-                    // Title changes are handled by saveSettings/renamePlan separately
-                    sharedSyncPromise = CloudSync.updatePlan(cloudId, null, content)
-                        .then(res => {
+                    // Fetch-Merge-Push Strategy to prevent overwriting deletions
+                    sharedSyncPromise = (async () => {
+                        try {
+                            // 1. Fetch Latest Cloud Data
+                            const cloudRes = await CloudSync.getPlan(cloudId);
+                            let mergedItems = [];
+                            let finalPlanState = {};
+                            
+                            if (cloudRes.success && cloudRes.plan) {
+                                const cloudContent = cloudRes.plan.content || {};
+                                const cloudItems = cloudContent.items || [];
+                                // const cloudState = cloudContent.planState || {}; // Merge state if needed later
+                                
+                                const localItems = loadWishlist();
+                                finalPlanState = loadPlanState();
+                                
+                                // 2. Load Snapshot (Base)
+                                const snapshotKey = Auth.getUserKey(`${currentPlanId}_wishlist_snapshot`);
+                                let baseItems = [];
+                                try {
+                                    const rawSnap = localStorage.getItem(snapshotKey);
+                                    if (rawSnap) baseItems = JSON.parse(rawSnap);
+                                    else baseItems = cloudItems; // Init snapshot from cloud if missing
+                                } catch(e) { baseItems = cloudItems; }
+                                
+                                // 3. Merge
+                                mergedItems = mergeItems(baseItems, localItems, cloudItems);
+                                
+                                // 4. Update Local Storage & Snapshot with Merged Data
+                                saveWishlistLocal(mergedItems, true);
+                                localStorage.setItem(snapshotKey, JSON.stringify(mergedItems));
+                                
+                            } else {
+                                // Offline or fetch failed: Fallback to Blind Push
+                                mergedItems = loadWishlist();
+                                finalPlanState = loadPlanState();
+                            }
+
+                            const content = {
+                                planState: finalPlanState,
+                                items: mergedItems
+                            };
+                            
+                            // 5. Push Merged Content
+                            // Pass null for title to avoid "rename" permission check
+                            const res = await CloudSync.updatePlan(cloudId, null, content);
                             if (res.error) console.warn("Shared plan background sync warning:", res.error);
                             return res;
-                        })
-                        .catch(e => console.error("Shared plan background sync error:", e));
+                        } catch (e) {
+                            console.error("Shared plan background sync error:", e);
+                            return { error: e.message };
+                        }
+                    })();
                 }
             }
             
@@ -410,6 +612,13 @@ const HKWL = (() => {
                     // console.log(`Old: ${localVal?.slice(0, 50)}...`);
                     // console.log(`New: ${value?.slice(0, 50)}...`);
                     localStorage.setItem(key, value);
+                    
+                    // NEW: Update snapshot if this is a wishlist (for 3-way merge base)
+                    if (key.endsWith('_wishlist')) {
+                         const snapshotKey = key + '_snapshot';
+                         localStorage.setItem(snapshotKey, value);
+                    }
+                    
                     changed = true;
                 }
             }
@@ -452,9 +661,8 @@ const HKWL = (() => {
       }
       
       const plans = JSON.parse(raw);
-      // STRICT: Only return plans that are marked as cloud plans
-      // This effectively hides/disables any legacy local-only plans
-      return plans.filter(p => p.isCloud || p.cloudId);
+      // Return all plans, including local-only ones, so users can see what they added
+      return plans;
     } catch (e) {
       console.error("Failed to load plans", e);
       return [];
@@ -493,7 +701,9 @@ const HKWL = (() => {
                   updatedAt: res.plan.updatedAt,
                   isCloud: true,
                   cloudId: res.plan._id,
-                  status: res.plan.status || 'planning'
+                  status: res.plan.status || 'planning',
+                  owner: res.plan.owner,
+                  collaborators: res.plan.collaborators || []
               };
               
               const plans = getPlans();
@@ -758,6 +968,9 @@ const HKWL = (() => {
     }
     try {
       window.localStorage.setItem(getStorageKey(), JSON.stringify(list));
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('hkwl:updated', { detail: { type: 'wishlist', planId: currentPlanId } }));
+      }
     } catch (e) {
       console.error("保存旅行清单失败", e);
     }
@@ -870,6 +1083,9 @@ const HKWL = (() => {
     try {
       const normalized = normalizePlanState(state);
       window.localStorage.setItem(getPlanKey(), JSON.stringify(normalized));
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('hkwl:updated', { detail: { type: 'planState', planId: currentPlanId } }));
+      }
     } catch (e) {
       console.error("保存计划列表失败", e);
     }
@@ -1109,6 +1325,11 @@ const HKWL = (() => {
             const p = plans.find(x => x.id === currentPlanId);
             if (p && p.title) title = p.title;
         } catch(e) {}
+    }
+
+    // Default title if still missing
+    if (!title) {
+        title = "未命名计划";
     }
 
     if (title) {
@@ -1364,6 +1585,7 @@ const HKWL = (() => {
     }
 
     function getPlanListContent() {
+      const planListEl = document.getElementById("plan-list");
       if (!planListEl) return null;
       let content = planListEl.querySelector(".plan-list-content:not(.exiting)");
       if (!content) {
@@ -1390,6 +1612,7 @@ const HKWL = (() => {
     }
 
     function renderPlanListFromState(targetContentEl) {
+      const planListEl = document.getElementById("plan-list");
       if (!planListEl) return;
       const contentEl = targetContentEl || getPlanListContent();
       contentEl.innerHTML = "";
@@ -1476,6 +1699,7 @@ const HKWL = (() => {
     }
 
     function renderPlanDayTabs() {
+      const planDaysEl = document.getElementById("plan-days");
       if (!planDaysEl) return;
       planDaysEl.innerHTML = "";
       const total =
@@ -1787,25 +2011,155 @@ const HKWL = (() => {
 
     // Helper: Get item and update
     function getWishlistItem(id) {
-        const list = HKWL.loadWishlist();
+        const list = loadWishlist();
         return list.find(x => x.id === id);
     }
 
     function updateWishlistItem(id, updateFn) {
-        const list = HKWL.loadWishlist();
-        const idx = list.findIndex(x => x.id === id);
-        if (idx !== -1) {
-            updateFn(list[idx]);
-            HKWL.saveWishlist(list);
-            HKWL.syncToCloud(); 
+        const list = loadWishlist();
+        let updated = false;
+        
+        // Update ALL items with matching ID to handle potential duplicates
+        list.forEach((item) => {
+            if (item.id === id) {
+                updateFn(item);
+                updated = true;
+            }
+        });
+
+        if (updated) {
+            saveWishlist(list);
+            syncToCloud(); 
             internalRefresh(); 
         }
+    }
+
+    // Phase 3: Share Modal
+    window.openShareModal = function(itemId, subItemId, type) { 
+        // console.log("Opening share modal", { itemId, subItemId, type });
+        // Debug Alert to prove execution
+        // alert("DEBUG: openShareModal called");
+        
+        const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
+        
+        // Remove blocking check to ensure modal always opens
+        if (collaborators.length === 0) {
+            console.warn("Share modal: No eligible collaborators found.");
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:10000;';
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="background:#fff;padding:20px;border-radius:12px;width:90%;max-width:320px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                <h3 style="margin-top:0;margin-bottom:15px;text-align:center;">分享 / 分发</h3>
+                <div class="collaborator-list" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+                    ${collaborators.length > 0 ? collaborators.map(c => `
+                        <div class="collaborator-item" data-id="${c.id}" data-name="${c.name}" style="padding:12px;border-bottom:1px solid #eee;cursor:pointer;display:flex;align-items:center;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#eee;margin-right:10px;overflow:hidden;">
+                                ${c.avatar ? `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;color:#999;">${c.name[0]}</span>`}
+                            </div>
+                            <span>${c.name}</span>
+                        </div>
+                    `).join('') : 
+                    `<div style="padding:20px;text-align:center;color:#999;font-size:0.9em;">
+                        暂无其他协作成员<br>
+                        <span style="font-size:0.85em;color:#ccc;">请先邀请好友加入计划</span>
+                     </div>`
+                    }
+                </div>
+                <div id="share-actions" style="display:none;margin-top:15px;text-align:center;">
+                    <p style="margin:5px 0;color:#666;font-size:0.9em;">已选择: <span id="selected-collab-name" style="font-weight:bold;color:#333;"></span></p>
+                    <button id="btn-distribute" style="width:100%;padding:10px;margin-bottom:8px;background:#ff9800;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分发 (移交所有权)</button>
+                    <div style="font-size:0.8em;color:#999;margin-bottom:10px;">数据将从您的列表中移除，转移给对方</div>
+                    <button id="btn-share" style="width:100%;padding:10px;background:#2196f3;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分享 (共享查看)</button>
+                    <div style="font-size:0.8em;color:#999;">对方可见，您保留所有权</div>
+                </div>
+                <button class="modal-close-btn-share" style="width:100%;padding:10px;margin-top:15px;background:#f5f5f5;border:none;border-radius:6px;cursor:pointer;">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        let selectedUserId = null;
+
+        // Select Collaborator
+        modal.querySelectorAll('.collaborator-item').forEach(item => {
+            item.addEventListener('click', () => {
+                modal.querySelectorAll('.collaborator-item').forEach(i => i.style.background = 'transparent');
+                item.style.background = '#e3f2fd';
+                selectedUserId = item.dataset.id;
+                modal.querySelector('#selected-collab-name').textContent = item.dataset.name;
+                modal.querySelector('#share-actions').style.display = 'block';
+            });
+        });
+
+        // Distribute Action
+        const btnDistribute = modal.querySelector('#btn-distribute');
+        if (btnDistribute) {
+            btnDistribute.addEventListener('click', () => {
+                if (!selectedUserId) return;
+                if (confirm(`确定要将此项目分发给 ${modal.querySelector('#selected-collab-name').textContent} 吗？它将从您的列表中移除。`)) {
+                    updateWishlistItem(itemId, (itm) => {
+                        const list = type === 'ticket' ? itm.tickets : itm.reminders;
+                        const target = list.find(t => t.id === subItemId);
+                        if (target) {
+                            target.owner = selectedUserId;
+                            target.sharedWith = []; // Reset sharing if distributed
+                        }
+                    });
+                    modal.remove();
+                    // Refresh parent modal
+                    if (type === 'ticket') openTicketModal(itemId);
+                    if (type === 'reminder') openReminderModal(itemId);
+                }
+            });
+        }
+
+        // Share Action
+        const btnShare = modal.querySelector('#btn-share');
+        if (btnShare) {
+            btnShare.addEventListener('click', () => {
+                if (!selectedUserId) return;
+                updateWishlistItem(itemId, (itm) => {
+                    const list = type === 'ticket' ? itm.tickets : itm.reminders;
+                    const target = list.find(t => t.id === subItemId);
+                    if (target) {
+                        if (!target.sharedWith) target.sharedWith = [];
+                        if (!target.sharedWith.includes(selectedUserId)) {
+                            target.sharedWith.push(selectedUserId);
+                        }
+                    }
+                });
+                alert(`已分享给 ${modal.querySelector('#selected-collab-name').textContent}`);
+                modal.remove();
+            });
+        }
+
+        modal.querySelector('.modal-close-btn-share').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
     }
 
     function openTicketModal(itemId) {
         const item = getWishlistItem(itemId);
         if (!item) return;
-        const tickets = item.tickets || [];
+        let tickets = item.tickets || [];
+        
+        // Phase 2 & 3: Data Ownership & Sharing
+        // Show legacy data (no owner), data owned by current user, or data shared with current user
+        const currentUserId = getUserId();
+        if (currentUserId) {
+            tickets = tickets.filter(t => 
+                !t.owner || 
+                t.owner === currentUserId || 
+                (t.sharedWith && t.sharedWith.includes(currentUserId))
+            );
+        }
 
         const modal = document.createElement('div');
         modal.className = 'action-panel-modal';
@@ -1815,15 +2169,32 @@ const HKWL = (() => {
         content.className = 'action-panel-content';
         
         const renderList = () => {
-             return tickets.map((t, i) => `
+             return tickets.map((t, i) => {
+                let contentHtml = '';
+                if (t.type === 'image' && t.content) {
+                    contentHtml = `<img src="${t.content}" class="feature-image-preview" style="cursor:zoom-in" onclick="const w=window.open();w.document.write('<img src=\\'${t.content}\\' style=\\'width:100%\\'>')">`;
+                } else if (t.type === 'file') {
+                     contentHtml = `<div style="margin-top:5px;font-size:0.85rem;color:#666;background:#eee;padding:5px;border-radius:4px;">📎 ${t.fileName || '未知文件'} <span style="font-size:0.75rem;color:#999">(暂存)</span></div>`;
+                }
+
+                return `
                 <div class="feature-item">
                     <div class="feature-item-content">
-                        <div class="feature-item-title">${t.name}</div>
-                        <div class="feature-item-subtitle">${t.code ? 'Code: '+t.code : ''} ${t.note ? '| '+t.note : ''}</div>
+                        <div class="feature-item-title">
+                             ${(!(!t.owner || t.owner === currentUserId) && t.owner) ? `<span style="font-size:0.7em;color:#ff9800;border:1px solid #ff9800;border-radius:4px;padding:0 2px;margin-right:4px;vertical-align:middle;">他人共享</span>` : ''}
+                             ${t.name}
+                        </div>
+                        <div class="feature-item-subtitle">
+                            ${t.code ? 'Code: '+t.code : ''} 
+                            ${t.note ? (t.code ? '| ' : '') + t.note : ''}
+                        </div>
+                        ${contentHtml}
                     </div>
-                    <button class="feature-delete-btn" data-idx="${i}">&times;</button>
+                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    <button class="feature-delete-btn" data-id="${t.id}">&times;</button>
                 </div>
-             `).join('');
+             `;
+              }).join('');
         };
 
         content.innerHTML = `
@@ -1838,12 +2209,38 @@ const HKWL = (() => {
                 <input type="text" class="feature-input" id="ticket-name" placeholder="票券名称 (如: 迪士尼门票)">
                 <input type="text" class="feature-input" id="ticket-code" placeholder="票券号码/验证码 (选填)">
                 <input type="text" class="feature-input" id="ticket-note" placeholder="备注信息 (选填)">
+                
+                <input type="file" id="ticket-file" accept="image/*,.pdf" style="display:none">
+                <label for="ticket-file" class="feature-file-label" id="ticket-file-label">📸 点击上传图片/文件</label>
+                
                 <button class="feature-btn" id="add-ticket-btn">添加票券</button>
             </div>
         `;
 
         content.querySelector('.action-panel-close').addEventListener('click', () => modal.remove());
         
+        let currentFile = null;
+
+        const fileInput = content.querySelector('#ticket-file');
+        const fileLabel = content.querySelector('#ticket-file-label');
+
+        fileInput.addEventListener('change', (e) => {
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                    alert('文件大小不能超过 2MB');
+                    fileInput.value = '';
+                    currentFile = null;
+                    fileLabel.textContent = '📸 点击上传图片/文件';
+                    return;
+                }
+                currentFile = file;
+                fileLabel.textContent = `✅ 已选择: ${file.name}`;
+                fileLabel.style.borderColor = '#4CAF50';
+                fileLabel.style.color = '#4CAF50';
+            }
+        });
+
         content.querySelector('#add-ticket-btn').addEventListener('click', () => {
             const name = content.querySelector('#ticket-name').value.trim();
             const code = content.querySelector('#ticket-code').value.trim();
@@ -1851,20 +2248,75 @@ const HKWL = (() => {
             
             if (!name) { alert('请输入票券名称'); return; }
             
-            updateWishlistItem(itemId, (itm) => {
-                if (!itm.tickets) itm.tickets = [];
-                itm.tickets.push({ id: Date.now().toString(), name, code, note });
-            });
-            modal.remove();
-            openTicketModal(itemId);
+            const addTicket = (fileData = null, fileName = null, fileType = null) => {
+                updateWishlistItem(itemId, (itm) => {
+                    if (!itm.tickets) itm.tickets = [];
+                    itm.tickets.push({ 
+                        id: Date.now().toString(), 
+                        name, 
+                        code, 
+                        note,
+                        type: fileType || 'text',
+                        content: fileData,
+                        fileName: fileName,
+                        createdAt: new Date().toISOString(),
+                        owner: getUserId() // Phase 2: Data Ownership
+                    });
+                });
+                modal.remove();
+                openTicketModal(itemId); // Re-open to show new list
+            };
+
+            if (currentFile) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const base64 = e.target.result;
+                    const type = currentFile.type.startsWith('image/') ? 'image' : 'file';
+                    addTicket(base64, currentFile.name, type);
+                };
+                reader.readAsDataURL(currentFile);
+            } else {
+                addTicket();
+            }
         });
+
+        // Event Delegation for Share Button
+        content.addEventListener('click', (e) => {
+            const shareBtn = e.target.closest('.feature-share-btn');
+            if (shareBtn) {
+                e.stopPropagation();
+                const id = shareBtn.dataset.id;
+                alert("DEBUG: Click detected on share button");
+                console.log('Share btn clicked via delegation', { itemId, id, type: 'ticket' });
+                // Use window.openShareModal or direct call if available
+                if (typeof window.openShareModal === 'function') {
+                    window.openShareModal(itemId, id, 'ticket');
+                } else {
+                    console.error("openShareModal not found globally");
+                    // Fallback if defined in scope
+                    try { openShareModal(itemId, id, 'ticket'); } catch(e) { alert("Error: Share function not found."); }
+                }
+            }
+        });
+
+        /* 
+        content.querySelectorAll('.feature-share-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.dataset.id;
+                console.log('Share btn clicked in Ticket Modal', { itemId, id, type: 'ticket' });
+                openShareModal(itemId, id, 'ticket');
+            });
+        });
+        */
 
         content.querySelectorAll('.feature-delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.idx);
+                const id = e.target.dataset.id;
                 if (confirm('确定删除该票券吗？')) {
                     updateWishlistItem(itemId, (itm) => {
-                        itm.tickets.splice(idx, 1);
+                        if (itm.tickets) {
+                            itm.tickets = itm.tickets.filter(t => t.id !== id);
+                        }
                     });
                     modal.remove();
                     openTicketModal(itemId);
@@ -1879,7 +2331,17 @@ const HKWL = (() => {
     function openReminderModal(itemId) {
         const item = getWishlistItem(itemId);
         if (!item) return;
-        const reminders = item.reminders || [];
+        let reminders = item.reminders || [];
+
+        // Phase 2 & 3: Data Ownership & Sharing
+        const currentUserId = getUserId();
+        if (currentUserId) {
+            reminders = reminders.filter(r => 
+                !r.owner || 
+                r.owner === currentUserId ||
+                (r.sharedWith && r.sharedWith.includes(currentUserId))
+            );
+        }
 
         const modal = document.createElement('div');
         modal.className = 'action-panel-modal';
@@ -1892,10 +2354,14 @@ const HKWL = (() => {
              return reminders.map((r, i) => `
                 <div class="feature-item">
                     <div class="feature-item-content">
-                        <div class="feature-item-title">${new Date(r.time).toLocaleString()}</div>
+                        <div class="feature-item-title">
+                            ${(!(!r.owner || r.owner === currentUserId) && r.owner) ? `<span style="font-size:0.7em;color:#ff9800;border:1px solid #ff9800;border-radius:4px;padding:0 2px;margin-right:4px;vertical-align:middle;">他人共享</span>` : ''}
+                            ${new Date(r.time).toLocaleString()}
+                        </div>
                         <div class="feature-item-subtitle">${r.message}</div>
                     </div>
-                    <button class="feature-delete-btn" data-idx="${i}">&times;</button>
+                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    <button class="feature-delete-btn" data-id="${r.id}">&times;</button>
                 </div>
              `).join('');
         };
@@ -1925,18 +2391,52 @@ const HKWL = (() => {
             
             updateWishlistItem(itemId, (itm) => {
                 if (!itm.reminders) itm.reminders = [];
-                itm.reminders.push({ id: Date.now().toString(), time, message });
+                itm.reminders.push({ 
+                    id: Date.now().toString(), 
+                    time, 
+                    message,
+                    done: false, // Initialize as not done
+                    createdAt: new Date().toISOString(),
+                    owner: getUserId() // Phase 2: Data Ownership
+                });
             });
             modal.remove();
             openReminderModal(itemId);
         });
 
+        // Event Delegation for Share Button
+        content.addEventListener('click', (e) => {
+            const shareBtn = e.target.closest('.feature-share-btn');
+            if (shareBtn) {
+                e.stopPropagation();
+                const id = shareBtn.dataset.id;
+                console.log('Share btn clicked via delegation', { itemId, id, type: 'reminder' });
+                if (typeof window.openShareModal === 'function') {
+                    window.openShareModal(itemId, id, 'reminder');
+                } else {
+                     try { openShareModal(itemId, id, 'reminder'); } catch(e) { alert("Error: Share function not found."); }
+                }
+            }
+        });
+
+        /*
+        content.querySelectorAll('.feature-share-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.dataset.id;
+                console.log('Share btn clicked in Reminder Modal', { itemId, id, type: 'reminder' });
+                openShareModal(itemId, id, 'reminder');
+            });
+        });
+        */
+
         content.querySelectorAll('.feature-delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.idx);
+                const id = e.target.dataset.id;
                 if (confirm('确定删除该提醒吗？')) {
                     updateWishlistItem(itemId, (itm) => {
-                        itm.reminders.splice(idx, 1);
+                        if (itm.reminders) {
+                            itm.reminders = itm.reminders.filter(r => r.id !== id);
+                        }
                     });
                     modal.remove();
                     openReminderModal(itemId);
@@ -1950,6 +2450,9 @@ const HKWL = (() => {
 
     // Action Panel Logic
     function openCardActionPanel(itemId) {
+        const item = getWishlistItem(itemId);
+        if (!item) return;
+
         const existing = document.querySelector('.action-panel-modal');
         if (existing) existing.remove();
         
@@ -1963,18 +2466,61 @@ const HKWL = (() => {
         
         const content = document.createElement('div');
         content.className = 'action-panel-content';
+
+        const isTicketsEnabled = getFeatureEnabled(item, 'tickets');
+        const isRemindersEnabled = getFeatureEnabled(item, 'reminders');
         
         content.innerHTML = `
             <div class="action-panel-header">
-                <div class="action-panel-title">添加功能</div>
+                <div class="action-panel-title">功能库</div>
                 <button class="action-panel-close">&times;</button>
             </div>
-            <div class="action-grid" style="display: flex; justify-content: center; align-items: center; padding: 20px; color: #666;">
-                待开发
+            <div class="action-grid">
+                <div class="action-item ${isTicketsEnabled ? 'active' : ''}" data-type="tickets">
+                    <div class="action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 4.5A1.5 1.5 0 0 1 1.5 3h13A1.5 1.5 0 0 1 16 4.5V6a.5.5 0 0 1-.5.5 1.5 1.5 0 0 0 0 3 .5.5 0 0 1 .5.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 11.5V10a.5.5 0 0 1 .5-.5 1.5 1.5 0 0 0 0-3A.5.5 0 0 1 0 6V4.5ZM1.5 4a.5.5 0 0 0-.5.5v1.05a2.5 2.5 0 0 1 0 4.9v1.05a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-1.05a2.5 2.5 0 0 1 0-4.9V4.5a.5.5 0 0 0-.5-.5h-13Z"/>
+                        </svg>
+                    </div>
+                    <div class="action-label">${isTicketsEnabled ? '已添加' : '票据与凭证'}</div>
+                </div>
+                <div class="action-item ${isRemindersEnabled ? 'active' : ''}" data-type="reminders">
+                    <div class="action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                        </svg>
+                    </div>
+                    <div class="action-label">${isRemindersEnabled ? '已添加' : '提醒事项'}</div>
+                </div>
             </div>
         `;
         
         content.querySelector('.action-panel-close').addEventListener('click', () => modal.remove());
+        
+        content.querySelectorAll('.action-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const type = el.dataset.type;
+                const isActive = el.classList.contains('active');
+
+                if (isActive) {
+                    // Remove feature logic
+                    if (confirm('确定要关闭该功能吗？（数据将保留，仅对当前用户隐藏入口）')) {
+                        updateWishlistItem(itemId, (itm) => {
+                             setFeatureEnabled(itm, type, false);
+                        });
+                        
+                        modal.remove();
+                    }
+                } else {
+                    // Add feature logic
+                    updateWishlistItem(itemId, (itm) => {
+                        setFeatureEnabled(itm, type, true);
+                    });
+                    modal.remove();
+                }
+            });
+        });
         
         modal.appendChild(content);
         document.body.appendChild(modal);
@@ -2245,15 +2791,57 @@ const HKWL = (() => {
       }
 
       // --- Back Content Construction ---
+      const featuresContainer = document.createElement("div");
+      featuresContainer.className = "card-back-features";
+      
+      const isTicketsEnabled = getFeatureEnabled(item, 'tickets');
+      if (isTicketsEnabled) {
+          const btn = document.createElement("button");
+          btn.className = "card-back-feature-btn";
+          // Use SVG icon for Ticket
+          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M0 4.5A1.5 1.5 0 0 1 1.5 3h13A1.5 1.5 0 0 1 16 4.5V6a.5.5 0 0 1-.5.5 1.5 1.5 0 0 0 0 3 .5.5 0 0 1 .5.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 11.5V10a.5.5 0 0 1 .5-.5 1.5 1.5 0 0 0 0-3A.5.5 0 0 1 0 6V4.5ZM1.5 4a.5.5 0 0 0-.5.5v1.05a2.5 2.5 0 0 1 0 4.9v1.05a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-1.05a2.5 2.5 0 0 1 0-4.9V4.5a.5.5 0 0 0-.5-.5h-13Z"/></svg>`;
+          btn.title = "票据与凭证";
+          btn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openTicketModal(item.id);
+          });
+          featuresContainer.appendChild(btn);
+      }
+      
+      const isRemindersEnabled = getFeatureEnabled(item, 'reminders');
+      if (isRemindersEnabled) {
+          const btn = document.createElement("button");
+          btn.className = "card-back-feature-btn";
+          btn.style.backgroundColor = "white"; // Force white
+          btn.style.display = "flex";
+          btn.style.alignItems = "center";
+          btn.style.justifyContent = "center";
+
+          // Use SVG icon for Alarm/Reminder
+          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>`;
+          btn.title = "提醒事项";
+          btn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openReminderModal(item.id);
+          });
+          featuresContainer.appendChild(btn);
+      }
+
       const addBtn = document.createElement("button");
       addBtn.className = "card-back-add-btn";
       addBtn.innerHTML = "+";
       addBtn.title = "添加功能";
+      addBtn.style.display = "flex";
+      addBtn.style.alignItems = "center";
+      addBtn.style.justifyContent = "center";
+
       addBtn.addEventListener("click", (e) => {
           e.stopPropagation(); 
           openCardActionPanel(item.id);
       });
-      back.appendChild(addBtn);
+      featuresContainer.appendChild(addBtn);
+      
+      back.appendChild(featuresContainer);
 
       // --- Assemble ---
       inner.appendChild(front);
@@ -2286,6 +2874,8 @@ const HKWL = (() => {
     }
 
     function updateWishlistEmptyState() {
+      const listEl = document.getElementById("wish-list");
+      if (!listEl) return;
       const existingEmpty = listEl.querySelector(".empty-state");
       if (existingEmpty) {
         existingEmpty.remove();
@@ -2312,13 +2902,17 @@ const HKWL = (() => {
     }
 
     function renderWishlistColumn() {
-      if (!listEl) return;
-      listEl.innerHTML = "";
+      // Ensure we have the latest list data
+      list = loadWishlist();
+      const targetEl = document.getElementById("wish-list");
+      
+      if (!targetEl) return;
+      targetEl.innerHTML = "";
       const allPlanIds = getAllPlanIds();
       const allPlanIdSet = new Set(allPlanIds);
       list.forEach((item) => {
         if (!allPlanIdSet.has(item.id)) {
-          renderCard(listEl, item);
+          renderCard(targetEl, item);
         }
       });
       updateWishlistEmptyState();
@@ -2346,6 +2940,9 @@ const HKWL = (() => {
         if (planDaysEl) renderPlanDayTabs();
         renderPlanListFromState(); 
         renderWishlistColumn();
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('hkwl:updated', { detail: { type: 'refresh', planId: currentPlanId } }));
+        }
     };
 
     if (planDaysEl) {
@@ -2986,9 +3583,16 @@ const HKWL = (() => {
       window.addEventListener("pointercancel", endDrag);
     }
 
-    listEl.addEventListener("pointerdown", handlePointerDown);
+    if (listEl) {
+      listEl.addEventListener("pointerdown", handlePointerDown);
+    }
     if (planListEl) {
       planListEl.addEventListener("pointerdown", handlePointerDown);
+    }
+
+    // Ensure block view is fully refreshed
+    if (typeof internalRefresh === 'function') {
+        internalRefresh();
     }
   }
 
@@ -3592,13 +4196,13 @@ const HKWL = (() => {
           });
 
           const autoComplete = new AMap.AutoComplete({
-            city: "香港",
+            city: "全国",
             input: "map-search",
             output: "map-search-result" // A hidden or visible container for results if needed, but 'input' should suffice for standard behavior
           });
 
           const placeSearch = new AMap.PlaceSearch({
-            city: "香港",
+            city: "全国",
             map: map,
           });
 
@@ -4216,7 +4820,16 @@ const HKWL = (() => {
                       plan.title = cp.title;
                       metaChanged = true;
                   }
-                  // We could update owner/collaborators here too if needed
+                  
+                  // Update collaborators and owner to ensure share functionality works
+                  if (JSON.stringify(plan.collaborators) !== JSON.stringify(cp.collaborators)) {
+                      plan.collaborators = cp.collaborators;
+                      metaChanged = true;
+                  }
+                  if (plan.owner !== cp.owner) {
+                      plan.owner = cp.owner;
+                      metaChanged = true;
+                  }
                   
                   if (metaChanged) {
                       window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
@@ -4229,51 +4842,47 @@ const HKWL = (() => {
               let mergedPlanState = null;
               let needsPushBack = false;
 
-              // 1. Sync Items (Wishlist) with Smart Merge
+              // 1. Sync Items (Wishlist) with 3-way merge (Base/Mine/Theirs)
               if (content.items && Array.isArray(content.items)) {
-                  const currentList = loadWishlist();
+                  const localItems = loadWishlist();
                   const cloudItems = content.items;
-                  const cloudIds = new Set(cloudItems.map(i => i.id));
                   
-                  // Base is cloud items (with local overrides for locked items)
-                  mergedItems = cloudItems.map(cItem => {
-                      if (lockedItemId && cItem.id === lockedItemId) {
-                          const localItem = currentList.find(i => i.id === cItem.id);
-                          if (localItem) {
-                              // If local content differs from cloud, we need to push back eventually
-                              if (JSON.stringify(localItem) !== JSON.stringify(cItem)) {
-                                  needsPushBack = true;
-                              }
-                              return localItem;
+                  // Load Base snapshot (last known common ancestor)
+                  const snapshotKey = Auth.getUserKey(`${currentPlanId}_wishlist_snapshot`);
+                  let baseItems = [];
+                  try {
+                      const rawSnap = localStorage.getItem(snapshotKey);
+                      if (rawSnap) baseItems = JSON.parse(rawSnap);
+                      else baseItems = cloudItems;
+                  } catch(e) {
+                      baseItems = cloudItems;
+                  }
+                  
+                  // Merge
+                  mergedItems = mergeItems(baseItems, localItems, cloudItems);
+                  
+                  // Locked item always wins locally
+                  if (lockedItemId) {
+                      const localLocked = localItems.find(i => i.id === lockedItemId);
+                      const mergedIndex = mergedItems.findIndex(i => i.id === lockedItemId);
+                      if (localLocked && mergedIndex !== -1) {
+                          if (JSON.stringify(mergedItems[mergedIndex]) !== JSON.stringify(localLocked)) {
+                              needsPushBack = true;
+                              mergedItems[mergedIndex] = localLocked;
                           }
                       }
-                      return cItem;
-                  });
-
-                  // Preservation Strategy
-                  const now = Date.now();
-                  currentList.forEach(localItem => {
-                      if (!cloudIds.has(localItem.id)) {
-                          let shouldPreserve = false;
-                          // Check 1: Locked
-                          if (lockedItemId && localItem.id === lockedItemId) shouldPreserve = true;
-                          // Check 2: Recent creation (< 30s to be safe)
-                          if (!shouldPreserve && localItem.createdAt) {
-                              const created = new Date(localItem.createdAt).getTime();
-                              if (now - created < 30000) shouldPreserve = true;
-                          }
-                          
-                          if (shouldPreserve) {
-                              mergedItems.push(localItem);
-                              needsPushBack = true; // We found a local item missing in cloud, must push!
-                          }
-                      }
-                  });
+                  }
                   
-                  if (JSON.stringify(currentList) !== JSON.stringify(mergedItems)) {
+                  // Detect changes compared to current local list
+                  if (JSON.stringify(localItems) !== JSON.stringify(mergedItems)) {
                       saveWishlistLocal(mergedItems, true); // Force save during pull
                       changed = true;
                   }
+                  
+                  // Update snapshot to latest cloud state to align future merges
+                  try {
+                      localStorage.setItem(snapshotKey, JSON.stringify(cloudItems));
+                  } catch(e) {}
               } else {
                   mergedItems = loadWishlist(); // Fallback
               }
@@ -4515,6 +5124,10 @@ const HKWL = (() => {
      fetchAndMergeCloudPlans,
      syncCurrentPlanFromCloud,
      setLockedItemId,
-     updatePlanStatus
+     updatePlanStatus,
+     saveWishlist,
+     syncToCloud,
+     updatePlanTitle: renamePlan,
+     getPlan: (id) => getPlans().find(p => p.id === id)
    };
   })();

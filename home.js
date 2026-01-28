@@ -339,6 +339,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                        
                        localStorage.setItem(stateKey, JSON.stringify(planState));
                        localStorage.setItem(wishlistKey, JSON.stringify(allItems));
+                       // Update snapshot for 3-way merge
+                       localStorage.setItem(wishlistKey + '_snapshot', JSON.stringify(allItems));
                        isDataLoaded = true;
                    }
               }
@@ -590,9 +592,95 @@ document.addEventListener('DOMContentLoaded', async () => {
       plans = plansData ? JSON.parse(plansData) : [];
   }
 
-  // Filter plans
+  // Filter plans (Required for Present Slide logic below)
   const inProgressPlans = plans.filter(p => p.status === 'in_progress');
-  const futureListPlans = plans.filter(p => p.status !== 'in_progress'); 
+
+  // Define render function for reuse
+  function renderFuturePlans(plansList) {
+      const futureListPlans = plansList.filter(p => p.status !== 'in_progress'); 
+      const futurePlansContainer = document.getElementById('future-plans-container');
+      
+      if (futurePlansContainer) {
+          futurePlansContainer.innerHTML = '';
+          
+          // Render each plan as a circle
+          futureListPlans.forEach(plan => {
+              const circle = document.createElement('div'); // Changed from 'a' to 'div' for better control
+              circle.className = `plan-circle status-${plan.status || 'planning'}`;
+              circle.dataset.title = plan.title || '未命名计划';
+              circle.dataset.id = plan.id; // Store ID
+              
+              // Use first letter of title as icon
+              const firstLetter = (plan.title || 'P').charAt(0).toUpperCase();
+              circle.textContent = firstLetter;
+              
+              // Click Handler - Direct Navigation to Planner
+               circle.addEventListener('click', (e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   window.location.href = `planner.html?id=${plan.id}`;
+               });
+              
+              futurePlansContainer.appendChild(circle);
+          });
+          
+          // Add "+" button at the end
+          const addBtn = document.createElement('a');
+          addBtn.href = '#'; 
+          addBtn.className = 'plan-circle add-btn';
+          addBtn.dataset.title = '创建新计划';
+          addBtn.textContent = '+';
+          addBtn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              if (addBtn.dataset.creating) return;
+              
+              addBtn.dataset.creating = 'true';
+              const originalText = addBtn.textContent;
+              addBtn.textContent = '...';
+              
+              try {
+                  if (typeof HKWL !== 'undefined' && HKWL.createPlan) {
+                      const id = await HKWL.createPlan("新计划");
+                      if (id) {
+                          window.location.href = `planner.html?id=${id}`;
+                      } else {
+                          // createPlan might have shown an alert or failed silently
+                          addBtn.textContent = originalText;
+                          addBtn.dataset.creating = '';
+                      }
+                  } else {
+                      console.error('HKWL.createPlan not available');
+                      alert('无法创建计划，请刷新重试');
+                      addBtn.textContent = originalText;
+                      addBtn.dataset.creating = '';
+                  }
+              } catch (err) {
+                  console.error('Create plan failed', err);
+                  alert('创建失败: ' + err.message);
+                  addBtn.textContent = originalText;
+                  addBtn.dataset.creating = '';
+              }
+          });
+          futurePlansContainer.appendChild(addBtn);
+      }
+  }
+
+  // Initial Render
+  renderFuturePlans(plans);
+
+  // Background Sync for Shared Plans
+  if (typeof HKWL !== 'undefined' && HKWL.fetchAndMergeCloudPlans) {
+      HKWL.fetchAndMergeCloudPlans().then(updatedPlans => {
+          if (updatedPlans && updatedPlans.length > 0) {
+              // Re-render if we got updates
+              // Check if plans actually changed to avoid unnecessary DOM updates could be better,
+              // but for now just re-render is safe.
+              renderFuturePlans(updatedPlans);
+          }
+      }).catch(err => {
+          console.error("Background plan sync failed", err);
+      });
+  }
 
   // Helper to get home info
   async function getHomeInfo() {
@@ -614,71 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Populate Slides
   
-  // 3. Future Slide (Plan Circles Logic)
-  const futurePlansContainer = document.getElementById('future-plans-container');
-  if (futurePlansContainer) {
-      futurePlansContainer.innerHTML = '';
-      
-      // Render each plan as a circle
-      futureListPlans.forEach(plan => {
-          const circle = document.createElement('div'); // Changed from 'a' to 'div' for better control
-          circle.className = `plan-circle status-${plan.status || 'planning'}`;
-          circle.dataset.title = plan.title || '未命名计划';
-          circle.dataset.id = plan.id; // Store ID
-          
-          // Use first letter of title as icon
-          const firstLetter = (plan.title || 'P').charAt(0).toUpperCase();
-          circle.textContent = firstLetter;
-          
-          // Click Handler - Direct Navigation to Planner
-           circle.addEventListener('click', (e) => {
-               e.preventDefault();
-               e.stopPropagation();
-               window.location.href = `planner.html?id=${plan.id}`;
-           });
-          
-          futurePlansContainer.appendChild(circle);
-      });
-      
-      // Add "+" button at the end
-      const addBtn = document.createElement('a');
-      addBtn.href = '#'; 
-      addBtn.className = 'plan-circle add-btn';
-      addBtn.dataset.title = '创建新计划';
-      addBtn.textContent = '+';
-      addBtn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          if (addBtn.dataset.creating) return;
-          
-          addBtn.dataset.creating = 'true';
-          const originalText = addBtn.textContent;
-          addBtn.textContent = '...';
-          
-          try {
-              if (typeof HKWL !== 'undefined' && HKWL.createPlan) {
-                  const id = await HKWL.createPlan("新计划");
-                  if (id) {
-                      window.location.href = `planner.html?id=${id}`;
-                  } else {
-                      // createPlan might have shown an alert or failed silently
-                      addBtn.textContent = originalText;
-                      addBtn.dataset.creating = '';
-                  }
-              } else {
-                  console.error('HKWL.createPlan not available');
-                  alert('无法创建计划，请刷新重试');
-                  addBtn.textContent = originalText;
-                  addBtn.dataset.creating = '';
-              }
-          } catch (err) {
-              console.error('Create plan failed', err);
-              alert('创建失败: ' + err.message);
-              addBtn.textContent = originalText;
-              addBtn.dataset.creating = '';
-          }
-      });
-      futurePlansContainer.appendChild(addBtn);
-  }
+  // 3. Future Slide (Plan Circles Logic) - Handled by renderFuturePlans() above
 
   // Switch to Future Button Logic (My Plans)
   const switchToFutureBtn = document.querySelector('.switch-to-future');
@@ -820,9 +844,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 actions.appendChild(ignoreBtn);
 
             } else if (notif.kind === 'system_notification') {
-                if(presentTitle) presentTitle.textContent = 'System Notification 📢';
                 const msg = notif.data;
-                content.innerHTML = `<strong>系统通知:</strong><br>${msg.content}`;
+                if (msg.type === 'notification') {
+                    if(presentTitle) presentTitle.textContent = 'New Notification 🔔';
+                    content.innerHTML = msg.content;
+                } else {
+                    if(presentTitle) presentTitle.textContent = 'System Notification 📢';
+                    content.innerHTML = `<strong>系统通知:</strong><br>${msg.content}`;
+                }
                 
                 const readBtn = document.createElement('button');
                 readBtn.textContent = '我知道了';

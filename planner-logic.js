@@ -282,7 +282,7 @@ window.PlannerApp = (function() {
                     // Try dynamic load as last resort
                      await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
-                        script.src = "https://webapi.amap.com/maps?v=2.0&key=d9c65691d03429f44f54c935d21a59a7";
+                        script.src = "https://webapi.amap.com/maps?v=2.0&key=8040299dec271ec2928477f709015d3d";
                         script.onload = () => resolve();
                         script.onerror = () => reject(new Error("Failed to load AMap script"));
                         document.head.appendChild(script);
@@ -403,6 +403,19 @@ window.PlannerApp = (function() {
             if(daySelect) renderMap(daySelect.value);
 
             // loadHomeMarker(); 
+            
+            // Listen to global data updates to keep map in sync
+            window.addEventListener('hkwl:updated', () => {
+                try {
+                    mapState = HKWL.loadPlanState() || { days: [] };
+                    mapAllItems = HKWL.loadWishlist() || [];
+                    const ds = document.getElementById('day-select');
+                    updateDaySelector();
+                    renderMap(ds ? ds.value : 'all');
+                } catch(e) {
+                    console.error('Map refresh failed after hkwl:updated', e);
+                }
+            });
 
         } catch (e) {
             console.error("Map Init Error", e);

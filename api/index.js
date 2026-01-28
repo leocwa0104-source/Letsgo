@@ -1212,6 +1212,23 @@ router.post('/plans/:id/invite', authenticate, async (req, res) => {
       // Owner can invite directly
       plan.collaborators.push(friend._id);
       await plan.save();
+
+      // Send Notification Message
+      try {
+        const joinMsg = new Message({
+            sender: req.user.username,
+            receiver: friend.username,
+            content: `你已被加入计划 "${plan.title}"`,
+            type: 'notification',
+            metadata: {
+                planId: plan._id,
+                planTitle: plan.title
+            },
+            readBy: []
+        });
+        await joinMsg.save();
+      } catch(e) { console.error("Failed to send join message", e); }
+
       return res.json({ success: true, message: 'Invited successfully', status: 'added' });
     } else {
       // Collaborator needs approval

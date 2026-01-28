@@ -9,7 +9,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="旅行清单">
   <link rel="apple-touch-icon" href="logo.png">
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="planner.css?v=3" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <script src="pwa-loader.js"></script>
@@ -1001,7 +1002,7 @@
 
   <script src="cloud-sync.js"></script>
   <script src="auth-manager.js"></script>
-  <script src="main.js?v=13"></script>
+  <script src="main.js?v=101"></script>
   <script>
     let currentMode = 'map';
     let mapInitialized = false;
@@ -2102,10 +2103,10 @@
             // --- Search Logic ---
             const auto = new AMap.AutoComplete({
                 input: "map-search-input",
-                city: "香港"
+                city: "全国"
             });
             const searchPlace = new AMap.PlaceSearch({
-                city: "香港"
+                city: "全国"
             });
             
             auto.on("select", function(e) {
@@ -2128,8 +2129,8 @@
                 }
             });
 
-            mapGeocoder = new AMap.Geocoder({ city: "香港" });
-            mapPlaceSearch = new AMap.PlaceSearch({ city: "香港" });
+            mapGeocoder = new AMap.Geocoder({ city: "全国" });
+            mapPlaceSearch = new AMap.PlaceSearch({ city: "全国" });
             mapInfoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -30) });
 
             map.on('click', handleMapClick);
@@ -2937,11 +2938,17 @@
     HKWL.setCurrentPlan(planId);
   
     // Try sync from cloud if planId exists
+    // Avoid double sync in map mode (initMapLogic handles it)
+    const isMapMode = currentMode === 'map';
+    
     if (planId && HKWL.syncCurrentPlanFromCloud) {
         HKWL.syncCurrentPlanFromCloud().catch(console.error).finally(() => {
             HKWL.renderWishlistPage();
+            if (currentMode === 'map' && typeof refreshMapData === 'function') {
+                refreshMapData();
+            }
         });
-    } else {
+    } else if (planId) {
          HKWL.renderWishlistPage();
     }
 

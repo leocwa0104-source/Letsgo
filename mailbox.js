@@ -561,7 +561,7 @@ const Mailbox = (() => {
                                 priority: 2,
                                 data: m
                             });
-                        } else if (m.sender === 'admin' || m.type === 'system' || m.sender === 'System') {
+                        } else if (m.sender === 'admin' || m.type === 'system' || m.sender === 'System' || m.type === 'notification') {
                              notifications.push({
                                 kind: 'system_notification',
                                 priority: 3,

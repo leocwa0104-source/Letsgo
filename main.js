@@ -2037,8 +2037,8 @@ const HKWL = (() => {
     // Phase 3: Share Modal
     function openShareModal(itemId, subItemId, type) { 
         console.log("Opening share modal", { itemId, subItemId, type });
-        // alert("Debug: Opening Share Modal"); // Temporary debug
-
+        // alert("DEBUG: Inside openShareModal");
+        
         let collaborators = [];
         try {
             collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
@@ -2196,7 +2196,7 @@ const HKWL = (() => {
                         </div>
                         ${contentHtml}
                     </div>
-                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" onclick="event.stopPropagation(); window.openShareModal('${itemId}', '${t.id}', 'ticket')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${t.id}">&times;</button>
                 </div>
              `;
@@ -2290,15 +2290,18 @@ const HKWL = (() => {
         content.addEventListener('click', (e) => {
             const shareBtn = e.target.closest('.feature-share-btn');
             if (shareBtn) {
-                e.stopPropagation();
+                e.preventDefault(); // Stop default action
+                e.stopPropagation(); // Stop bubbling
+                
                 const id = shareBtn.dataset.id;
                 console.log('Share btn clicked via delegation', { itemId, id, type: 'ticket' });
+                // alert('DEBUG: Share button clicked! ID: ' + id); // Debug alert
                 
                 try { 
                     openShareModal(itemId, id, 'ticket'); 
                 } catch(err) { 
                     console.error(err);
-                    showToast("打开分享窗口失败: " + err.message, "error");
+                    alert("打开分享窗口失败: " + err.message);
                 }
             }
         });

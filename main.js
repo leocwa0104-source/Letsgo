@@ -2035,12 +2035,11 @@ const HKWL = (() => {
     }
 
     // Phase 3: Share Modal
-    window.openShareModal = function(itemId, subItemId, type) { 
-        // console.log("Opening share modal", { itemId, subItemId, type });
-        // Debug Alert to prove execution
-        // alert("DEBUG: openShareModal called");
+    function openShareModal(itemId, subItemId, type) { 
+        console.log("Opening share modal", { itemId, subItemId, type });
         
-        const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
+        try {
+            const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
         
         // Remove blocking check to ensure modal always opens
         if (collaborators.length === 0) {
@@ -2411,10 +2410,12 @@ const HKWL = (() => {
                 e.stopPropagation();
                 const id = shareBtn.dataset.id;
                 console.log('Share btn clicked via delegation', { itemId, id, type: 'reminder' });
-                if (typeof window.openShareModal === 'function') {
-                    window.openShareModal(itemId, id, 'reminder');
-                } else {
-                     try { openShareModal(itemId, id, 'reminder'); } catch(e) { alert("Error: Share function not found."); }
+                
+                try { 
+                    openShareModal(itemId, id, 'reminder'); 
+                } catch(err) { 
+                    console.error(err);
+                    showToast("打开分享窗口失败: " + err.message, "error");
                 }
             }
         });

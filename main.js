@@ -1,4 +1,5 @@
 const HKWL = (() => {
+  console.log("Main.js v106 loaded");
   // Auth Check
   if (typeof Auth !== 'undefined' && 
       !window.location.pathname.endsWith('login.html')) {
@@ -2367,7 +2368,7 @@ const HKWL = (() => {
                         </div>
                         <div class="feature-item-subtitle">${r.message}</div>
                     </div>
-                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="event.stopPropagation(); alert('Debug: Reminder Button Clicked'); window.openShareModal('${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${r.id}">&times;</button>
                 </div>
              `).join('');

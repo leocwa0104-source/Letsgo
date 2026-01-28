@@ -2197,7 +2197,7 @@ const HKWL = (() => {
                         </div>
                         ${contentHtml}
                     </div>
-                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" onclick="event.stopPropagation(); alert('Debug: Ticket Share Clicked'); try{window.openShareModal('${itemId}', '${t.id}', 'ticket')}catch(e){alert(e.message)}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10000;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" onclick="event.stopPropagation(); window.openShareModal('${itemId}', '${t.id}', 'ticket')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${t.id}">&times;</button>
                 </div>
              `;
@@ -2368,7 +2368,7 @@ const HKWL = (() => {
                         </div>
                         <div class="feature-item-subtitle">${r.message}</div>
                     </div>
-                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="event.stopPropagation(); alert('Debug: Reminder Button Clicked'); window.openShareModal('${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="event.stopPropagation(); window.openShareModal('${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${r.id}">&times;</button>
                 </div>
              `).join('');

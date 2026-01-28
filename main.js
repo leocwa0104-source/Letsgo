@@ -2149,8 +2149,26 @@ const HKWL = (() => {
         });
     }
 
-    // Expose globally for inline onclick handlers
-    window.openShareModal = openShareModal;
+    // Global Safe Share Click Handler
+    window.safeShareClick = function(e, itemId, subItemId, type) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        console.log('Safe share click:', { itemId, subItemId, type });
+        // showToast('正在打开分享...', 'info'); // Feedback
+        try {
+            if (typeof openShareModal === 'function') {
+                openShareModal(itemId, subItemId, type);
+            } else {
+                alert('系统错误: 分享功能未初始化，请刷新页面重试');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('打开分享失败: ' + err.message);
+        }
+        return false;
+    };
 
     function openTicketModal(itemId) {
         const item = getWishlistItem(itemId);
@@ -2197,7 +2215,7 @@ const HKWL = (() => {
                         </div>
                         ${contentHtml}
                     </div>
-                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" onclick="window.safeShareClick(event, '${itemId}', '${t.id}', 'ticket')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${t.id}">&times;</button>
                 </div>
              `;
@@ -2368,7 +2386,7 @@ const HKWL = (() => {
                         </div>
                         <div class="feature-item-subtitle">${r.message}</div>
                     </div>
-                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="event.stopPropagation(); window.openShareModal('${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="window.safeShareClick(event, '${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${r.id}">&times;</button>
                 </div>
              `).join('');

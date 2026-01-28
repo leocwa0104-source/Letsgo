@@ -2038,8 +2038,7 @@ const HKWL = (() => {
     function openShareModal(itemId, subItemId, type) { 
         console.log("Opening share modal", { itemId, subItemId, type });
         
-        try {
-            const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
+        const collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
         
         // Remove blocking check to ensure modal always opens
         if (collaborators.length === 0) {
@@ -2285,15 +2284,13 @@ const HKWL = (() => {
             if (shareBtn) {
                 e.stopPropagation();
                 const id = shareBtn.dataset.id;
-                alert("DEBUG: Click detected on share button");
                 console.log('Share btn clicked via delegation', { itemId, id, type: 'ticket' });
-                // Use window.openShareModal or direct call if available
-                if (typeof window.openShareModal === 'function') {
-                    window.openShareModal(itemId, id, 'ticket');
-                } else {
-                    console.error("openShareModal not found globally");
-                    // Fallback if defined in scope
-                    try { openShareModal(itemId, id, 'ticket'); } catch(e) { alert("Error: Share function not found."); }
+                
+                try { 
+                    openShareModal(itemId, id, 'ticket'); 
+                } catch(err) { 
+                    console.error(err);
+                    showToast("打开分享窗口失败: " + err.message, "error");
                 }
             }
         });

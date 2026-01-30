@@ -81,7 +81,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       sliderContainer.addEventListener('mouseleave', () => isDragging = false);
   }
 
-  // Dot Click
+  // --- ShineMap Widget Interaction ---
+    const shineMapWidget = document.getElementById('widget-shinemap');
+    if (shineMapWidget) {
+        shineMapWidget.addEventListener('click', (e) => {
+            // Prevent if clicking internal buttons (if any)
+            if (e.target.closest('.shinemap-action')) return;
+
+            // Trigger ShineMap toggle
+            if (window.ShineMap) {
+                // If map is not visible, show it
+                if (!window.ShineMap.isMapVisible) {
+                    window.ShineMap.toggleLayer(true);
+                } else {
+                    // If already visible, maybe zoom to user?
+                    // For now, toggle off if clicked again (or maybe keep it simple)
+                    // Let's just toggle for consistency with old behavior
+                    // window.ShineMap.toggleLayer(false); 
+                }
+            } else {
+                console.error("ShineMap instance not found");
+            }
+        });
+    }
+
+    // Dot Click
   dots.forEach(dot => {
       dot.addEventListener('click', () => {
           const index = parseInt(dot.getAttribute('data-index'));
@@ -725,6 +749,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
       console.warn('Anchor fetch failed', e);
   }
+
+    // --- ShineMap Initial State Check ---
+    // Update map text/icon based on tracking state? 
+    // For now, let's keep it static "Light up your world"
+    // Maybe later show "Active Tracking" if tracking is on.
 
   // 2. Present Slide (Active Plan / Home Mode Logic)
   const presentSlide = document.querySelector('.slide-present');

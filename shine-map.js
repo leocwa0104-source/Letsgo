@@ -271,6 +271,8 @@ class ShineMapManager {
             
             if (data.success) {
                 this.renderGrids(data.cells);
+                // Restore live paths on top of new grid data
+                this.renderLivePath();
             }
         } catch (e) {
             console.error("Fetch ShineMap failed:", e);

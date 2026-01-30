@@ -14,6 +14,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <script src="pwa-loader.js"></script>
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "5fd8a936c191f539f49b6abf555b7f60",
+    };
+  </script>
+  <script src="https://webapi.amap.com/loader.js"></script>
 </head>
 <body>
   <header class="site-header">
@@ -29,63 +35,56 @@
   </header>
 
   <main class="bento-container">
-    <!-- 0. The Horizon (Shine Channel) -->
-    <div class="bento-widget widget-horizon" id="shine-horizon-widget">
-      <div class="shine-widget-left">
-        <div class="shine-radar-icon"></div>
-        <span>Shine Channel</span>
-      </div>
-      <div class="shine-widget-right">
-        <div class="shine-ticker" id="shine-ticker-content">
-          <!-- Ticker items will be injected by JS -->
-          <div class="ticker-item">Scanning local frequencies...</div>
+    <!-- New: Shine Channel Top Widget -->
+      <div class="bento-widget widget-shine-top">
+        <div class="shine-antenna-card" id="shine-antenna" style="width: 100%; height: 100%; background: transparent; box-shadow: none;">
+           <div class="pulse-ring"></div>
+           <div class="antenna-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+           </div>
+           <div class="antenna-info">
+             <div class="antenna-title">Shine Channel</div>
+             <div class="antenna-status">Scanning frequency... <span id="active-signals-count">0</span> signals</div>
+           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 1. The Anchor (Shine) -->
-    <div class="bento-widget widget-anchor">
-      <div class="anchor-slider-container">
-        <div class="anchor-slider">
-          <!-- Slide 1: Default -->
-          <div class="anchor-slide slide-default">
-            <div class="anchor-content">
-              <div class="anchor-label">Default</div>
-              <div class="anchor-title">Hello, Traveler</div>
-              <div class="anchor-message">你上一次感到自由是什么时候？</div>
-              <a href="javascript:void(0)" class="shine-btn switch-to-future">我的计划</a>
+      <!-- 1. The Anchor (Shine) -->
+      <div class="bento-widget widget-anchor">
+        <div class="anchor-slider-container">
+          <div class="anchor-slider">
+            <!-- Slide 1: Present -->
+            <div class="anchor-slide slide-present">
+              <div class="anchor-content">
+                <div class="anchor-label">Present</div>
+                <div class="anchor-title">当下</div>
+                <div class="anchor-message">暂无进行中的计划</div>
+                <a href="#" class="shine-btn">查看状态</a>
+              </div>
             </div>
-          </div>
-          
-          <!-- Slide 2: Present -->
-          <div class="anchor-slide slide-present">
-            <div class="anchor-content">
-              <div class="anchor-label">Present</div>
-              <div class="anchor-title">当下</div>
-              <div class="anchor-message">暂无进行中的计划</div>
-              <a href="#" class="shine-btn">查看状态</a>
-            </div>
-          </div>
 
-          <!-- Slide 3: Future -->
-          <div class="anchor-slide slide-future">
-            <div class="anchor-content">
-              <div class="anchor-label">Future</div>
-              <div class="anchor-title">未来</div>
-              <div id="future-plans-container" class="plan-circles-container">
-                <!-- Plan circles will be injected here -->
+            <!-- Slide 2: Future -->
+            <div class="anchor-slide slide-future">
+              <div class="anchor-content">
+                <div class="anchor-label">Future</div>
+                <div class="anchor-title">未来</div>
+                <div id="future-plans-container" class="plan-circles-container">
+                  <!-- Plan circles will be injected here -->
+                </div>
               </div>
             </div>
           </div>
         </div>
+        
+        <div class="anchor-pagination">
+          <span class="dot active" data-index="0"></span>
+          <span class="dot" data-index="1"></span>
+        </div>
       </div>
-      
-      <div class="anchor-pagination">
-        <span class="dot active" data-index="0"></span>
-        <span class="dot" data-index="1"></span>
-        <span class="dot" data-index="2"></span>
-      </div>
-    </div>
 
     <!-- 2. The Window (Shone) -->
     <div class="bento-widget widget-window">
@@ -127,34 +126,32 @@
     </div>
   </main>
 
+  <!-- Shine Drawer Overlay -->
+  <div class="shine-drawer-overlay" id="shine-drawer-overlay">
+    <div class="shine-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title">Shine Channel</div>
+        <button class="drawer-close" id="shine-drawer-close">&times;</button>
+      </div>
+      <div class="radar-container" id="radar-container">
+        <!-- Radar Circles & Scan Line injected via JS/CSS -->
+        <div class="radar-scan"></div>
+        <!-- Bubbles injected via JS -->
+      </div>
+      <div class="radius-control">
+        <div class="radius-label">Signal Range: <span id="radius-value">5</span> km</div>
+        <input type="range" min="0.5" max="10" step="0.5" value="5" class="radius-slider" id="radius-slider">
+      </div>
+    </div>
+  </div>
+
   <script src="auth-manager.js"></script>
   <script src="cloud-sync.js"></script>
   <script src="mailbox.js"></script>
   <script src="notice.js"></script>
   <script src="manual.js"></script>
   <script src="main.js"></script>
+  <script src="shine-map.js"></script>
   <script src="home.js?v=3" defer></script>
-
-  <!-- Shine Channel Drawer -->
-  <div class="shine-drawer" id="shine-drawer">
-    <div class="shine-drawer-header">
-      <div class="shine-drawer-title">
-        <div class="shine-radar-icon" style="width: 24px; height: 24px; border-width: 3px;"></div>
-        Shine Channel
-      </div>
-      <button class="shine-close-btn" id="shine-drawer-close">&times;</button>
-    </div>
-    <div class="shine-feed" id="shine-feed">
-      <!-- Messages injected here -->
-    </div>
-    <div class="shine-drawer-footer">
-      <button class="shine-input-btn shine-btn-claim">
-        <span>📍 Check In</span>
-      </button>
-      <button class="shine-input-btn shine-btn-broadcast">
-        <span>📡 Broadcast</span>
-      </button>
-    </div>
-  </div>
 </body>
 </html>

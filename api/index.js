@@ -8,9 +8,12 @@ const bodyParser = require('body-parser');
 const User = require('./models/User');
 const Plan = require('./models/Plan');
 const UserData = require('./models/UserData');
+const Signal = require('./models/Signal');
+const ShineCell = require('./models/ShineCell');
 const Message = require('./models/Message');
 const Manual = require('./models/Manual');
 const Notice = require('./models/Notice');
+const ShineConfig = require('./models/ShineConfig');
 
 const app = express();
 app.use(cors());
@@ -491,6 +494,114 @@ router.get('/admin/users', authenticate, async (req, res) => {
   }
 });
 
+// Get ShineMap Stats (Admin Only)
+router.get('/admin/shinemap/stats', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) return res.status(403).json({ error: '权限不足' });
+
+    const totalCells = await ShineCell.countDocuments();
+    const totalEnergyResult = await ShineCell.aggregate([
+        { $group: { _id: null, total: { $sum: "$energy" } } }
+    ]);
+    const totalEnergy = totalEnergyResult[0] ? totalEnergyResult[0].total : 0;
+    
+    const lastPulseCell = await ShineCell.findOne().sort({ lastPulse: -1 });
+    const lastPulse = lastPulseCell ? lastPulseCell.lastPulse : null;
+
+    res.json({
+        success: true,
+        stats: {
+            totalCells,
+            totalEnergy,
+            lastPulse
+        }
+    });
+  } catch (e) {
+    console.error('ShineMap Stats Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get ShineMap Config (Admin Only)
+router.get('/admin/shinemap/config', authenticate, async (req, res) => {
+    try {
+        const currentUsername = req.user.username;
+        const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+        const isAdmin = adminUsername && currentUsername === adminUsername;
+
+        if (!isAdmin) return res.status(403).json({ error: '权限不足' });
+
+        let config = await ShineConfig.findOne();
+        if (!config) {
+            // Create default
+            config = new ShineConfig();
+            await config.save();
+        }
+
+        res.json({ success: true, config });
+    } catch (e) {
+        console.error('Get ShineConfig Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update ShineMap Config (Admin Only)
+router.post('/admin/shinemap/config', authenticate, async (req, res) => {
+    try {
+        const currentUsername = req.user.username;
+        const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+        const isAdmin = adminUsername && currentUsername === adminUsername;
+
+        if (!isAdmin) return res.status(403).json({ error: '权限不足' });
+
+        const { 
+            ignitionThreshold, 
+            pioneerMultiplier, 
+            decayRate, 
+            maxBrightness, 
+            altitudeSensitivity, 
+            fogDensity,
+            restingThresholdMs,
+            stationaryRadius,
+            speedThreshold,
+            flushInterval
+        } = req.body;
+
+        let config = await ShineConfig.findOne();
+        if (!config) {
+            config = new ShineConfig();
+        }
+
+        // Update fields if provided
+        if (ignitionThreshold !== undefined) config.ignitionThreshold = ignitionThreshold;
+        if (pioneerMultiplier !== undefined) config.pioneerMultiplier = pioneerMultiplier;
+        if (decayRate !== undefined) config.decayRate = decayRate;
+        if (maxBrightness !== undefined) config.maxBrightness = maxBrightness;
+        if (altitudeSensitivity !== undefined) config.altitudeSensitivity = altitudeSensitivity;
+        if (fogDensity !== undefined) config.fogDensity = fogDensity;
+        
+        // Update new client params
+        if (restingThresholdMs !== undefined) config.restingThresholdMs = restingThresholdMs;
+        if (stationaryRadius !== undefined) config.stationaryRadius = stationaryRadius;
+        if (speedThreshold !== undefined) config.speedThreshold = speedThreshold;
+        if (flushInterval !== undefined) config.flushInterval = flushInterval;
+
+        config.updatedBy = currentUsername;
+        config.updatedAt = Date.now();
+
+        await config.save();
+
+        res.json({ success: true, config });
+    } catch (e) {
+        console.error('Update ShineConfig Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -564,6 +675,93 @@ router.post('/data', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Signal Routes (Shine Channel) ---
+
+// Send Signal
+router.post('/signal/send', authenticate, async (req, res) => {
+  try {
+    const { content, type, location } = req.body;
+    
+    if (!content || !type || !location) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    if (!['mood', 'intel'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid signal type' });
+    }
+
+    // Convert frontend { lat, lng } to GeoJSON Point { type: 'Point', coordinates: [lng, lat] }
+    const geoJsonLocation = {
+      type: 'Point',
+      coordinates: [parseFloat(location.lng), parseFloat(location.lat)]
+    };
+
+    const signal = new Signal({
+      userId: req.user.id,
+      content,
+      type,
+      location: geoJsonLocation
+    });
+
+    await signal.save();
+
+    res.json({ success: true, signalId: signal._id });
+  } catch (e) {
+    console.error('Send Signal Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get Nearby Signals
+router.get('/signal/nearby', authenticate, async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Location required' });
+    }
+
+    const maxDistance = parseInt(radius) || 5000; // Default 5km
+
+    const signals = await Signal.find({
+      location: {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: maxDistance
+        }
+      }
+    })
+    .populate('userId', 'username nickname avatar')
+    .sort({ createdAt: -1 })
+    .limit(50); // Limit to 50 nearest signals
+
+    // Format for frontend
+    const formattedSignals = signals.map(sig => ({
+      id: sig._id,
+      content: sig.content,
+      type: sig.type,
+      location: {
+        lat: sig.location.coordinates[1],
+        lng: sig.location.coordinates[0]
+      },
+      createdAt: sig.createdAt,
+      user: sig.userId ? {
+        username: sig.userId.username,
+        nickname: sig.userId.nickname,
+        avatar: sig.userId.avatar
+      } : { username: 'Unknown' } // Handle deleted users gracefully
+    }));
+
+    res.json({ success: true, signals: formattedSignals });
+  } catch (e) {
+    console.error('Get Nearby Signals Error:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -1509,6 +1707,88 @@ router.delete('/admin/content/:id', authenticate, async (req, res) => {
         console.error('Delete Content Error:', e);
         res.status(500).json({ error: e.message });
     }
+});
+
+
+// --- ShineMap Routes ---
+
+// Send Pulse (Anonymous Aggregated Data)
+router.post('/shine/pulse', authenticate, async (req, res) => {
+  try {
+    const { pulses } = req.body; // Expecting array of { lat, lng, type, intensity }
+    
+    if (!pulses || !Array.isArray(pulses)) {
+      return res.status(400).json({ error: 'Invalid pulses data' });
+    }
+
+    // Process in bulk
+    const operations = pulses.map(pulse => {
+        // Circuit Breaker: Server re-verifies grid ID logic
+        const latKey = Math.round(pulse.lat * 10000);
+        const lngKey = Math.round(pulse.lng * 10000);
+        const gridId = `${latKey}_${lngKey}`;
+        
+        // Dynamic update object
+        const update = {
+            $inc: { 
+                energy: pulse.intensity || 1,
+                'stats.passing': pulse.type === 'path' ? 1 : 0,
+                'stats.resting': pulse.type === 'resting' ? 1 : 0
+            },
+            $set: { 
+                lastPulse: new Date(),
+                center: { lat: pulse.lat, lng: pulse.lng } // Update center to latest sample
+            }
+        };
+
+        // Floor logic (if provided)
+        if (pulse.floor !== undefined) {
+            update.$inc[`floors.${pulse.floor}`] = pulse.intensity || 1;
+        }
+
+        return {
+            updateOne: {
+                filter: { gridId: gridId },
+                update: update,
+                upsert: true
+            }
+        };
+    });
+
+    if (operations.length > 0) {
+        await ShineCell.bulkWrite(operations);
+    }
+
+    res.json({ success: true, count: operations.length });
+  } catch (e) {
+    console.error('Shine Pulse Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get ShineMap Grids (Viewport)
+router.get('/shine/map', async (req, res) => {
+  try {
+    const { north, south, east, west, zoom } = req.query;
+    
+    if (!north || !south || !east || !west) {
+        return res.status(400).json({ error: 'Bounds required' });
+    }
+
+    // Optimization: If zoom is low, maybe return fewer/larger grids? 
+    // For now, return all in bounds. Limit to prevent crash.
+    const cells = await ShineCell.find({
+        'center.lat': { $lte: parseFloat(north), $gte: parseFloat(south) },
+        'center.lng': { $lte: parseFloat(east), $gte: parseFloat(west) }
+    })
+    .limit(2000) // Safety limit
+    .lean();
+
+    res.json({ success: true, cells });
+  } catch (e) {
+    console.error('Shine Map Error:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Mount router at /api AND / (to handle Vercel rewrites robustly)

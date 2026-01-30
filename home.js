@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(index >= slides.length) index = slides.length - 1;
       currentSlide = index;
       
-      if(anchorSlider) anchorSlider.style.transform = `translateX(-${currentSlide * 33.333}%)`;
+      if(anchorSlider) anchorSlider.style.transform = `translateX(-${currentSlide * 50}%)`;
       
       dots.forEach(d => d.classList.remove('active'));
       if(dots[currentSlide]) dots[currentSlide].classList.add('active');
@@ -21,13 +21,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           anchorWidget.classList.remove('mode-shine', 'mode-home', 'mode-future');
           
           if(index === 0) {
-              // Default Slide -> Default Theme
-              anchorWidget.classList.add('mode-shine'); 
-          } else if (index === 1) {
-              // Present Slide -> Check dataset.theme
-              const theme = slides[1].dataset.theme || 'shine';
+              // Present Slide
+              const theme = slides[0].dataset.theme || 'shine';
               anchorWidget.classList.add(`mode-${theme}`);
-          } else if (index === 2) {
+          } else if (index === 1) {
               // Future Slide
               anchorWidget.classList.add('mode-future');
           }
@@ -90,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const index = parseInt(dot.getAttribute('data-index'));
           updateSlider(index);
       });
-});
+  });
 
   // --- Plan Quick View Logic ---
   async function openPlanQuickView(circleEl, planId, planSummary) {
@@ -1212,188 +1209,862 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
       });
   }
-
-  // --- 6. Shine Channel (Horizon) Integration ---
-  class ShineChannel {
-      constructor() {
-          this.widget = document.getElementById('shine-horizon-widget');
-          this.drawer = document.getElementById('shine-drawer');
-          this.closeBtn = document.getElementById('shine-drawer-close');
-          this.tickerContent = document.getElementById('shine-ticker-content');
-          this.feed = document.getElementById('shine-feed');
-          
-          if (!this.widget || !this.drawer) return;
-          
-          this.init();
-      }
-
-      init() {
-          // 1. Ticker Animation
-          this.startTicker();
-          
-          // 2. Drawer Interaction
-          this.widget.addEventListener('click', () => this.openDrawer());
-          if(this.closeBtn) {
-              this.closeBtn.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  this.closeDrawer();
-              });
-          }
-          
-          // Close on outside click
-          document.addEventListener('click', (e) => {
-              if (this.drawer.classList.contains('open') && 
-                  !this.drawer.contains(e.target) && 
-                  !this.widget.contains(e.target)) {
-                  this.closeDrawer();
-              }
-          });
-
-          // 3. Footer Actions
-          const claimBtn = this.drawer.querySelector('.shine-btn-claim');
-          const broadcastBtn = this.drawer.querySelector('.shine-btn-broadcast');
-          
-          if(claimBtn) {
-              claimBtn.addEventListener('click', () => {
-                  // Visual feedback for "Check In"
-                  const originalText = claimBtn.innerHTML;
-                  claimBtn.innerHTML = '<span>📍 Checked In!</span>';
-                  claimBtn.style.background = '#4caf50';
-                  setTimeout(() => {
-                      claimBtn.innerHTML = originalText;
-                      claimBtn.style.background = '';
-                      this.closeDrawer();
-                  }, 1500);
-              });
-          }
-          
-          if(broadcastBtn) {
-              broadcastBtn.addEventListener('click', () => {
-                  this.closeDrawer();
-                  if (typeof Mailbox !== 'undefined') {
-                      Mailbox.open();
-                  } else {
-                      alert("Comms Offline");
-                  }
-              });
-          }
-
-          // 4. Real Data
-          this.loadRealSignals();
-      }
-
-      openDrawer() {
-          this.drawer.classList.add('open');
-          // Refresh data when opening
-          this.loadRealSignals();
-      }
-
-      closeDrawer() {
-          this.drawer.classList.remove('open');
-      }
-
-      startTicker() {
-          const ambientMessages = [
-              "Scanning local frequencies...",
-              "System: Network optimal...",
-              "Searching for nearby anchors...",
-              "Weather: Clear skies in the digital realm...",
-              "Tip: Check 'The Spark' for daily inspiration..."
-          ];
-          
-          let index = 0;
-          const updateTicker = () => {
-              this.tickerContent.innerHTML = `<div class="ticker-item">${ambientMessages[index]}</div>`;
-              index = (index + 1) % ambientMessages.length;
-          };
-          
-          updateTicker(); // Initial
-          setInterval(updateTicker, 5000);
-      }
-      
-      async loadRealSignals() {
-          if (!this.feed) return;
-          
-          // Show loading state if empty
-          if (!this.feed.hasChildNodes()) {
-              this.feed.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">Scanning signals...</div>';
-          }
-
-          try {
-              let signals = [];
-              
-              // 1. Get Notifications from Mailbox (Reuse existing logic)
-              if (typeof Mailbox !== 'undefined' && Mailbox.getPendingNotifications) {
-                  const notifs = await Mailbox.getPendingNotifications();
-                  
-                  // Map Mailbox notifications to Shine Signals
-                  notifs.forEach(n => {
-                      let type = 'system';
-                      let title = 'System Signal';
-                      let body = '';
-                      let time = 'Now';
-                      
-                      if (n.kind === 'friend_request') {
-                          type = 'whisper';
-                          title = 'Friend Request';
-                          body = `${n.data.fromNickname || n.data.from} wants to connect.`;
-                      } else if (n.kind === 'plan_invitation') {
-                          type = 'whisper';
-                          title = 'Invitation';
-                          const sender = n.data.senderDisplay || n.data.sender;
-                          const planTitle = n.data.metadata.planTitle || 'a plan';
-                          body = `${sender} invited you to "${planTitle}".`;
-                      } else if (n.kind === 'announcement') {
-                          type = 'alert';
-                          title = 'Announcement';
-                          body = n.data.title || 'Important Update';
-                      } else if (n.kind === 'system_notification') {
-                          type = 'system';
-                          title = 'System Notification';
-                          body = n.data.content;
-                      }
-                      
-                      signals.push({ type, title, body, time, original: n });
-                  });
-              }
-              
-              // 2. Add some "ambient" signals if list is empty (to keep it alive)
-              if (signals.length === 0) {
-                  signals.push({ 
-                      type: 'system', 
-                      title: 'Status Normal', 
-                      body: 'No active signals in your sector.', 
-                      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-                  });
-              }
-
-              // Render
-              this.feed.innerHTML = signals.map((s, i) => `
-                  <div class="shine-msg ${s.type}">
-                      <div class="shine-msg-header">
-                          <span style="font-weight:bold; text-transform:uppercase">${s.type}</span>
-                          <span>${s.time}</span>
-                      </div>
-                      <div class="shine-msg-body">
-                          <strong>${s.title}:</strong> ${s.body}
-                      </div>
-                      ${s.original ? `
-                      <div class="shine-actions">
-                          <button class="shine-action-btn" onclick="document.querySelector('.slide-present').scrollIntoView({behavior: 'smooth'}); document.getElementById('shine-drawer').classList.remove('open');">
-                              👁️ View in Anchor
-                          </button>
-                      </div>` : ''}
-                  </div>
-              `).join('');
-              
-          } catch (e) {
-              console.error('Failed to load signals', e);
-              this.feed.innerHTML = '<div style="padding:20px; text-align:center; color:#ff4d4f">Signal Lost (Network Error)</div>';
-          }
-      }
-  }
-
-  // Initialize Shine Channel
-  new ShineChannel();
-
 });
+
+// --- Shine Channel Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+    class ShineChannel {
+        constructor() {
+            this.antenna = document.getElementById('shine-antenna');
+            this.overlay = document.getElementById('shine-drawer-overlay');
+            this.closeBtn = document.getElementById('shine-drawer-close');
+            this.radarContainer = document.getElementById('radar-container');
+            this.radiusSlider = document.getElementById('radius-slider');
+            this.radiusValue = document.getElementById('radius-value');
+            this.signalCountDisplay = document.getElementById('active-signals-count');
+            
+            this.isOpen = false;
+            this.radius = 5; // km
+            this.signals = [];
+            this.maxSignals = 8;
+            this.scanInterval = null;
+            this.location = null; // {lat, lng}
+            this.AMap = null;
+            this.shineMap = window.ShineMap || null;
+            this.currentView = 'radar'; // 'radar' | 'map'
+            this.channelMapInstance = null;
+            
+            this.init();
+        }
+
+        async init() {
+            if (!this.antenna || !this.overlay) return;
+
+            // Render User Emitter UI
+            this.renderEmitterUI();
+            this.renderMapToggle();
+
+            // Start passive tracking/circuit breaker if available
+            if (this.shineMap) {
+                this.shineMap.init(null);
+            }
+
+            // Event Listeners
+            this.antenna.addEventListener('click', () => this.openDrawer());
+            this.closeBtn.addEventListener('click', () => this.closeDrawer());
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) this.closeDrawer();
+            });
+
+            this.radiusSlider.addEventListener('input', (e) => {
+                this.radius = e.target.value;
+                this.radiusValue.textContent = this.radius;
+                this.refreshSignals();
+            });
+
+            // Init Radar Visuals
+            this.createRadarCircles();
+            
+            // Start periodic signal updates (simulating live feed)
+            setInterval(() => this.updateAntennaStatus(), 5000);
+            
+            // Initialize AMap for real geolocation
+            await this.initAMap();
+            
+            this.updateAntennaStatus();
+        }
+
+        async initAMap() {
+            try {
+                if (window.AMap) {
+                    this.AMap = window.AMap;
+                } else if (window.AMapLoader) {
+                    this.AMap = await window.AMapLoader.load({
+                        key: "8040299dec271ec2928477f709015d3d", 
+                        version: "2.0", 
+                        plugins: ["AMap.Geolocation", "AMap.PlaceSearch"]
+                    });
+                } else {
+                    console.warn("AMapLoader not found");
+                    return;
+                }
+
+                if (this.AMap) {
+                    const plugin = new this.AMap.Geolocation({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        offset: [10, 20],
+                        zoomToAccuracy: true,
+                    });
+
+                    plugin.getCurrentPosition((status, result) => {
+                        if (status === 'complete') {
+                            console.log('ShineChannel: Location success', result.position);
+                            this.location = {
+                                lat: result.position.lat,
+                                lng: result.position.lng,
+                                address: result.formattedAddress
+                            };
+                            // Update UI to show we have a lock
+                            const statusEl = this.antenna.querySelector('.antenna-status');
+                            if(statusEl) statusEl.innerHTML = `Location Locked <span style="color:#4caf50">●</span>`;
+                            
+                            // Start ShineMap Passive Tracking
+                            if (this.shineMap) {
+                                this.shineMap.startTracking();
+                            }
+
+                            // Fetch Nearby POIs for "Real" signals
+                            this.fetchNearbyPOIs();
+                            
+                            this.refreshSignals();
+                        } else {
+                            console.warn('ShineChannel: Location failed', result);
+                            const statusEl = this.antenna.querySelector('.antenna-status');
+                            if(statusEl) statusEl.innerHTML = `Signal Weak <span style="color:#f59e0b">●</span>`;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("ShineChannel: AMap init failed", e);
+            }
+        }
+
+        fetchNearbyPOIs() {
+            if (!this.AMap || !this.location) return;
+            
+            this.nearbyPOIs = []; // Store POIs here
+            
+            // Ensure PlaceSearch plugin is loaded (it should be from init, but good to be safe)
+            this.AMap.plugin('AMap.PlaceSearch', () => {
+                const placeSearch = new this.AMap.PlaceSearch({
+                    pageSize: 20,
+                    pageIndex: 1,
+                    type: '餐饮服务|风景名胜|购物服务|生活服务|体育休闲服务', 
+                    autoFitView: false
+                });
+
+                const cpoint = [this.location.lng, this.location.lat];
+                // Convert radius km to meters
+                const radiusMeters = (this.radius || 5) * 1000;
+                
+                placeSearch.searchNearBy('', cpoint, radiusMeters, (status, result) => {
+                    if (status === 'complete' && result.info === 'OK') {
+                        this.nearbyPOIs = result.poiList.pois;
+                        console.log('ShineChannel: Found POIs', this.nearbyPOIs.length);
+                        
+                        // Update signal count based on real data
+                        if (this.signalCountDisplay) {
+                            // Mix of real POIs and some "ghost" users
+                            const totalSignals = this.nearbyPOIs.length + Math.floor(Math.random() * 5);
+                            this.signalCountDisplay.textContent = totalSignals;
+                        }
+                    }
+                });
+            });
+        }
+
+        renderMapToggle() {
+            const radarContainer = this.radarContainer || document.getElementById('radar-container');
+            if (!radarContainer) return;
+            
+            // Check if already exists
+            if (radarContainer.querySelector('.shine-view-toggle')) return;
+
+            // Create Toggle Switch
+            const toggle = document.createElement('div');
+            toggle.className = 'shine-view-toggle';
+            toggle.style.cssText = `
+                position: absolute;
+                top: 15px;
+                left: 15px;
+                z-index: 20;
+                display: flex;
+                background: rgba(255, 255, 255, 0.9);
+                backdrop-filter: blur(5px);
+                border-radius: 20px;
+                padding: 4px;
+                gap: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            `;
+            
+            // Inject global styles to hide AMap Logo and Copyright
+            // We use a style tag to ensure it overrides AMap's default styles
+            if (!document.getElementById('shine-map-clean-style')) {
+                const style = document.createElement('style');
+                style.id = 'shine-map-clean-style';
+                style.textContent = `
+                    .amap-logo, .amap-copyright {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                    }
+                    /* Ensure map container background is clean and DARK */
+                    #shine-channel-map {
+                        background-color: #050505; /* Deep dark void */
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            toggle.innerHTML = `
+                <button data-view="radar" class="active" style="border:none; background:#f59e0b; color:white; padding:6px 12px; border-radius:16px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Radar</button>
+                <button data-view="map" style="border:none; background:transparent; color:#666; padding:6px 12px; border-radius:16px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">ShineMap</button>
+            `;
+
+            radarContainer.appendChild(toggle);
+
+            const btns = toggle.querySelectorAll('button');
+            btns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const view = btn.dataset.view;
+                    if (view === this.currentView) return;
+                    
+                    btns.forEach(b => {
+                        b.style.background = 'transparent';
+                        b.style.color = '#666';
+                        b.classList.remove('active');
+                    });
+                    
+                    if (view === 'radar') {
+                        btn.style.background = '#f59e0b';
+                        btn.style.color = 'white';
+                    } else {
+                        btn.style.background = '#0ea5e9';
+                        btn.style.color = 'white';
+                    }
+                    btn.classList.add('active');
+                    
+                    this.toggleView(view);
+                });
+            });
+        }
+
+        toggleView(view) {
+            this.currentView = view;
+            
+            let mapContainer = document.getElementById('shine-channel-map');
+            
+            if (view === 'map') {
+                // Hide Radar Elements (circles, scan line, bubbles)
+                const circles = this.radarContainer.querySelectorAll('.radar-circle');
+                const scan = this.radarContainer.querySelector('.radar-scan');
+                const bubbles = this.radarContainer.querySelectorAll('.signal-bubble');
+                
+                circles.forEach(el => el.style.opacity = '0');
+                if(scan) scan.style.opacity = '0';
+                bubbles.forEach(el => el.style.opacity = '0');
+
+                // Show Map
+                if (!mapContainer) {
+                    mapContainer = document.createElement('div');
+                    mapContainer.id = 'shine-channel-map';
+                    mapContainer.style.cssText = `
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 10;
+                        opacity: 0;
+                        transition: opacity 0.5s;
+                    `;
+                    this.radarContainer.appendChild(mapContainer);
+                }
+                
+                mapContainer.style.display = 'block';
+                // Trigger reflow
+                mapContainer.offsetHeight; 
+                mapContainer.style.opacity = '1';
+
+                // Initialize Map if needed
+                if (!this.channelMapInstance && this.AMap) {
+                     this.channelMapInstance = new this.AMap.Map('shine-channel-map', {
+                        resizeEnable: true,
+                        zoom: 16,
+                        center: this.location ? [this.location.lng, this.location.lat] : [116.397428, 39.90923],
+                        mapStyle: 'amap://styles/dark', // Dark style to match void
+                        features: [] // Zero-Start Mode: Hide all base map features (roads, buildings, points)
+                    });
+                    
+                    // Attach ShineMap to this instance
+                    if (this.shineMap) {
+                        this.shineMap.init(this.channelMapInstance);
+                    }
+                } else if (this.channelMapInstance && this.location) {
+                    this.channelMapInstance.setCenter([this.location.lng, this.location.lat]);
+                }
+                
+                // Turn on Shine Layer
+                if (this.shineMap) this.shineMap.toggleLayer(true);
+
+            } else {
+                // Show Radar Elements
+                const circles = this.radarContainer.querySelectorAll('.radar-circle');
+                const scan = this.radarContainer.querySelector('.radar-scan');
+                const bubbles = this.radarContainer.querySelectorAll('.signal-bubble');
+                
+                circles.forEach(el => el.style.opacity = '1');
+                if(scan) scan.style.opacity = '1';
+                bubbles.forEach(el => el.style.opacity = '1');
+
+                // Hide Map
+                if (mapContainer) {
+                    mapContainer.style.opacity = '0';
+                    setTimeout(() => mapContainer.style.display = 'none', 300);
+                }
+
+                // Turn off Shine Layer
+                if (this.shineMap) this.shineMap.toggleLayer(false);
+            }
+        }
+
+        renderMapToggle() {
+            const header = this.overlay.querySelector('.drawer-header');
+            if (!header) return;
+            
+            // Create Toggle Switch
+            // Check if already exists
+            if (header.querySelector('.view-toggle')) return;
+
+            const toggleDiv = document.createElement('div');
+            toggleDiv.className = 'view-toggle';
+            toggleDiv.style.display = 'flex';
+            toggleDiv.style.background = '#f3f4f6';
+            toggleDiv.style.borderRadius = '20px';
+            toggleDiv.style.padding = '2px';
+            toggleDiv.style.marginLeft = 'auto'; // Push to right
+            toggleDiv.style.marginRight = '10px';
+            
+            toggleDiv.innerHTML = `
+                <button class="toggle-btn active" data-view="radar" style="border:none; background:white; padding:4px 12px; border-radius:16px; font-size:0.8rem; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1); transition:all 0.2s;">Radar</button>
+                <button class="toggle-btn" data-view="map" style="border:none; background:transparent; padding:4px 12px; border-radius:16px; font-size:0.8rem; cursor:pointer; color:#666; transition:all 0.2s;">Map</button>
+            `;
+            
+            // Insert before close button
+            header.insertBefore(toggleDiv, this.closeBtn);
+            
+            // Event Listeners
+            const btns = toggleDiv.querySelectorAll('.toggle-btn');
+            btns.forEach(b => {
+                b.addEventListener('click', () => {
+                    const view = b.dataset.view;
+                    if (view === this.currentView) return;
+                    
+                    // Update UI
+                    btns.forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.style.background = 'transparent';
+                        btn.style.boxShadow = 'none';
+                        btn.style.color = '#666';
+                    });
+                    b.classList.add('active');
+                    b.style.background = 'white';
+                    b.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+                    b.style.color = '#000';
+                    
+                    this.toggleView(view);
+                });
+            });
+        }
+
+        async toggleView(view) {
+            this.currentView = view;
+            
+            let mapContainer = document.getElementById('shine-map-container');
+            if (!mapContainer) {
+                mapContainer = document.createElement('div');
+                mapContainer.id = 'shine-map-container';
+                mapContainer.style.width = '100%';
+                mapContainer.style.height = '100%'; // Fill parent (radar container's place)
+                mapContainer.style.position = 'absolute'; // Overlay on radar
+                mapContainer.style.top = '0';
+                mapContainer.style.left = '0';
+                mapContainer.style.borderRadius = '0 0 16px 16px'; // Match drawer
+                mapContainer.style.overflow = 'hidden';
+                mapContainer.style.display = 'none';
+                mapContainer.style.zIndex = '10'; // Above radar
+                
+                // Insert into radar container so it overlaps
+                this.radarContainer.style.position = 'relative'; // Ensure parent is relative
+                this.radarContainer.appendChild(mapContainer);
+            }
+
+            if (view === 'map') {
+                // Show Map
+                mapContainer.style.display = 'block';
+                mapContainer.style.opacity = '0';
+                mapContainer.style.transition = 'opacity 0.3s';
+                requestAnimationFrame(() => mapContainer.style.opacity = '1');
+                
+                // Initialize Map if needed
+                if (!this.channelMapInstance && this.AMap) {
+                    this.channelMapInstance = new this.AMap.Map(mapContainer, {
+                        resizeEnable: true,
+                        zoom: 16, // Closer zoom for walking
+                        center: this.location ? [this.location.lng, this.location.lat] : undefined,
+                        mapStyle: 'amap://styles/dark', // Dark style for Shine effect
+                        viewMode: '3D',
+                        pitch: 45
+                    });
+                    
+                    // Link to ShineMap Logic
+                    if (this.shineMap) {
+                         this.shineMap.init(this.channelMapInstance);
+                    }
+                }
+                
+                if (this.channelMapInstance && this.location) {
+                    this.channelMapInstance.setCenter([this.location.lng, this.location.lat]);
+                }
+
+                // Turn on Shine Layer
+                if (this.shineMap) this.shineMap.toggleLayer(true);
+
+            } else {
+                // Hide Map
+                if (mapContainer) {
+                    mapContainer.style.opacity = '0';
+                    setTimeout(() => mapContainer.style.display = 'none', 300);
+                }
+
+                // Turn off Shine Layer
+                if (this.shineMap) this.shineMap.toggleLayer(false);
+            }
+        }
+
+        renderEmitterUI() {
+            const drawer = this.overlay.querySelector('.shine-drawer');
+            if (!drawer || drawer.querySelector('.emitter-btn')) return;
+
+            // 1. Create Emitter Button
+            const btn = document.createElement('button');
+            btn.className = 'emitter-btn';
+            btn.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a10 10 0 1 0 10 10 10 10 0 0 0-10-10z"></path>
+                    <path d="M12 8v8"></path>
+                    <path d="M8 12h8"></path>
+                </svg>
+            `;
+            drawer.appendChild(btn);
+
+            // 2. Create Popover
+            const popover = document.createElement('div');
+            popover.className = 'emitter-popover';
+            popover.innerHTML = `
+                <div class="emitter-header" style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <span style="font-weight:600; color:#333;">Broadcast Signal</span>
+                    <div class="emitter-toggle" style="background:#f3f4f6; padding:2px; border-radius:20px; display:flex;">
+                        <button class="emitter-type active" data-type="mood" style="border:none; background:transparent; padding:4px 12px; border-radius:16px; font-size:0.8rem; cursor:pointer; transition:all 0.2s;">Mood</button>
+                        <button class="emitter-type" data-type="intel" style="border:none; background:transparent; padding:4px 12px; border-radius:16px; font-size:0.8rem; cursor:pointer; transition:all 0.2s;">Intel</button>
+                    </div>
+                </div>
+                <textarea class="emitter-input" placeholder="How's the vibe?" maxlength="40" style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px; font-family:inherit; margin-bottom:15px; resize:none; outline:none; transition:border 0.2s;"></textarea>
+                <button class="emitter-send-btn" style="width:100%; background:#10b981; color:white; border:none; padding:10px; border-radius:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background 0.2s;">
+                    <span>Send Signal</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            `;
+            drawer.appendChild(popover);
+
+            // 3. Logic
+            const input = popover.querySelector('.emitter-input');
+            const typeBtns = popover.querySelectorAll('.emitter-type');
+            const sendBtn = popover.querySelector('.emitter-send-btn');
+            let currentType = 'mood';
+
+            // Fix: Ensure input is interactable and stops propagation
+            ['mousedown', 'touchstart', 'click'].forEach(evt => {
+                input.addEventListener(evt, (e) => {
+                    e.stopPropagation();
+                    if (evt === 'click' || evt === 'touchstart') {
+                        input.focus();
+                    }
+                });
+            });
+
+            // Toggle Popover
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isActive = popover.classList.contains('active');
+                
+                if (isActive) {
+                    popover.style.opacity = '0';
+                    popover.style.visibility = 'hidden';
+                    popover.style.transform = 'scale(0.9)';
+                    popover.classList.remove('active');
+                    btn.style.transform = 'rotate(0deg)';
+                } else {
+                    popover.style.visibility = 'visible';
+                    popover.style.opacity = '1';
+                    popover.style.transform = 'scale(1)';
+                    popover.classList.add('active');
+                    btn.style.transform = 'rotate(45deg)';
+                    input.focus();
+                }
+            });
+
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (popover.classList.contains('active') && !popover.contains(e.target) && !btn.contains(e.target)) {
+                    popover.style.opacity = '0';
+                    popover.style.visibility = 'hidden';
+                    popover.style.transform = 'scale(0.9)';
+                    popover.classList.remove('active');
+                    btn.style.transform = 'rotate(0deg)';
+                }
+            });
+
+            // Switch Type
+            typeBtns.forEach(b => {
+                b.addEventListener('click', () => {
+                    typeBtns.forEach(t => t.classList.remove('active'));
+                    b.classList.add('active');
+                    currentType = b.dataset.type;
+                    
+                    if (currentType === 'mood') {
+                        input.placeholder = "How's the vibe?";
+                        sendBtn.style.background = '#db2777'; // Pink
+                    } else {
+                        input.placeholder = "Share intel (e.g. Quiet spot)";
+                        sendBtn.style.background = '#0284c7'; // Blue
+                    }
+                });
+            });
+
+            // Send
+            sendBtn.addEventListener('click', () => {
+                const text = input.value.trim();
+                if (!text) return;
+                
+                this.broadcastSignal(text, currentType);
+                input.value = '';
+                
+                // Close popover
+                popover.style.opacity = '0';
+                popover.style.visibility = 'hidden';
+                popover.style.transform = 'scale(0.9)';
+                popover.classList.remove('active');
+                btn.style.transform = 'rotate(0deg)';
+            });
+        }
+
+        async broadcastSignal(text, type) {
+            // Check auth
+            if (typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) {
+                 alert('请先登录以发送信号');
+                 return;
+            }
+            
+            if (!this.location) {
+                alert('无法获取您的位置，请确保已授权定位权限');
+                return;
+            }
+
+            try {
+                // Optimistic UI: Create user bubble immediately
+                const bubble = document.createElement('div');
+                bubble.className = `shine-bubble me ${type}`;
+                
+                // Center position (Me)
+                bubble.style.left = '50%';
+                bubble.style.top = '50%';
+                bubble.style.zIndex = '100';
+                
+                bubble.innerHTML = `
+                    <div class="bubble-tag" style="background:${type === 'mood' ? '#db2777' : '#0284c7'}">${type.toUpperCase()}</div>
+                    <div class="bubble-content">${text}</div>
+                    <div class="bubble-footer">Just now</div>
+                `;
+                
+                this.radarContainer.appendChild(bubble);
+                
+                // Animate out to random nearby position
+                setTimeout(() => {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 10 + Math.random() * 10; // 10-20% away
+                    const x = 50 + dist * Math.cos(angle);
+                    const y = 50 + dist * Math.sin(angle);
+                    
+                    bubble.style.transition = 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    bubble.style.left = x + '%';
+                    bubble.style.top = y + '%';
+                }, 50);
+
+                // Send to Server
+                let token = null;
+                if (typeof CloudSync !== 'undefined' && CloudSync.getToken) {
+                    token = CloudSync.getToken();
+                } else {
+                    token = sessionStorage.getItem('hkwl_auth_token');
+                }
+                
+                const res = await fetch('/api/signal/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token
+                    },
+                    body: JSON.stringify({
+                        content: text,
+                        type: type,
+                        location: this.location
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Show success toast
+                    const toast = document.createElement('div');
+                    toast.textContent = '信号已发射';
+                    toast.style.position = 'absolute';
+                    toast.style.bottom = '80px';
+                    toast.style.left = '50%';
+                    toast.style.transform = 'translateX(-50%)';
+                    toast.style.background = 'rgba(0,0,0,0.7)';
+                    toast.style.color = 'white';
+                    toast.style.padding = '8px 16px';
+                    toast.style.borderRadius = '20px';
+                    toast.style.fontSize = '0.8rem';
+                    toast.style.zIndex = '50';
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    
+                    this.radarContainer.appendChild(toast);
+                    requestAnimationFrame(() => toast.style.opacity = '1');
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 2000);
+                } else {
+                    throw new Error(data.error || '发送失败');
+                }
+            } catch (e) {
+                console.error('Broadcast failed:', e);
+                alert('发送失败: ' + e.message);
+                // Remove bubble if failed? Maybe leave it as "failed" state?
+                // For now, let's just alert.
+            }
+        }
+
+        openDrawer() {
+            this.isOpen = true;
+            this.overlay.classList.add('active');
+            this.startScanning();
+        }
+
+        closeDrawer() {
+            this.isOpen = false;
+            this.overlay.classList.remove('active');
+            this.stopScanning();
+        }
+
+        createRadarCircles() {
+            // Create concentric circles
+            for (let i = 1; i <= 3; i++) {
+                const circle = document.createElement('div');
+                circle.className = 'radar-circle';
+                const size = i * 25 + '%';
+                circle.style.width = size;
+                circle.style.height = size; 
+                this.radarContainer.appendChild(circle);
+            }
+        }
+
+        startScanning() {
+            this.refreshSignals();
+            // Start adding bubbles periodically
+            if (this.scanInterval) clearInterval(this.scanInterval);
+            this.scanInterval = setInterval(() => {
+                // Adjust frequency based on available signals?
+                // For now, keep it simple: attempt to add a bubble every 2s
+                // But only if we have something to show, or just noise
+                if(Math.random() > 0.4) this.addSignalBubble();
+            }, 2000);
+        }
+
+        stopScanning() {
+            if (this.scanInterval) {
+                clearInterval(this.scanInterval);
+                this.scanInterval = null;
+            }
+            // Clear bubbles? Or leave them? Let's leave them for effect or clear them
+            const bubbles = this.radarContainer.querySelectorAll('.shine-bubble:not(.me)');
+            bubbles.forEach(b => b.remove());
+        }
+
+        async refreshSignals() {
+            if (!this.location || typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) {
+                // Fallback to simulation if not logged in or no location
+                const baseCount = Math.floor(this.radius * 2) + Math.floor(Math.random() * 3);
+                if (this.signalCountDisplay) this.signalCountDisplay.textContent = baseCount;
+                return;
+            }
+
+            try {
+                let token = null;
+                if (typeof CloudSync !== 'undefined' && CloudSync.getToken) {
+                    token = CloudSync.getToken();
+                } else {
+                    token = sessionStorage.getItem('hkwl_auth_token');
+                }
+
+                const res = await fetch(`/api/signal/nearby?lat=${this.location.lat}&lng=${this.location.lng}&radius=${this.radius * 1000}`, {
+                    headers: { 'Authorization': token }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    this.realSignals = data.signals || [];
+                    console.log('ShineChannel: Fetched signals', this.realSignals.length);
+                    
+                    // Update count
+                    // Mix of real signals and POIs
+                    const totalCount = this.realSignals.length + (this.nearbyPOIs ? this.nearbyPOIs.length : 0);
+                    if (this.signalCountDisplay) this.signalCountDisplay.textContent = totalCount;
+                }
+            } catch (e) {
+                console.error('Refresh signals failed:', e);
+            }
+        }
+
+        updateAntennaStatus() {
+            // Pulse animation or text update
+            if (!this.isOpen) {
+                const count = Math.floor(this.radius * 2) + Math.floor(Math.random() * 5);
+                if (this.signalCountDisplay) this.signalCountDisplay.textContent = count;
+            }
+        }
+        
+        addSignalBubble() {
+            if (!this.isOpen) return;
+            
+            // Max bubbles
+            if (this.radarContainer.querySelectorAll('.shine-bubble').length > this.maxSignals) {
+                const old = this.radarContainer.querySelector('.shine-bubble:not(.me)');
+                if(old) old.remove();
+            }
+
+            // Decide content source: Real Signal > Real POI > Random Simulation
+            let signalData = null;
+            let source = 'simulation';
+
+            const hasReal = this.realSignals && this.realSignals.length > 0;
+            const hasPOI = this.nearbyPOIs && this.nearbyPOIs.length > 0;
+
+            if (hasReal || hasPOI) {
+                // If real data exists, strictly prioritize it over simulation
+                let useReal = false;
+                
+                if (hasReal && hasPOI) {
+                    // If both exist, 80% chance for User Signal, 20% for POI
+                    useReal = Math.random() > 0.2;
+                } else if (hasReal) {
+                    useReal = true;
+                }
+                // else only POI -> useReal = false
+
+                if (useReal) {
+                    const randomSignal = this.realSignals[Math.floor(Math.random() * this.realSignals.length)];
+                    signalData = {
+                        type: randomSignal.type,
+                        content: randomSignal.content,
+                        user: randomSignal.user,
+                        isReal: true
+                    };
+                    source = 'real';
+                } else {
+                    const poi = this.nearbyPOIs[Math.floor(Math.random() * this.nearbyPOIs.length)];
+                    const poiName = poi.name.length > 12 ? poi.name.substring(0, 12) + '...' : poi.name;
+                    const poiType = poi.type ? poi.type.split(';')[0].split('|').pop() : 'Place';
+                    
+                    signalData = {
+                        type: 'intel',
+                        content: `<div style="font-weight:bold">${poiName}</div><div style="font-size:0.8em; opacity:0.8">${poiType}</div>`,
+                        isReal: true
+                    };
+                    source = 'poi';
+                }
+            } else {
+                 // Fallback to random moods/intel ONLY if no real data is available
+                const types = ['mood', 'intel', 'mood', 'mood']; 
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                const moods = ['✨ Feeling the vibe', '👋 Hello world', '☕ Coffee time', '🎵 Jazzy mood', '🚶 Walking', '📸 Photo spot', '🌧️ Raining here', '☀️ Sunny day'];
+                const intels = ['📍 Hidden Gem nearby', '🏛️ Cool architecture', '🎭 Street Art spotted', '🍴 Smells good!'];
+                
+                const text = type === 'mood' 
+                    ? moods[Math.floor(Math.random() * moods.length)] 
+                    : intels[Math.floor(Math.random() * intels.length)];
+                
+                signalData = {
+                    type: type,
+                    content: text,
+                    isReal: false
+                };
+            }
+
+            const bubble = document.createElement('div');
+            bubble.className = `shine-bubble ${signalData.type}`;
+            
+            // Random Position within radar (circle)
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 40; // 0-40% from center
+            
+            const x = 50 + dist * Math.cos(angle);
+            const y = 50 + dist * Math.sin(angle);
+            
+            bubble.style.left = x + '%';
+            bubble.style.top = y + '%';
+            
+            // Build Content
+            bubble.innerHTML = `
+                <div class="bubble-tag" style="color: ${signalData.type === 'mood' ? '#db2777' : '#0284c7'}">
+                    ${signalData.type === 'mood' ? 'MOOD' : 'INTEL'}
+                </div>
+                <div class="bubble-content">${signalData.content}</div>
+                ${source === 'real' && signalData.user ? `<div class="bubble-user" style="font-size:0.7rem; opacity:0.6; margin-top:2px;">@${signalData.user.nickname || signalData.user.username}</div>` : ''}
+                <div class="bubble-footer" style="margin-top:5px; font-size:0.8rem; opacity:0.6; text-align:right;">Tap to resonate</div>
+            `;
+                
+            // Click to Resonate
+            bubble.onclick = (e) => {
+                e.stopPropagation();
+                this.resonate(bubble);
+            };
+            
+            this.radarContainer.appendChild(bubble);
+            
+            // Auto fade out
+            setTimeout(() => {
+                if(bubble.parentNode) {
+                    bubble.style.opacity = '0';
+                    setTimeout(() => {
+                        if(bubble.parentNode) bubble.remove();
+                    }, 500);
+                }
+            }, 5000 + Math.random() * 3000);
+        }
+        
+        resonate(bubble) {
+            // Interaction effect
+            bubble.style.transform = 'scale(1.5)';
+            bubble.style.boxShadow = '0 0 20px #ffd700';
+            // Keep content but maybe add heart?
+            // bubble.innerHTML = '❤️'; 
+            // Better: add a heart overlay or just change style
+            const footer = bubble.querySelector('.bubble-footer');
+            if(footer) footer.innerHTML = '❤️ Resonated';
+            bubble.style.borderColor = '#f59e0b';
+            
+            // Add to signals list (simulation)
+            // Show toast or something?
+        }
+    }
+
+    new ShineChannel();
+});
+

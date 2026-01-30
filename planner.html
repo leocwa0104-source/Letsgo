@@ -3028,13 +3028,18 @@
     
     if (planId && HKWL.syncCurrentPlanFromCloud) {
         HKWL.syncCurrentPlanFromCloud().catch(console.error).finally(() => {
-            HKWL.renderWishlistPage();
+            // Only render wishlist if NOT in ShineMap mode
+            if (!isShineMode) {
+                HKWL.renderWishlistPage();
+            }
             if (currentMode === 'map' && typeof refreshMapData === 'function') {
                 refreshMapData();
             }
         });
     } else if (planId) {
-         HKWL.renderWishlistPage();
+         if (!isShineMode) {
+             HKWL.renderWishlistPage();
+         }
     }
 
       // Init Map if default mode is map

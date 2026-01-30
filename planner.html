@@ -412,7 +412,38 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     
-    /* Edit mode select dropdown in panel */
+    /* Home Indicator */
+    .home-indicator {
+        position: absolute;
+        width: 36px;
+        height: 36px;
+        background: white;
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 900; /* Below controls (1000) but above map */
+        cursor: pointer;
+        pointer-events: auto;
+        transition: opacity 0.2s, transform 0.1s;
+        border: 2px solid white;
+    }
+    .home-indicator::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 8px solid #722ed1;
+    }
+    .home-indicator .inner-icon {
+        font-size: 18px;
+    }
+    /* Rotate the whole indicator wrapper to point */
+
     .panel-select {
         padding: 5px 10px;
         border: 1px solid #ddd;
@@ -823,6 +854,251 @@
             font-size: 0.8rem;
         }
     }
+
+    /* --- Shine Channel Styles --- */
+    .shine-widget {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+    .shine-widget:hover {
+        transform: translateY(-2px);
+    }
+    .shine-widget-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        z-index: 2;
+    }
+    .shine-radar-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.8);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .shine-radar-icon::after {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background: white;
+        border-radius: 50%;
+        animation: radar-pulse 2s infinite;
+    }
+    @keyframes radar-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+    
+    .shine-widget-right {
+        flex: 1;
+        margin-left: 16px;
+        overflow: hidden;
+        position: relative;
+        height: 20px;
+        z-index: 2;
+    }
+    .shine-ticker {
+        position: absolute;
+        width: 100%;
+        animation: ticker-slide 15s linear infinite;
+        white-space: nowrap;
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    @keyframes ticker-slide {
+        0% { transform: translateY(0); opacity: 0; }
+        5% { transform: translateY(0); opacity: 1; }
+        30% { transform: translateY(0); opacity: 1; }
+        35% { transform: translateY(-20px); opacity: 0; }
+        
+        /* Item 2 */
+        35.01% { transform: translateY(20px); opacity: 0; }
+        40% { transform: translateY(0); opacity: 1; }
+        65% { transform: translateY(0); opacity: 1; }
+        70% { transform: translateY(-20px); opacity: 0; }
+
+        /* Item 3 */
+        70.01% { transform: translateY(20px); opacity: 0; }
+        75% { transform: translateY(0); opacity: 1; }
+        95% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-20px); opacity: 0; }
+    }
+    
+    /* Shine Drawer */
+    .shine-drawer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 60vh;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.2);
+        z-index: 3000;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(10px);
+    }
+    .shine-drawer.open {
+        transform: translateY(0);
+    }
+    .shine-drawer-header {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255,255,255,0.9);
+        border-radius: 20px 20px 0 0;
+    }
+    .shine-drawer-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #764ba2;
+    }
+    .shine-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: #999;
+        cursor: pointer;
+        padding: 0 8px;
+    }
+    .shine-feed {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    /* Message Types */
+    .shine-msg {
+        padding: 12px;
+        border-radius: 12px;
+        position: relative;
+        animation: fade-in 0.3s ease-out;
+    }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .shine-msg.alert {
+        background: #fff2f0;
+        border: 1px solid #ffccc7;
+        color: #cf1322;
+    }
+    .shine-msg.whisper {
+        background: #f0f5ff;
+        border: 1px solid #d6e4ff;
+        color: #2f54eb;
+    }
+    .shine-msg.system {
+        background: transparent;
+        color: #999;
+        font-size: 0.85rem;
+        text-align: center;
+        border: none;
+        padding: 4px;
+    }
+    .shine-msg-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        margin-bottom: 4px;
+        opacity: 0.8;
+    }
+    .shine-msg-body {
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+    .shine-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 8px;
+        gap: 10px;
+    }
+    .shine-action-btn {
+        background: none;
+        border: none;
+        font-size: 0.8rem;
+        color: inherit;
+        opacity: 0.7;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .shine-action-btn:hover { opacity: 1; }
+    
+    .shine-drawer-footer {
+        padding: 16px;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+    }
+    .shine-input-btn {
+        flex: 1;
+        padding: 12px;
+        border-radius: 25px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: transform 0.1s;
+    }
+    .shine-input-btn:active { transform: scale(0.98); }
+    .shine-btn-broadcast {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 10px rgba(118, 75, 162, 0.3);
+    }
+    .shine-btn-claim {
+        background: white;
+        border: 1px solid #ddd;
+        color: #666;
+    }
+
+    /* Block View Wrapper for Shine Layout */
+    .block-content-wrapper {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        width: 100%;
+        gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+        .block-content-wrapper {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+    }
 </style>
 </head>
 <body>
@@ -876,10 +1152,6 @@
                         </div>
                         <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
                             <div style="display: flex; align-items: center;">
-                                <input type="checkbox" id="show-route-toggle" checked onchange="toggleRouteDisplay()">
-                                <label for="show-route-toggle" style="margin-left: 5px; font-size: 14px; color: #333; cursor: pointer;">显示路线</label>
-                            </div>
-                            <div style="display: flex; align-items: center;">
                                 <input type="checkbox" id="show-transport-toggle" checked onchange="toggleRouteDisplay()">
                                 <label for="show-transport-toggle" style="margin-left: 5px; font-size: 14px; color: #333; cursor: pointer;">显示交通</label>
                             </div>
@@ -917,23 +1189,61 @@
         </div>
 
         <!-- Block View -->
-        <div class="view-slide layout-main" id="block-view">
-            <section class="main-column">
-              <h2>任务栏</h2>
-              <div id="wish-list" class="card-list"></div>
-            </section>
-        
-            <aside class="side-column">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                  <h2 style="margin: 0;">计划列表</h2>
-                  <div style="display: flex; gap: 10px;">
-                    <!-- Moved to Map Mode -->
+        <div class="view-slide layout-main" id="block-view" style="flex-direction: column;">
+            
+            <!-- Shine Widget (Header) -->
+            <div id="shine-widget" class="shine-widget" onclick="openShineDrawer()">
+                <div class="shine-widget-left">
+                    <div class="shine-radar-icon"></div>
+                    <span id="shine-location-text">正在扫描信号...</span>
+                </div>
+                <div class="shine-widget-right">
+                    <div id="shine-ticker" class="shine-ticker">
+                        <!-- Ticker Items will be injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shine Drawer -->
+            <div id="shine-drawer" class="shine-drawer">
+                <div class="shine-drawer-header">
+                    <div class="shine-drawer-title">
+                        <span>📡 Shine 频道</span>
+                    </div>
+                    <button class="shine-close-btn" onclick="closeShineDrawer()">&times;</button>
+                </div>
+                <div id="shine-feed" class="shine-feed">
+                    <!-- Feed Items -->
+                </div>
+                <div class="shine-drawer-footer">
+                    <button class="shine-input-btn shine-btn-broadcast" onclick="shineBroadcast()">
+                        <span>📢 发射信号</span>
+                    </button>
+                    <button class="shine-input-btn shine-btn-claim" onclick="shineClaim()">
+                        <span>📍 插旗</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="block-content-wrapper">
+                <section class="main-column">
+                  <h2>任务栏</h2>
+                  <div id="wish-list" class="card-list"></div>
+                </section>
+            
+                <aside class="side-column">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                      <h2 style="margin: 0;">计划列表</h2>
+                      <div style="display: flex; gap: 10px;">
+                        <!-- Moved to Map Mode -->
+                      </div>
                   </div>
-              </div>
-              <div id="plan-days" class="plan-days"></div>
-              <div id="plan-list" class="plan-list"></div>
-              <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
-            </aside>
+                  <div id="plan-days" class="plan-days"></div>
+                  <div id="plan-list" class="plan-list"></div>
+                  <p class="plan-hint">将左侧的旅行项目拖动到此处，按天组成你的计划列表。</p>
+                </aside>
+            </div>
+
             <div id="block-view-actions" style="position: absolute; bottom: 90px; right: 20px; z-index: 100;">
                  <button id="plan-danger-btn" class="btn" style="background:#f44336; color:#fff; display:none; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">删除计划</button>
             </div>
@@ -1002,7 +1312,7 @@
 
   <script src="cloud-sync.js"></script>
   <script src="auth-manager.js"></script>
-  <script src="main.js?v=110"></script>
+  <script src="main.js?v=119"></script>
   <script>
     let currentMode = 'map';
     let mapInitialized = false;
@@ -1015,6 +1325,7 @@
     let showRoute = true;
     let showTransportDetails = true;
     let currentMapRenderId = 0;
+    let lastRenderedDayMode = null; // Track last rendered day to avoid re-fitting view on same day
     
     // --- Edit Mode State ---
     let editMode = 'none'; // 'none', 'date', 'order', 'transport'
@@ -1332,125 +1643,7 @@
         resetEditState();
     }
 
-    // --- Transport Loop Logic ---
-    let homeInfoCache = null;
 
-    async function ensureHomeInfo() {
-        if (homeInfoCache) return homeInfoCache;
-        try {
-            const res = await fetch('/api/auth/status', {
-                headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
-            });
-            const data = await res.json();
-            if (data.success && data.home && data.home.location) {
-                homeInfoCache = data.home;
-                return data.home;
-            }
-        } catch (e) {
-            console.error(e);
-        }
-        return null;
-    }
-
-    async function addHomeTrip(type) {
-        // type: 'start' | 'end'
-        const home = await ensureHomeInfo();
-        if (!home) {
-            showToast('请先在“个人信息”中设置家的位置', 'warning');
-            return;
-        }
-
-        const currentViewDay = document.getElementById('day-select').value;
-        if (currentViewDay === 'all') {
-            showToast('请先选择具体的一天', 'warning');
-            return;
-        }
-        
-        const dayIdx = parseInt(currentViewDay) - 1;
-        const planState = HKWL.loadPlanState();
-        const dayItems = planState.days[dayIdx] || [];
-        
-        if (dayItems.length === 0) {
-            showToast('当前天没有行程，无法添加', 'warning');
-            return;
-        }
-
-        // Load full items
-        const allItems = HKWL.loadWishlist();
-        const fullDayItems = dayItems.map(id => allItems.find(x => x.id === id)).filter(Boolean);
-        
-        // Exclude transport items to find actual locations
-        const validLocs = fullDayItems.filter(x => x.type !== 'transport');
-        
-        if (validLocs.length === 0) {
-             showToast('当前天没有有效地点，无法规划', 'warning');
-             return;
-        }
-
-        let targetItem, isOriginHome;
-        
-        if (type === 'start') {
-            targetItem = validLocs[0]; // First location
-            isOriginHome = true;
-        } else {
-            targetItem = validLocs[validLocs.length - 1]; // Last location
-            isOriginHome = false;
-        }
-
-        showToast('正在规划路线...', 'info');
-
-        // Construct transport item
-        // Use AMap to calculate distance/time if possible
-        let duration = '计算中...';
-        let distance = '';
-        
-        try {
-            // Simple straight line distance or use Web Service (Not available in pure JS API without plugin sometimes, but we loaded Driving)
-            // We use the same logic as autoGenerateTransports but just for one segment
-            
-            // For now, let's create a placeholder transport item and let the user edit or we can try to fetch.
-            // Better: use the existing route drawing logic to get data if possible? 
-            // Actually, we can just insert a transport item.
-            
-            const transportId = `transport_${Date.now()}`;
-            const newTransport = {
-                id: transportId,
-                type: 'transport',
-                name: isOriginHome ? `从家出发 -> ${targetItem.name}` : `${targetItem.name} -> 回家`,
-                desc: '自动生成的行程',
-                fromId: isOriginHome ? 'HOME' : targetItem.id,
-                toId: isOriginHome ? targetItem.id : 'HOME',
-                fromName: isOriginHome ? '家' : targetItem.name,
-                toName: isOriginHome ? targetItem.name : '家',
-                transportType: 'taxi', // Default
-                duration: '',
-                distance: '',
-                cost: '',
-                createdAt: new Date().toISOString()
-            };
-            
-            // Insert into list
-            HKWL.addItem(newTransport);
-            
-            if (type === 'start') {
-                planState.days[dayIdx].unshift(newTransport.id);
-            } else {
-                planState.days[dayIdx].push(newTransport.id);
-            }
-            
-            HKWL.savePlanState(planState);
-            
-            // Refresh
-            refreshMapData(currentViewDay);
-            if (HKWL.refreshBlockView) HKWL.refreshBlockView();
-            
-            showToast('行程已添加！', 'success');
-            
-        } catch (e) {
-            console.error(e);
-            showToast('添加失败', 'error');
-        }
-    }
 
     function updateEditPanel() {
         const panel = document.getElementById('edit-action-panel');
@@ -1489,35 +1682,23 @@
                 <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
             `;
         } else if (editMode === 'transport') {
-             ensureHomeInfo().then(home => {
-                 let homeButtons = '';
-                 if (home) {
-                     homeButtons = `
-                        <div style="display:flex; gap:8px; border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:8px;">
-                            <button class="panel-btn panel-btn-primary" style="background:#722ed1; border:none;" onclick="addHomeTrip('start')">🏠 从家出发</button>
-                            <button class="panel-btn panel-btn-primary" style="background:#722ed1; border:none;" onclick="addHomeTrip('end')">🏠 回家</button>
-                        </div>
-                     `;
-                 }
-                 
-                 const content = `
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="panel-text" style="font-weight:bold;">规划交通</span>
-                        </div>
-                        ${homeButtons}
-                        <div style="font-size:13px; color:#666;">
-                            将按照当前的游玩顺序自动规划交通
-                        </div>
-                        <div style="display:flex; gap:8px; margin-top:4px;">
-                            <button class="panel-btn panel-btn-primary" onclick="confirmTransportPlan()">生成交通方案</button>
-                            <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
-                        </div>
+             const content = `
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="panel-text" style="font-weight:bold;">规划交通</span>
                     </div>
-                `;
-                panel.innerHTML = content;
-             });
-             return; // Async update
+                    <div style="font-size:13px; color:#666;">
+                        将按照当前的游玩顺序自动规划交通
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:4px;">
+                        <button class="panel-btn panel-btn-primary" onclick="confirmTransportPlan()">生成交通方案</button>
+                        <button class="panel-btn panel-btn-cancel" onclick="resetEditState()">取消</button>
+                    </div>
+                </div>
+            `;
+            panel.innerHTML = content;
+            panel.classList.add('show');
+            return;
         } else if (editMode === 'add-stay') {
             content = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1963,14 +2144,10 @@
             } else {
                  if (map) {
                      setTimeout(() => {
-                         map.resize(); 
-                         const daySelect = document.getElementById('day-select');
-                         // Reload data to ensure sync with block mode changes
-                         mapState = HKWL.loadPlanState();
-                         mapAllItems = HKWL.loadWishlist();
-                         updateDaySelector();
-                         renderMap(daySelect.value);
-                     }, 500);
+                        map.resize(); 
+                        // Use refreshMapData to preserve selection/state logic
+                        refreshMapData();
+                    }, 500);
                  }
             }
         } else {
@@ -1987,13 +2164,28 @@
 
     // --- Home Logic ---
     let homeMarker = null;
+    let homeIndicator = null;
+    let homeIndicatorListener = null;
+    let currentHomeData = null; // Cache for re-rendering
 
     function renderHomeMarker(homeData) {
         if (!homeData || !homeData.location || !homeData.location.lat) return;
         if (!map) return;
         
+        // Cleanup previous
         if (homeMarker) {
             map.remove(homeMarker);
+            homeMarker = null;
+        }
+        if (homeIndicator) {
+            homeIndicator.remove();
+            homeIndicator = null;
+        }
+        if (homeIndicatorListener) {
+            map.off('mapmove', homeIndicatorListener);
+            map.off('zoomchange', homeIndicatorListener);
+            map.off('resize', homeIndicatorListener);
+            homeIndicatorListener = null;
         }
         
         const position = new AMap.LngLat(homeData.location.lng, homeData.location.lat);
@@ -2023,6 +2215,89 @@
             });
             info.open(map, position);
         });
+
+        // --- Off-screen Indicator Logic ---
+        const mapContainer = document.getElementById('map-container');
+        if (!mapContainer) return;
+
+        const indicator = document.createElement('div');
+        indicator.className = 'home-indicator';
+        indicator.innerHTML = '<div class="inner-icon">🏠</div>';
+        indicator.style.display = 'none'; 
+        mapContainer.appendChild(indicator);
+        homeIndicator = indicator;
+        
+        indicator.addEventListener('click', (e) => {
+             e.stopPropagation();
+             map.setZoomAndCenter(15, position);
+        });
+
+        const updateIndicator = () => {
+            if (!map || !homeIndicator) return;
+            
+            // Check if visible in bounds
+            const bounds = map.getBounds();
+            if (bounds.contains(position)) {
+                homeIndicator.style.display = 'none';
+                return;
+            }
+            
+            // Calculate position
+            const pixel = map.lngLatToContainer(position);
+            const containerSize = map.getSize();
+            const w = containerSize.width;
+            const h = containerSize.height;
+            const center = { x: w / 2, y: h / 2 };
+            
+            const dx = pixel.x - center.x;
+            const dy = pixel.y - center.y;
+            
+            // Angle from center
+            const angle = Math.atan2(dy, dx); // radians
+            
+            // Calculate intersection with viewport edge (with padding)
+            const padding = 40; // margin from edge
+            const innerW = w / 2 - padding;
+            const innerH = h / 2 - padding;
+            
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            
+            let x, y;
+            // Try vertical intersection (x = +/- innerW)
+            const x1 = (cos > 0 ? 1 : -1) * innerW;
+            const y1 = x1 * Math.tan(angle);
+            
+            if (Math.abs(y1) <= innerH) {
+                x = x1;
+                y = y1;
+            } else {
+                // Hits horizontal edge
+                const y2 = (sin > 0 ? 1 : -1) * innerH;
+                const x2 = y2 / Math.tan(angle);
+                x = x2;
+                y = y2;
+            }
+            
+            const finalX = center.x + x;
+            const finalY = center.y + y;
+            
+            homeIndicator.style.left = `${finalX}px`;
+            homeIndicator.style.top = `${finalY}px`;
+            
+            // Rotate indicator (Arrow points UP by default, so +90deg from Right/0deg)
+            const rotation = (angle * 180 / Math.PI) + 90;
+            homeIndicator.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+            homeIndicator.style.display = 'flex';
+        };
+
+        homeIndicatorListener = updateIndicator;
+        map.on('mapmove', updateIndicator);
+        map.on('zoomchange', updateIndicator);
+        map.on('resize', updateIndicator);
+        
+        // Initial call
+        updateIndicator();
     }
 
     async function loadHomeMarker() {
@@ -2032,7 +2307,8 @@
             });
             const data = await res.json();
             if (data.success && data.home) {
-                renderHomeMarker(data.home);
+                currentHomeData = data.home;
+                renderHomeMarker(currentHomeData);
             }
         } catch (e) {
             console.error("Failed to load home", e);
@@ -2056,7 +2332,8 @@
                 const ps = HKWL.loadPlanState();
                 if (ps.currentDay !== day) {
                     ps.currentDay = day;
-                    HKWL.savePlanState(ps);
+                    // Use local save only to avoid triggering cloud sync/interference for view changes
+                    HKWL.savePlanStateLocal(ps);
                 }
             }
             renderMap(val);
@@ -2402,6 +2679,13 @@
         
         if (targetDay) {
             currentVal = targetDay;
+        } else if (lastRenderedDayMode) {
+            // Restore last rendered day mode if no explicit target provided
+            // This fixes the issue where switching modes resets to 'all' or default
+            currentVal = lastRenderedDayMode;
+        } else if (mapState.currentDay) {
+            // Fallback to currentDay from state (e.g. first load or sync from block)
+            currentVal = mapState.currentDay;
         }
         
         // Check if currentVal exists in new options
@@ -2419,8 +2703,26 @@
             daySelect.value = 'all';
         }
 
+        // Prevent redundant map renders (fixes flickering)
+        const currentSignature = getMapRenderSignature(mapAllItems, mapState, daySelect.value);
+        if (currentSignature === lastMapRenderSignature) {
+            // Data visual content hasn't changed, skip heavy map re-render
+            if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+            return;
+        }
+        lastMapRenderSignature = currentSignature;
+
         renderMap(daySelect.value);
         if (HKWL.refreshBlockView) HKWL.refreshBlockView();
+    }
+
+    let lastMapRenderSignature = '';
+    function getMapRenderSignature(items, state, day) {
+        if (!items || !state) return '';
+        // Signature based on visual map data
+        const stateSig = JSON.stringify(state.days);
+        const itemsSig = items.map(i => `${i.id}:${i.name}:${i.type}:${i.coords?.lng},${i.coords?.lat}`).join('|');
+        return `${day}#${stateSig}#${itemsSig}`;
     }
 
     function openInfoWindow(item, position) {
@@ -2510,6 +2812,11 @@
         map.clearMap();
         markerInstances.clear();
 
+        // Restore Home Marker
+        if (currentHomeData) {
+            renderHomeMarker(currentHomeData);
+        }
+
         let items = [];
         if (dayMode === 'all') {
             items = getAllItemsOrdered();
@@ -2597,18 +2904,24 @@
             }
         }
         
-        // Fit view to markers immediately
-        map.setFitView(null, false, [50, 50, 50, 50]);
+        // Fit view to markers immediately ONLY if day mode changed or first load
+        if (lastRenderedDayMode !== dayMode) {
+            const fitMarkers = Array.from(markerInstances.values());
+            if (fitMarkers.length > 0) {
+                map.setFitView(fitMarkers, false, [50, 50, 50, 50]);
+            }
+            lastRenderedDayMode = dayMode;
+        }
         
         // Optional: Wait for routes to finish? (Just for debugging or final adjustments)
         // Promise.allSettled(routePromises);
     }
 
     function toggleRouteDisplay() {
-        const routeCheck = document.getElementById('show-route-toggle');
+        // const routeCheck = document.getElementById('show-route-toggle');
         const transportCheck = document.getElementById('show-transport-toggle');
         
-        showRoute = routeCheck ? routeCheck.checked : true;
+        showRoute = false; // Force disabled
         showTransportDetails = transportCheck ? transportCheck.checked : true;
         
         const daySelect = document.getElementById('day-select');
@@ -2657,22 +2970,7 @@
                 }
             }
         } else if (showRoute) {
-            // Use driving route (dashed) instead of straight line for better visualization
-            // "如果项目的游玩顺序没有标记，默认按最快路线描绘" -> Use Driving policy
-            try {
-                // We use a shorter timeout for default routes to avoid blocking
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Default route timeout')), 3000)
-                );
-                await Promise.race([
-                    drawDrivingRoute(start, end, "#666", true, renderId), // true for isDashed
-                    timeoutPromise
-                ]);
-            } catch (e) {
-                if (renderId && renderId !== currentMapRenderId) return;
-                // Fallback to simple straight dashed line on timeout/error
-                drawSimpleRoute(start, end, renderId);
-            }
+             // Disabled default route drawing
         }
     }
     
@@ -3166,6 +3464,15 @@
     if (planId && (planId.startsWith('plan_') || !/^[0-9a-fA-F]{24}$/.test(planId))) {
         alert("不再支持本地计划。请返回首页创建新计划。");
         window.location.href = 'index.html';
+    } else if (planId) {
+        // Set current plan context for HKWL main.js
+        if (typeof HKWL !== 'undefined' && HKWL.setCurrentPlan) {
+             HKWL.setCurrentPlan(planId);
+             // Trigger sync to ensure we have latest collaborators
+             if (HKWL.syncCurrentPlanFromCloud) {
+                 HKWL.syncCurrentPlanFromCloud(true); // silent=true
+             }
+        }
     }
 })();
 
@@ -3631,6 +3938,136 @@ function makeDraggable(elmnt) {
 // Init on load
 document.addEventListener('DOMContentLoaded', function() {
     initCollabModule();
+});
+</script>
+
+<script>
+/**
+ * Shine Channel Logic
+ * Implements the "Anchor" default view dynamic card functionality.
+ */
+const ShineChannel = {
+    isOpen: false,
+    tickerInterval: null,
+    signals: [],
+    
+    init() {
+        this.loadMockData();
+        this.startTicker();
+        this.renderFeed();
+        
+        // Mock location scanning effect
+        setTimeout(() => {
+            const locText = document.getElementById('shine-location-text');
+            if (locText) locText.textContent = "📍 当前位置: 尖沙咀, 香港";
+        }, 2000);
+    },
+
+    loadMockData() {
+        this.signals = [
+            { type: 'alert', content: '前方 500m 发现拥堵，建议绕行', time: '2m ago' },
+            { type: 'whisper', content: '有人在 [维多利亚港] 留下了 3 个秘密', time: '5m ago' },
+            { type: 'system', content: 'Shine 频道已连接，信号强度 98%', time: 'Just now' },
+            { type: 'whisper', content: '附近有 2 个旅行者正在寻找拼车前往 [太平山顶]', time: '12m ago' },
+            { type: 'alert', content: '突发暴雨预警，请注意避雨', time: '1h ago' }
+        ];
+    },
+
+    startTicker() {
+        const ticker = document.getElementById('shine-ticker');
+        if (!ticker) return;
+
+        let index = 0;
+        const showNext = () => {
+            if (this.signals.length === 0) return;
+            const signal = this.signals[index];
+            // Simple fade switch
+            ticker.style.opacity = 0;
+            setTimeout(() => {
+                let icon = '📡';
+                if (signal.type === 'alert') icon = '⚠️';
+                if (signal.type === 'whisper') icon = '💬';
+                
+                ticker.innerHTML = `<span>${icon} ${signal.content}</span>`;
+                ticker.style.opacity = 1;
+                index = (index + 1) % this.signals.length;
+            }, 300);
+        };
+
+        showNext();
+        this.tickerInterval = setInterval(showNext, 4000);
+    },
+
+    toggleDrawer(show) {
+        const drawer = document.getElementById('shine-drawer');
+        const widget = document.getElementById('shine-widget');
+        
+        if (show) {
+            drawer.classList.add('open');
+            this.isOpen = true;
+        } else {
+            drawer.classList.remove('open');
+            this.isOpen = false;
+        }
+    },
+
+    renderFeed() {
+        const feed = document.getElementById('shine-feed');
+        if (!feed) return;
+
+        feed.innerHTML = this.signals.map(s => {
+            let typeClass = s.type; // alert, whisper, system
+            let icon = '📡';
+            if (s.type === 'alert') icon = '⚠️';
+            if (s.type === 'whisper') icon = '💬';
+
+            return `
+                <div class="shine-msg ${typeClass}">
+                    <div class="shine-msg-header">
+                        <span>${icon} ${s.type.toUpperCase()}</span>
+                        <span>${s.time}</span>
+                    </div>
+                    <div class="shine-msg-body">
+                        ${s.content}
+                    </div>
+                    ${s.type !== 'system' ? `
+                    <div class="shine-actions">
+                        <button class="shine-action-btn">👍 12</button>
+                        <button class="shine-action-btn">↩️ 回复</button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    },
+
+    broadcast() {
+        const msg = prompt("请输入要发射的信号内容:");
+        if (msg) {
+            this.signals.unshift({
+                type: 'whisper',
+                content: msg,
+                time: 'Just now'
+            });
+            this.renderFeed();
+            alert("信号已发射！附近的用户将收到通知。");
+        }
+    },
+
+    claim() {
+        alert("已在此处插旗！(Mock)");
+    }
+};
+
+// Global hooks for HTML onclick
+window.openShineDrawer = () => ShineChannel.toggleDrawer(true);
+window.closeShineDrawer = () => ShineChannel.toggleDrawer(false);
+window.shineBroadcast = () => ShineChannel.broadcast();
+window.shineClaim = () => ShineChannel.claim();
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    ShineChannel.init();
 });
 </script>
 </body>

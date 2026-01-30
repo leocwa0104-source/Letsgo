@@ -1,5 +1,5 @@
 const HKWL = (() => {
-  console.log("Main.js v106 loaded");
+  console.log("Main.js v119 loaded");
   // Auth Check
   if (typeof Auth !== 'undefined' && 
       !window.location.pathname.endsWith('login.html')) {
@@ -17,6 +17,7 @@ const HKWL = (() => {
   function getPlanKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_plan`); }
   function getCollapsedKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_collapsed`); }
   function getSettingsKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_settings`); }
+  function getFlippedKey() { return Auth.getUserKey(`${currentPlanId}_wishlist_flipped`); }
 
   // --- User Feature Helper Functions ---
   function getUserId() {
@@ -35,18 +36,59 @@ const HKWL = (() => {
         try {
             const plans = getPlans();
             const p = plans.find(x => x.id === currentPlanId);
-            // If p.collaborators is populated (objects), map to standardized structure
-            // If it's IDs (strings), we might need to fetch info, but for now assume objects if available
-            // Note: CloudSync/API usually populates this
-            if (p && Array.isArray(p.collaborators)) {
-                return p.collaborators.map(c => {
+            if (!p) return [];
+
+            let list = [];
+            const myId = getUserId();
+
+            // 1. Add Owner (if not me)
+            if (p.owner) {
+                const ownerId = (typeof p.owner === 'object') ? (p.owner._id || p.owner.id) : p.owner;
+                if (ownerId && ownerId !== myId) {
+                    let ownerObj = { 
+                        id: ownerId, 
+                        name: "Owner", 
+                        avatar: null,
+                        role: 'owner'
+                    };
+                    if (typeof p.owner === 'object') {
+                        ownerObj.name = p.owner.nickname || p.owner.username || "Owner";
+                        ownerObj.avatar = p.owner.avatar;
+                    }
+                    list.push(ownerObj);
+                }
+            }
+
+            // 2. Add Collaborators
+            if (Array.isArray(p.collaborators)) {
+                const collabs = p.collaborators.map(c => {
                     if (!c) return null;
                     if (typeof c === 'object') {
-                        return { id: c._id || c.id || c.friendId, name: c.nickname || c.username || c.friendId, avatar: c.avatar };
+                        return { 
+                            id: c._id || c.id || c.friendId, 
+                            name: c.nickname || c.username || c.friendId, 
+                            avatar: c.avatar,
+                            role: 'collaborator'
+                        };
                     }
-                    return { id: c, name: c, avatar: null }; // Fallback for raw IDs
+                    return { id: c, name: c, avatar: null, role: 'collaborator' }; 
                 }).filter(Boolean);
+                list = list.concat(collabs);
             }
+            
+            // 3. Deduplicate and filter me
+            const uniqueList = [];
+            const seenIds = new Set();
+            
+            list.forEach(item => {
+                if (item.id === myId) return;
+                if (!seenIds.has(item.id)) {
+                    seenIds.add(item.id);
+                    uniqueList.push(item);
+                }
+            });
+
+            return uniqueList;
         } catch(e) { console.error("Error getting collaborators", e); }
         return [];
     }
@@ -291,7 +333,12 @@ const HKWL = (() => {
                           showToast("检测到同步循环，停止自动刷新。请手动刷新页面。", "error");
                           isReloading = false;
                       } else {
-                          window.location.reload();
+                          // window.location.reload();
+                          console.warn("Data synced from cloud. Soft refresh triggered instead of reload to prevent double-refresh.");
+                          // showToast("云端数据已同步", "success");
+                          isReloading = false;
+                          if (typeof internalRefresh === 'function') internalRefresh();
+                          if (typeof renderWishlistPage === 'function') renderWishlistPage();
                       }
                   } else {
                       isReloading = false; // Release lock if no reload needed
@@ -583,6 +630,21 @@ const HKWL = (() => {
             const prefix = username ? `${username}_` : "";
 
             // 1. Update/Add from Cloud
+            // Helper for deep equality to avoid key-order induced reload loops
+            const deepEqual = (x, y) => {
+                if (x === y) return true;
+                if (x === null || x === undefined || y === null || y === undefined) return x === y;
+                if (x.constructor !== y.constructor) return false;
+                if (typeof x !== 'object') return x === y;
+                const keysX = Object.keys(x);
+                const keysY = Object.keys(y);
+                if (keysX.length !== keysY.length) return false;
+                for (const key of keysX) {
+                    if (!Object.prototype.hasOwnProperty.call(y, key) || !deepEqual(x[key], y[key])) return false;
+                }
+                return true;
+            };
+
             for (const [key, value] of Object.entries(res.data)) {
                 const localVal = localStorage.getItem(key);
                 // Strict check: if strings are identical, skip
@@ -599,8 +661,9 @@ const HKWL = (() => {
                         
                         const cloudObj = JSON.parse(value);
                         const localObj = JSON.parse(localVal);
-                        // Quick canonicalization via stringify (not perfect but good enough for most stable JSON engines)
-                        if (JSON.stringify(cloudObj) === JSON.stringify(localObj)) {
+                        
+                        // Use deepEqual to ignore key order and formatting differences
+                        if (deepEqual(cloudObj, localObj)) {
                             isSemanticallyEqual = true;
                         }
                     }
@@ -610,8 +673,12 @@ const HKWL = (() => {
 
                 if (!isSemanticallyEqual) {
                     console.log(`Cloud sync update for key: ${key}`);
-                    // console.log(`Old: ${localVal?.slice(0, 50)}...`);
-                    // console.log(`New: ${value?.slice(0, 50)}...`);
+                    try {
+                        const oldPreview = localVal ? (localVal.length > 100 ? localVal.slice(0,100)+'...' : localVal) : 'null';
+                        const newPreview = value ? (value.length > 100 ? value.slice(0,100)+'...' : value) : 'null';
+                        console.log(`[Diff] Key: ${key}\nOld: ${oldPreview}\nNew: ${newPreview}`);
+                    } catch(e) {}
+
                     localStorage.setItem(key, value);
                     
                     // NEW: Update snapshot if this is a wishlist (for 3-way merge base)
@@ -635,6 +702,7 @@ const HKWL = (() => {
                 }
                 
                 if (keysToRemove.length > 0) {
+                    console.log("Removing local-only keys:", keysToRemove);
                     keysToRemove.forEach(k => localStorage.removeItem(k));
                     changed = true;
                 }
@@ -732,6 +800,7 @@ const HKWL = (() => {
       if (!plan) return false;
       
       plan.status = status;
+      plan.updatedAt = new Date().toISOString(); // Update timestamp locally
       window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
       markLocalDirty();
       
@@ -741,6 +810,15 @@ const HKWL = (() => {
               if (typeof CloudSync !== 'undefined' && CloudSync.isLoggedIn()) {
                   // Pass null for title/content to avoid side effects/permission errors
                   const res = await CloudSync.updatePlan(cloudId, null, null, status);
+                  if (res && res.plan && res.plan.updatedAt) {
+                      // Update with server timestamp if available
+                      const freshPlans = getPlans();
+                      const freshPlan = freshPlans.find(p => p.id === id);
+                      if (freshPlan) {
+                          freshPlan.updatedAt = res.plan.updatedAt;
+                          window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
+                      }
+                  }
                   if (res.error) {
                       console.error("Cloud status update failed:", res.error);
                       showToast("云端状态更新失败: " + res.error, "error");
@@ -758,15 +836,17 @@ const HKWL = (() => {
       if (!newTitle) return false;
       
       // 1. Update Index
-      const plans = getPlans();
-      const plan = plans.find(p => p.id === id);
-      if (!plan) return false;
-      
-      plan.title = newTitle;
-      window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
-      markLocalDirty();
+    const plans = getPlans();
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return false;
+    
+    plan.title = newTitle;
+    // Update local timestamp immediately to prevent race conditions during sync
+    plan.updatedAt = new Date().toISOString();
+    window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+    markLocalDirty();
 
-      // 2. Update Settings for that plan
+    // 2. Update Settings for that plan
       const settingsKey = Auth.getUserKey(`${id}_wishlist_settings`);
       let settings = {};
       try {
@@ -778,20 +858,33 @@ const HKWL = (() => {
       window.localStorage.setItem(settingsKey, JSON.stringify(settings));
 
       // 3. Update Cloud Plan Metadata (Title)
-      if (plan.isCloud || plan.cloudId) {
-          const cloudId = plan.cloudId || plan.id;
-          try {
-              if (typeof CloudSync !== 'undefined' && CloudSync.isLoggedIn()) {
-                  await CloudSync.updatePlan(cloudId, newTitle);
-              }
-          } catch(e) {
-              console.error("Failed to update cloud plan title", e);
-          }
-      }
+    if (plan.isCloud || plan.cloudId) {
+        const cloudId = plan.cloudId || plan.id;
+        try {
+            if (typeof CloudSync !== 'undefined' && CloudSync.isLoggedIn()) {
+                const res = await CloudSync.updatePlan(cloudId, newTitle);
+                // If server returns updated plan with timestamp, sync it to prevent drift
+                if (res && res.plan && res.plan.updatedAt) {
+                    const freshPlans = getPlans();
+                    const freshPlan = freshPlans.find(p => p.id === id);
+                    if (freshPlan) {
+                        freshPlan.updatedAt = res.plan.updatedAt;
+                        window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
+                    }
+                }
+            }
+        } catch(e) {
+            console.error("Failed to update cloud plan title", e);
+        }
+    }
 
       // 4. Sync storage
-      return await syncToCloud();
-  }
+    const res = await syncToCloud();
+    if (typeof HKWL !== 'undefined' && HKWL.refreshBlockView) {
+        HKWL.refreshBlockView();
+    }
+    return res;
+}
 
   async function deletePlan(id) {
       let plans = getPlans();
@@ -914,9 +1007,11 @@ const HKWL = (() => {
       if (settings.title) {
           const plans = getPlans();
           const plan = plans.find(p => p.id === targetId);
+          const now = new Date().toISOString();
           
           if (plan) {
               plan.title = settings.title;
+              plan.updatedAt = now;
               window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
           } else {
               console.warn(`Plan ${targetId} not found in index, reloading plans...`);
@@ -925,6 +1020,7 @@ const HKWL = (() => {
               const freshPlan = freshPlans.find(p => p.id === targetId);
               if (freshPlan) {
                   freshPlan.title = settings.title;
+                  freshPlan.updatedAt = now;
                   window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
               }
           }
@@ -936,7 +1032,15 @@ const HKWL = (() => {
               try {
                   // Update title in cloud DB so it reflects in project list
                   console.log(`Syncing title to cloud for ${cloudId}: ${settings.title}`);
-                  await CloudSync.updatePlan(cloudId, settings.title);
+                  const res = await CloudSync.updatePlan(cloudId, settings.title);
+                  if (res && res.plan && res.plan.updatedAt) {
+                      const freshPlans = getPlans();
+                      const freshPlan = freshPlans.find(p => p.id === targetId);
+                      if (freshPlan) {
+                          freshPlan.updatedAt = res.plan.updatedAt;
+                          window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(freshPlans));
+                      }
+                  }
               } catch(e) {
                   console.error("Failed to sync title to cloud plan metadata", e);
               }
@@ -1266,6 +1370,27 @@ const HKWL = (() => {
       console.error("保存折叠状态失败", e);
     }
   }
+  
+  function loadFlippedIds() {
+    try {
+      const raw = window.localStorage.getItem(getFlippedKey());
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (e) {
+      console.error("读取翻转状态失败", e);
+      return [];
+    }
+  }
+  
+  function saveFlippedIds(ids) {
+    try {
+      window.localStorage.setItem(getFlippedKey(), JSON.stringify(ids));
+    } catch (e) {
+      console.error("保存翻转状态失败", e);
+    }
+  }
 
   function createWish(data) {
     const now = new Date().toISOString();
@@ -1341,44 +1466,72 @@ const HKWL = (() => {
         titleEl.textContent = title;
       }
 
-      // --- Edit Plan Name Button Logic ---
-      const editBtn = document.getElementById('plan-name-edit-btn');
-      if (editBtn) {
-          editBtn.style.display = 'inline-block';
-          const newEditBtn = editBtn.cloneNode(true);
-          editBtn.parentNode.replaceChild(newEditBtn, editBtn);
-          
-          newEditBtn.onclick = async () => {
-               const newName = prompt('请输入新的计划名称:', title);
-               if(newName && newName !== title) {
-                   if (titleEl) titleEl.textContent = newName;
-                   document.title = newName;
-                   
-                   const settings = loadSettings();
-                   settings.title = newName;
-                   saveSettings(settings);
-                   
-                   // Update Local Plan Index if possible
-                   try {
-                       const plans = getPlans();
-                       const p = plans.find(x => x.id === currentPlanId);
-                       if (p) {
-                           p.title = newName;
-                           savePlans(plans);
-                       }
-                   } catch(e) {}
-                   
-                   if (currentPlanId && typeof CloudSync !== 'undefined' && CloudSync.isLoggedIn()) {
-                        try {
-                            await CloudSync.updatePlan(currentPlanId, newName, null, null);
-                            showToast('计划名称已更新', 'success');
-                        } catch(e) {
-                            showToast('同步名称失败: ' + e.message, 'error');
-                        }
-                   }
-               }
-          };
-      }
+    // --- Edit Plan Name Button Logic ---
+    const editBtn = document.getElementById('plan-name-edit-btn');
+    if (editBtn) {
+        // Check ownership
+        const userId = getUserId();
+        const plans = getPlans();
+        const p = plans.find(x => x.id === currentPlanId);
+        let isOwner = true;
+        if (p && p.owner) {
+             let ownerIdentifier = p.owner;
+             if (typeof p.owner === 'object') {
+                 // getUserId() returns the ID (token prefix), so we must use the ID from the owner object
+                 ownerIdentifier = p.owner._id || p.owner.id;
+             }
+             
+             if (ownerIdentifier && userId && ownerIdentifier !== userId) {
+                 isOwner = false;
+             }
+        }
+
+        if (!isOwner) {
+            editBtn.style.display = 'none';
+        } else {
+            editBtn.style.display = 'inline-block';
+            const newEditBtn = editBtn.cloneNode(true);
+            editBtn.parentNode.replaceChild(newEditBtn, editBtn);
+            
+            newEditBtn.onclick = async () => {
+                 const newName = prompt('请输入新的计划名称:', title);
+                 if(newName && newName !== title) {
+                     if (titleEl) titleEl.textContent = newName;
+                     document.title = newName;
+                     
+                     // IMPORTANT: Update local plan index FIRST to ensure syncCurrentPlanFromCloud 
+                     // doesn't revert it or get confused
+                     try {
+                         const plans = getPlans();
+                         const p = plans.find(x => x.id === currentPlanId);
+                         if (p) {
+                             p.title = newName;
+                             window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+                         }
+                     } catch(e) {}
+
+                     const settings = loadSettings();
+                     settings.title = newName;
+                     saveSettings(settings); // This triggers syncToCloud
+                     
+                     if (currentPlanId && typeof CloudSync !== 'undefined' && CloudSync.isLoggedIn()) {
+                          try {
+                              // Force update cloud metadata
+                              await CloudSync.updatePlan(currentPlanId, newName, null, null);
+                              showToast('计划名称已更新', 'success');
+                          } catch(e) {
+                              showToast('同步名称失败: ' + e.message, 'error');
+                          }
+                     }
+                     
+                     // Force refresh to ensure everything is consistent
+                     setTimeout(() => {
+                        if (typeof internalRefresh === 'function') internalRefresh();
+                     }, 500);
+                 }
+            };
+        }
+    }
     }
 
     // --- Delete/Leave Plan Button Logic ---
@@ -1580,6 +1733,7 @@ const HKWL = (() => {
     planState.currentDay = currentDay;
     let planIds = planState.days[currentDay - 1] || [];
     const collapsedIds = new Set(loadCollapsedIds());
+    const flippedIds = new Set(loadFlippedIds());
 
     if (!listEl) {
       return;
@@ -2037,138 +2191,175 @@ const HKWL = (() => {
 
     // Phase 3: Share Modal
     function openShareModal(itemId, subItemId, type) { 
-        console.log("Opening share modal", { itemId, subItemId, type });
-        // alert("DEBUG: Inside openShareModal");
+        // console.log("Opening share modal", { itemId, subItemId, type });
         
-        let collaborators = [];
         try {
-            collaborators = getCurrentPlanCollaborators().filter(c => c.id !== getUserId());
-        } catch (e) {
-            console.error("Error getting collaborators:", e);
-            collaborators = [];
-        }
-        
-        // Always open modal, even if no collaborators
-        
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay share-modal-overlay'; // Added unique class
-        // Force high z-index and visibility
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:20000 !important;';
-        
-        modal.innerHTML = `
-            <div class="modal-content" style="background:#fff;padding:20px;border-radius:12px;width:90%;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.2);position:relative;z-index:20001;">
-                <h3 style="margin-top:0;margin-bottom:15px;text-align:center;">分享 / 分发</h3>
-                <div class="collaborator-list" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
-                    ${collaborators.length > 0 ? collaborators.map(c => `
-                        <div class="collaborator-item" data-id="${c.id}" data-name="${c.name}" style="padding:12px;border-bottom:1px solid #eee;cursor:pointer;display:flex;align-items:center;">
-                            <div style="width:32px;height:32px;border-radius:50%;background:#eee;margin-right:10px;overflow:hidden;">
-                                ${c.avatar ? `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;color:#999;">${c.name[0]}</span>`}
-                            </div>
-                            <span>${c.name}</span>
-                        </div>
-                    `).join('') : 
-                    `<div style="padding:20px;text-align:center;color:#999;font-size:0.9em;">
-                        暂无其他协作成员<br>
-                        <span style="font-size:0.85em;color:#ccc;">请先邀请好友加入计划</span>
-                     </div>`
+            // Remove existing modals if any
+            const existing = document.querySelectorAll('.share-modal-overlay-v2');
+            existing.forEach(el => el.remove());
+
+            // Ensure global access
+            if (typeof window !== 'undefined') {
+                window.openShareModal = openShareModal;
+            }
+
+            let collaborators = [];
+            try {
+                if (typeof getCurrentPlanCollaborators === 'function') {
+                    collaborators = getCurrentPlanCollaborators();
+                    if (Array.isArray(collaborators)) {
+                        collaborators = collaborators.filter(c => c && c.id !== getUserId());
+                    } else {
+                        collaborators = [];
                     }
-                </div>
-                <div id="share-actions" style="display:none;margin-top:15px;text-align:center;">
-                    <p style="margin:5px 0;color:#666;font-size:0.9em;">已选择: <span id="selected-collab-name" style="font-weight:bold;color:#333;"></span></p>
-                    <button id="btn-distribute" style="width:100%;padding:10px;margin-bottom:8px;background:#ff9800;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分发 (移交所有权)</button>
-                    <div style="font-size:0.8em;color:#999;margin-bottom:10px;">数据将从您的列表中移除，转移给对方</div>
-                    <button id="btn-share" style="width:100%;padding:10px;background:#2196f3;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分享 (共享查看)</button>
-                    <div style="font-size:0.8em;color:#999;">对方可见，您保留所有权</div>
-                </div>
-                <button class="modal-close-btn-share" style="width:100%;padding:10px;margin-top:15px;background:#f5f5f5;border:none;border-radius:6px;cursor:pointer;">取消</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
+                    console.log("Collaborators found:", collaborators);
+                }
+            } catch (e) {
+                console.error("Error getting collaborators:", e);
+                collaborators = [];
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay share-modal-overlay-v2'; 
+            // Aggressive styles to ensure visibility
+            modal.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: rgba(0,0,0,0.75) !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                z-index: 2147483647 !important; /* Max Safe Integer */
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                transform: none !important;
+            `;
+            
+            const getSafeName = (name) => name || '未知用户';
+            const getSafeInitial = (name) => (name && name.length > 0) ? name[0] : '?';
 
-        let selectedUserId = null;
+            // Safe HTML generation
+            const renderCollaborators = () => {
+                if (!collaborators || collaborators.length === 0) {
+                     return `<div style="padding:20px;text-align:center;color:#999;font-size:0.9em;">
+                            暂无其他协作成员<br>
+                            <span style="font-size:0.85em;color:#ccc;">请先邀请好友加入计划</span>
+                         </div>`;
+                }
+                return collaborators.map(c => {
+                    const safeName = getSafeName(c.name);
+                    const safeInitial = getSafeInitial(c.name);
+                    const safeAvatar = c.avatar || '';
+                    const roleBadge = (c.role === 'owner') 
+                        ? `<span style="background:#ff9800;color:white;font-size:0.7em;padding:2px 6px;border-radius:4px;margin-left:8px;">创建者</span>` 
+                        : '';
 
-        // Select Collaborator
-        modal.querySelectorAll('.collaborator-item').forEach(item => {
-            item.addEventListener('click', () => {
-                modal.querySelectorAll('.collaborator-item').forEach(i => i.style.background = 'transparent');
-                item.style.background = '#e3f2fd';
-                selectedUserId = item.dataset.id;
-                modal.querySelector('#selected-collab-name').textContent = item.dataset.name;
-                modal.querySelector('#share-actions').style.display = 'block';
+                    return `
+                        <div class="collaborator-item" data-id="${c.id}" data-name="${safeName}" style="padding:12px;border-bottom:1px solid #eee;cursor:pointer;display:flex;align-items:center;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#eee;margin-right:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;">
+                                ${safeAvatar ? `<img src="${safeAvatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="color:#999;">${safeInitial}</span>`}
+                            </div>
+                            <span>${safeName}</span>
+                            ${roleBadge}
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            modal.innerHTML = `
+                <div class="modal-content" style="background:#fff;padding:20px;border-radius:12px;width:90%;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.5);position:relative;z-index:2147483647;">
+                    <h3 style="margin-top:0;margin-bottom:15px;text-align:center;color:#333;">分享 / 分发</h3>
+                    <div class="collaborator-list" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+                        ${renderCollaborators()}
+                    </div>
+                    <div id="share-actions" style="display:none;margin-top:15px;text-align:center;">
+                        <p style="margin:5px 0;color:#666;font-size:0.9em;">已选择: <span id="selected-collab-name" style="font-weight:bold;color:#333;"></span></p>
+                        <button id="btn-distribute" style="width:100%;padding:10px;margin-bottom:8px;background:#ff9800;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分发 (移交所有权)</button>
+                        <div style="font-size:0.8em;color:#999;margin-bottom:10px;">数据将从您的列表中移除，转移给对方</div>
+                        <button id="btn-share" style="width:100%;padding:10px;background:#2196f3;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">分享 (共享查看)</button>
+                        <div style="font-size:0.8em;color:#999;">对方可见，您保留所有权</div>
+                    </div>
+                    <button class="modal-close-btn-share" style="width:100%;padding:10px;margin-top:15px;background:#f5f5f5;border:none;border-radius:6px;cursor:pointer;color:#333;">取消</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            let selectedUserId = null;
+
+            // Select Collaborator
+            modal.querySelectorAll('.collaborator-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    modal.querySelectorAll('.collaborator-item').forEach(i => i.style.background = 'transparent');
+                    item.style.background = '#e3f2fd';
+                    selectedUserId = item.dataset.id;
+                    modal.querySelector('#selected-collab-name').textContent = item.dataset.name;
+                    modal.querySelector('#share-actions').style.display = 'block';
+                });
             });
-        });
 
-        // Distribute Action
-        const btnDistribute = modal.querySelector('#btn-distribute');
-        if (btnDistribute) {
-            btnDistribute.addEventListener('click', () => {
-                if (!selectedUserId) return;
-                if (confirm(`确定要将此项目分发给 ${modal.querySelector('#selected-collab-name').textContent} 吗？它将从您的列表中移除。`)) {
+            // Distribute Action
+            const btnDistribute = modal.querySelector('#btn-distribute');
+            if (btnDistribute) {
+                btnDistribute.addEventListener('click', () => {
+                    if (!selectedUserId) return;
+                    if (confirm(`确定要将此项目分发给 ${modal.querySelector('#selected-collab-name').textContent} 吗？它将从您的列表中移除。`)) {
+                        updateWishlistItem(itemId, (itm) => {
+                            const list = type === 'ticket' ? itm.tickets : itm.reminders;
+                            const target = list.find(t => t.id === subItemId);
+                            if (target) {
+                                target.owner = selectedUserId;
+                                target.sharedWith = []; // Reset sharing if distributed
+                            }
+                        });
+                        modal.remove();
+                        // Refresh parent modal
+                        if (type === 'ticket') openTicketModal(itemId);
+                        if (type === 'reminder') openReminderModal(itemId);
+                    }
+                });
+            }
+
+            // Share Action
+            const btnShare = modal.querySelector('#btn-share');
+            if (btnShare) {
+                btnShare.addEventListener('click', () => {
+                    if (!selectedUserId) return;
                     updateWishlistItem(itemId, (itm) => {
                         const list = type === 'ticket' ? itm.tickets : itm.reminders;
                         const target = list.find(t => t.id === subItemId);
                         if (target) {
-                            target.owner = selectedUserId;
-                            target.sharedWith = []; // Reset sharing if distributed
+                            if (!target.sharedWith) target.sharedWith = [];
+                            if (!target.sharedWith.includes(selectedUserId)) {
+                                target.sharedWith.push(selectedUserId);
+                            }
                         }
                     });
+                    alert(`已分享给 ${modal.querySelector('#selected-collab-name').textContent}`);
                     modal.remove();
-                    // Refresh parent modal
-                    if (type === 'ticket') openTicketModal(itemId);
-                    if (type === 'reminder') openReminderModal(itemId);
-                }
-            });
-        }
-
-        // Share Action
-        const btnShare = modal.querySelector('#btn-share');
-        if (btnShare) {
-            btnShare.addEventListener('click', () => {
-                if (!selectedUserId) return;
-                updateWishlistItem(itemId, (itm) => {
-                    const list = type === 'ticket' ? itm.tickets : itm.reminders;
-                    const target = list.find(t => t.id === subItemId);
-                    if (target) {
-                        if (!target.sharedWith) target.sharedWith = [];
-                        if (!target.sharedWith.includes(selectedUserId)) {
-                            target.sharedWith.push(selectedUserId);
-                        }
-                    }
                 });
-                alert(`已分享给 ${modal.querySelector('#selected-collab-name').textContent}`);
+            }
+
+            modal.querySelector('.modal-close-btn-share').addEventListener('click', () => {
                 modal.remove();
             });
-        }
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
 
-        modal.querySelector('.modal-close-btn-share').addEventListener('click', () => {
-            modal.remove();
-        });
-        
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
+        } catch (fatalError) {
+            console.error("FATAL ERROR in openShareModal:", fatalError);
+            alert("无法打开分享面板: " + fatalError.message);
+        }
     }
 
-    // Global Safe Share Click Handler
-    window.safeShareClick = function(e, itemId, subItemId, type) {
-        if (e) {
-            e.stopPropagation();
-            e.preventDefault();
-        }
-        console.log('Safe share click:', { itemId, subItemId, type });
-        // showToast('正在打开分享...', 'info'); // Feedback
-        try {
-            if (typeof openShareModal === 'function') {
-                openShareModal(itemId, subItemId, type);
-            } else {
-                alert('系统错误: 分享功能未初始化，请刷新页面重试');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('打开分享失败: ' + err.message);
-        }
-        return false;
-    };
+    // Expose openShareModal globally for inline onclick access
+    window.openShareModal = openShareModal;
 
     function openTicketModal(itemId) {
         const item = getWishlistItem(itemId);
@@ -2215,7 +2406,7 @@ const HKWL = (() => {
                         </div>
                         ${contentHtml}
                     </div>
-                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" onclick="window.safeShareClick(event, '${itemId}', '${t.id}', 'ticket')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!t.owner || t.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${t.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:100;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${t.id}">&times;</button>
                 </div>
              `;
@@ -2241,6 +2432,23 @@ const HKWL = (() => {
                 <button class="feature-btn" id="add-ticket-btn">添加票券</button>
             </div>
         `;
+
+        // Bind Share Button Events (Event Delegation for Robustness)
+        content.addEventListener('click', (e) => {
+            const btn = e.target.closest('.feature-share-btn');
+            if (btn) {
+                e.stopPropagation();
+                e.preventDefault(); // Prevent default
+                const ticketId = btn.dataset.id;
+                console.log('Ticket Share Clicked:', ticketId);
+                try {
+                    openShareModal(itemId, ticketId, 'ticket');
+                } catch (err) {
+                    console.error('Open Share Modal Error:', err);
+                    alert('系统错误: 无法打开分享面板 (' + err.message + ')');
+                }
+            }
+        });
 
         content.querySelector('.action-panel-close').addEventListener('click', () => modal.remove());
         
@@ -2305,34 +2513,8 @@ const HKWL = (() => {
             }
         });
 
-        // Event Delegation for Share Button
-        content.addEventListener('click', (e) => {
-            const shareBtn = e.target.closest('.feature-share-btn');
-            if (shareBtn) {
-                e.preventDefault(); // Stop default action
-                e.stopPropagation(); // Stop bubbling
-                
-                const id = shareBtn.dataset.id;
-                console.log('Share btn clicked via delegation', { itemId, id, type: 'ticket' });
-                // alert('DEBUG: Share button clicked! ID: ' + id); // Debug alert
-                
-                try { 
-                    openShareModal(itemId, id, 'ticket'); 
-                } catch(err) { 
-                    console.error(err);
-                    alert("打开分享窗口失败: " + err.message);
-                }
-            }
-        });
-
         /* 
-        content.querySelectorAll('.feature-share-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = e.currentTarget.dataset.id;
-                console.log('Share btn clicked in Ticket Modal', { itemId, id, type: 'ticket' });
-                openShareModal(itemId, id, 'ticket');
-            });
-        });
+           Cleaned up legacy event listeners 
         */
 
         content.querySelectorAll('.feature-delete-btn').forEach(btn => {
@@ -2386,7 +2568,7 @@ const HKWL = (() => {
                         </div>
                         <div class="feature-item-subtitle">${r.message}</div>
                     </div>
-                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" onclick="window.safeShareClick(event, '${itemId}', '${r.id}', 'reminder')" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
+                    ${(!r.owner || r.owner === currentUserId) ? `<button class="feature-share-btn" data-id="${r.id}" style="margin-right:8px;background:white;border:1px solid #ddd;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.2em;position:relative;z-index:10;display:flex;align-items:center;justify-content:center;" title="分享/分发">➦</button>` : ''}
                     <button class="feature-delete-btn" data-id="${r.id}">&times;</button>
                 </div>
              `).join('');
@@ -2406,6 +2588,23 @@ const HKWL = (() => {
                 <button class="feature-btn" id="add-reminder-btn">添加提醒</button>
             </div>
         `;
+
+        // Bind Share Button Events (Event Delegation for Robustness)
+        content.addEventListener('click', (e) => {
+            const btn = e.target.closest('.feature-share-btn');
+            if (btn) {
+                e.stopPropagation();
+                e.preventDefault();
+                const reminderId = btn.dataset.id;
+                console.log('Reminder Share Clicked:', reminderId);
+                try {
+                    openShareModal(itemId, reminderId, 'reminder');
+                } catch (err) {
+                    console.error('Open Share Modal Error:', err);
+                    alert('系统错误: 无法打开分享面板 (' + err.message + ')');
+                }
+            }
+        });
 
         content.querySelector('.action-panel-close').addEventListener('click', () => modal.remove());
 
@@ -2430,31 +2629,8 @@ const HKWL = (() => {
             openReminderModal(itemId);
         });
 
-        // Event Delegation for Share Button
-        content.addEventListener('click', (e) => {
-            const shareBtn = e.target.closest('.feature-share-btn');
-            if (shareBtn) {
-                e.stopPropagation();
-                const id = shareBtn.dataset.id;
-                console.log('Share btn clicked via delegation', { itemId, id, type: 'reminder' });
-                
-                try { 
-                    openShareModal(itemId, id, 'reminder'); 
-                } catch(err) { 
-                    console.error(err);
-                    showToast("打开分享窗口失败: " + err.message, "error");
-                }
-            }
-        });
-
         /*
-        content.querySelectorAll('.feature-share-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = e.currentTarget.dataset.id;
-                console.log('Share btn clicked in Reminder Modal', { itemId, id, type: 'reminder' });
-                openShareModal(itemId, id, 'reminder');
-            });
-        });
+           Cleaned up legacy event listeners
         */
 
         content.querySelectorAll('.feature-delete-btn').forEach(btn => {
@@ -2564,6 +2740,9 @@ const HKWL = (() => {
       if (item.type !== "note" && collapsedIds.has(item.id)) {
         div.classList.add("collapsed");
       }
+      if (flippedIds.has(item.id)) {
+        div.classList.add("is-flipped");
+      }
 
       // Mobile Click to Flip Logic
       div.addEventListener("click", (e) => {
@@ -2575,7 +2754,15 @@ const HKWL = (() => {
           // Simple mobile detection
           const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
           if (isMobile) {
-              div.classList.toggle('is-flipped');
+              const nowFlipped = !div.classList.contains('is-flipped');
+              if (nowFlipped) {
+                  div.classList.add('is-flipped');
+                  flippedIds.add(item.id);
+              } else {
+                  div.classList.remove('is-flipped');
+                  flippedIds.delete(item.id);
+              }
+              saveFlippedIds(Array.from(flippedIds));
           }
       });
 
@@ -2621,7 +2808,7 @@ const HKWL = (() => {
         hasTypeBadge = true;
       }
       if (hasTypeBadge) {
-        headerContent.appendChild(typeBadge);
+        // headerContent.appendChild(typeBadge); // Removed type badge
       }
 
       if (item.type !== "note") {
@@ -2632,6 +2819,8 @@ const HKWL = (() => {
 
       header.appendChild(headerContent);
 
+      // TOGGLE BTN REMOVED BY REQUEST
+      /*
       if (item.type !== "note") {
         const toggleBtn = document.createElement("div");
         toggleBtn.className = "card-toggle-btn";
@@ -2648,6 +2837,7 @@ const HKWL = (() => {
         });
         header.appendChild(toggleBtn);
       }
+      */
 
       front.appendChild(header);
 
@@ -2718,6 +2908,7 @@ const HKWL = (() => {
         details.appendChild(spacer);
       }
 
+      /* DETAILS REMOVED FOR NON-NOTES
       if (item.type === "food") {
         if (item.mealType) {
           const meal = document.createElement("p");
@@ -2757,62 +2948,58 @@ const HKWL = (() => {
           details.appendChild(location);
         }
       }
+      */
 
       const actions = document.createElement("div");
       actions.className = "card-actions";
 
-      // Always show edit button
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.className = "btn btn-icon";
-      editBtn.title = "编辑";
-      editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>`;
-      editBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        navigateEdit(item.id);
-      });
-      actions.appendChild(editBtn);
-
-      const copyBtn = document.createElement("button");
-      copyBtn.type = "button";
-      copyBtn.className = "btn btn-icon";
-      copyBtn.title = "复制";
-      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2Zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H6ZM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1H2Z"/></svg>`;
-      copyBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        handleCopy(item.id);
-      });
-      actions.appendChild(copyBtn);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.className = "btn btn-icon";
-      deleteBtn.title = "删除";
-      deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>`;
-      deleteBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        handleDelete(item.id);
-      });
-      actions.appendChild(deleteBtn);
-
+      // ACTIONS REMOVED BY REQUEST
+      // editBtn, copyBtn, deleteBtn removed
+      
       front.appendChild(details);
-      front.appendChild(actions);
+      // front.appendChild(actions); // Removed actions bar from DOM
 
       // Indicators
       const indicators = document.createElement('div');
       indicators.className = 'card-indicators';
       
+      // Indicators Logic with Owner Filtering
+      const currentUserId = getUserId();
+
       if (item.tickets && item.tickets.length > 0) {
-          const tBadge = document.createElement('span');
-          tBadge.className = 'indicator-icon';
-          tBadge.textContent = '🎫 ' + item.tickets.length;
-          indicators.appendChild(tBadge);
+          let tCount = item.tickets.length;
+          if (currentUserId) {
+              tCount = item.tickets.filter(t => 
+                  !t.owner || 
+                  t.owner === currentUserId || 
+                  (t.sharedWith && t.sharedWith.includes(currentUserId))
+              ).length;
+          }
+
+          if (tCount > 0) {
+              const tBadge = document.createElement('span');
+              tBadge.className = 'indicator-icon';
+              tBadge.textContent = '🎫 ' + tCount;
+              indicators.appendChild(tBadge);
+          }
       }
+
       if (item.reminders && item.reminders.length > 0) {
-          const rBadge = document.createElement('span');
-          rBadge.className = 'indicator-icon';
-          rBadge.textContent = '⏰ ' + item.reminders.length;
-          indicators.appendChild(rBadge);
+          let rCount = item.reminders.length;
+          if (currentUserId) {
+              rCount = item.reminders.filter(r => 
+                  !r.owner || 
+                  r.owner === currentUserId || 
+                  (r.sharedWith && r.sharedWith.includes(currentUserId))
+              ).length;
+          }
+
+          if (rCount > 0) {
+              const rBadge = document.createElement('span');
+              rBadge.className = 'indicator-icon';
+              rBadge.textContent = '⏰ ' + rCount;
+              indicators.appendChild(rBadge);
+          }
       }
       if (indicators.children.length > 0) {
           front.appendChild(indicators);
@@ -2953,10 +3140,29 @@ const HKWL = (() => {
     }
     renderWishlistColumn();
 
+    let lastRefreshFingerprint = "";
+
     // Assign internalRefresh
     internalRefresh = () => {
-        list = loadWishlist();
-        planState = loadPlanState();
+        const currentList = loadWishlist();
+        const currentPlanState = loadPlanState();
+        
+        // Generate a fingerprint to avoid redundant re-renders
+        const currentFingerprint = JSON.stringify({
+            list: currentList,
+            planState: currentPlanState,
+            currentDay: currentPlanState.currentDay,
+            currentPlanId: currentPlanId
+        });
+
+        if (currentFingerprint === lastRefreshFingerprint) {
+            // console.log("Data hasn't changed, skipping internalRefresh");
+            return;
+        }
+        lastRefreshFingerprint = currentFingerprint;
+
+        list = currentList;
+        planState = currentPlanState;
         // Respect currentDay from storage if available (allows map mode to switch days)
         if (planState.currentDay) {
             currentDay = planState.currentDay;
@@ -4838,18 +5044,31 @@ const HKWL = (() => {
                   changed = true; // Mark as changed to trigger UI refresh
               } else {
                   // Update existing plan metadata (status, title, etc)
-                  let metaChanged = false;
-                  const newStatus = cp.status || 'planning';
-                  if (plan.status !== newStatus) {
-                      plan.status = newStatus;
-                      metaChanged = true;
-                  }
-                  if (plan.title !== cp.title) {
-                      plan.title = cp.title;
-                      metaChanged = true;
-                  }
-                  
-                  // Update collaborators and owner to ensure share functionality works
+                let metaChanged = false;
+                
+                // Timestamp check to prevent overwriting local changes with stale cloud data
+                // Only overwrite if cloud data is actually newer than local data
+                const localTime = new Date(plan.updatedAt || 0).getTime();
+                const cloudTime = new Date(cp.updatedAt || 0).getTime();
+                
+                // If cloud is strictly newer, we accept it.
+                if (cloudTime > localTime) {
+                    const newStatus = cp.status || 'planning';
+                    if (plan.status !== newStatus) {
+                        plan.status = newStatus;
+                        metaChanged = true;
+                    }
+                    if (plan.title !== cp.title) {
+                        plan.title = cp.title;
+                        metaChanged = true;
+                    }
+                } else {
+                    if (plan.title && cp.title && plan.title !== cp.title) {
+                        needsPushBack = true;
+                    }
+                }
+                
+                // Update collaborators and owner to ensure share functionality works
                   if (JSON.stringify(plan.collaborators) !== JSON.stringify(cp.collaborators)) {
                       plan.collaborators = cp.collaborators;
                       metaChanged = true;
@@ -4861,6 +5080,20 @@ const HKWL = (() => {
                   
                   if (metaChanged) {
                       window.localStorage.setItem(getPlanIndexKey(), JSON.stringify(plans));
+                      
+                      // Also update settings to ensure immediate UI update via renderWishlistPage
+                      if (plan.title) {
+                           const settingsKey = Auth.getUserKey(`${plan.id}_wishlist_settings`);
+                           let settings = {};
+                           try {
+                               const raw = window.localStorage.getItem(settingsKey);
+                               if (raw) settings = JSON.parse(raw);
+                           } catch(e) {}
+                           settings.title = plan.title;
+                           window.localStorage.setItem(settingsKey, JSON.stringify(settings));
+                      }
+                      
+                      changed = true; // Trigger UI refresh
                   }
               }
 
@@ -4953,6 +5186,11 @@ const HKWL = (() => {
                       }
                   } else {
                       mergedPlanState = cloudPlanState;
+                  }
+
+                  // Preserve local currentDay (View State) to prevent interference from other users
+                  if (currentPlanState && currentPlanState.currentDay) {
+                      mergedPlanState.currentDay = currentPlanState.currentDay;
                   }
 
                   const currentStr = JSON.stringify(currentPlanState);
@@ -5147,6 +5385,7 @@ const HKWL = (() => {
     addItem,
     showToast,
     savePlanState,
+    savePlanStateLocal,
      formatDayTitle,
      inviteFriend,
      fetchAndMergeCloudPlans,

@@ -29,6 +29,20 @@
   </header>
 
   <main class="bento-container">
+    <!-- 0. The Horizon (Shine Channel) -->
+    <div class="bento-widget widget-horizon" id="shine-horizon-widget">
+      <div class="shine-widget-left">
+        <div class="shine-radar-icon"></div>
+        <span>Shine Channel</span>
+      </div>
+      <div class="shine-widget-right">
+        <div class="shine-ticker" id="shine-ticker-content">
+          <!-- Ticker items will be injected by JS -->
+          <div class="ticker-item">Scanning local frequencies...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 1. The Anchor (Shine) -->
     <div class="bento-widget widget-anchor">
       <div class="anchor-slider-container">
@@ -120,5 +134,27 @@
   <script src="manual.js"></script>
   <script src="main.js"></script>
   <script src="home.js?v=3" defer></script>
+
+  <!-- Shine Channel Drawer -->
+  <div class="shine-drawer" id="shine-drawer">
+    <div class="shine-drawer-header">
+      <div class="shine-drawer-title">
+        <div class="shine-radar-icon" style="width: 24px; height: 24px; border-width: 3px;"></div>
+        Shine Channel
+      </div>
+      <button class="shine-close-btn" id="shine-drawer-close">&times;</button>
+    </div>
+    <div class="shine-feed" id="shine-feed">
+      <!-- Messages injected here -->
+    </div>
+    <div class="shine-drawer-footer">
+      <button class="shine-input-btn shine-btn-claim">
+        <span>📍 Check In</span>
+      </button>
+      <button class="shine-input-btn shine-btn-broadcast">
+        <span>📡 Broadcast</span>
+      </button>
+    </div>
+  </div>
 </body>
 </html>

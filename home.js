@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const index = parseInt(dot.getAttribute('data-index'));
           updateSlider(index);
       });
-  });
+});
 
   // --- Plan Quick View Logic ---
   async function openPlanQuickView(circleEl, planId, planSummary) {
@@ -1212,4 +1212,188 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
       });
   }
+
+  // --- 6. Shine Channel (Horizon) Integration ---
+  class ShineChannel {
+      constructor() {
+          this.widget = document.getElementById('shine-horizon-widget');
+          this.drawer = document.getElementById('shine-drawer');
+          this.closeBtn = document.getElementById('shine-drawer-close');
+          this.tickerContent = document.getElementById('shine-ticker-content');
+          this.feed = document.getElementById('shine-feed');
+          
+          if (!this.widget || !this.drawer) return;
+          
+          this.init();
+      }
+
+      init() {
+          // 1. Ticker Animation
+          this.startTicker();
+          
+          // 2. Drawer Interaction
+          this.widget.addEventListener('click', () => this.openDrawer());
+          if(this.closeBtn) {
+              this.closeBtn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  this.closeDrawer();
+              });
+          }
+          
+          // Close on outside click
+          document.addEventListener('click', (e) => {
+              if (this.drawer.classList.contains('open') && 
+                  !this.drawer.contains(e.target) && 
+                  !this.widget.contains(e.target)) {
+                  this.closeDrawer();
+              }
+          });
+
+          // 3. Footer Actions
+          const claimBtn = this.drawer.querySelector('.shine-btn-claim');
+          const broadcastBtn = this.drawer.querySelector('.shine-btn-broadcast');
+          
+          if(claimBtn) {
+              claimBtn.addEventListener('click', () => {
+                  // Visual feedback for "Check In"
+                  const originalText = claimBtn.innerHTML;
+                  claimBtn.innerHTML = '<span>📍 Checked In!</span>';
+                  claimBtn.style.background = '#4caf50';
+                  setTimeout(() => {
+                      claimBtn.innerHTML = originalText;
+                      claimBtn.style.background = '';
+                      this.closeDrawer();
+                  }, 1500);
+              });
+          }
+          
+          if(broadcastBtn) {
+              broadcastBtn.addEventListener('click', () => {
+                  this.closeDrawer();
+                  if (typeof Mailbox !== 'undefined') {
+                      Mailbox.open();
+                  } else {
+                      alert("Comms Offline");
+                  }
+              });
+          }
+
+          // 4. Real Data
+          this.loadRealSignals();
+      }
+
+      openDrawer() {
+          this.drawer.classList.add('open');
+          // Refresh data when opening
+          this.loadRealSignals();
+      }
+
+      closeDrawer() {
+          this.drawer.classList.remove('open');
+      }
+
+      startTicker() {
+          const ambientMessages = [
+              "Scanning local frequencies...",
+              "System: Network optimal...",
+              "Searching for nearby anchors...",
+              "Weather: Clear skies in the digital realm...",
+              "Tip: Check 'The Spark' for daily inspiration..."
+          ];
+          
+          let index = 0;
+          const updateTicker = () => {
+              this.tickerContent.innerHTML = `<div class="ticker-item">${ambientMessages[index]}</div>`;
+              index = (index + 1) % ambientMessages.length;
+          };
+          
+          updateTicker(); // Initial
+          setInterval(updateTicker, 5000);
+      }
+      
+      async loadRealSignals() {
+          if (!this.feed) return;
+          
+          // Show loading state if empty
+          if (!this.feed.hasChildNodes()) {
+              this.feed.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">Scanning signals...</div>';
+          }
+
+          try {
+              let signals = [];
+              
+              // 1. Get Notifications from Mailbox (Reuse existing logic)
+              if (typeof Mailbox !== 'undefined' && Mailbox.getPendingNotifications) {
+                  const notifs = await Mailbox.getPendingNotifications();
+                  
+                  // Map Mailbox notifications to Shine Signals
+                  notifs.forEach(n => {
+                      let type = 'system';
+                      let title = 'System Signal';
+                      let body = '';
+                      let time = 'Now';
+                      
+                      if (n.kind === 'friend_request') {
+                          type = 'whisper';
+                          title = 'Friend Request';
+                          body = `${n.data.fromNickname || n.data.from} wants to connect.`;
+                      } else if (n.kind === 'plan_invitation') {
+                          type = 'whisper';
+                          title = 'Invitation';
+                          const sender = n.data.senderDisplay || n.data.sender;
+                          const planTitle = n.data.metadata.planTitle || 'a plan';
+                          body = `${sender} invited you to "${planTitle}".`;
+                      } else if (n.kind === 'announcement') {
+                          type = 'alert';
+                          title = 'Announcement';
+                          body = n.data.title || 'Important Update';
+                      } else if (n.kind === 'system_notification') {
+                          type = 'system';
+                          title = 'System Notification';
+                          body = n.data.content;
+                      }
+                      
+                      signals.push({ type, title, body, time, original: n });
+                  });
+              }
+              
+              // 2. Add some "ambient" signals if list is empty (to keep it alive)
+              if (signals.length === 0) {
+                  signals.push({ 
+                      type: 'system', 
+                      title: 'Status Normal', 
+                      body: 'No active signals in your sector.', 
+                      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                  });
+              }
+
+              // Render
+              this.feed.innerHTML = signals.map((s, i) => `
+                  <div class="shine-msg ${s.type}">
+                      <div class="shine-msg-header">
+                          <span style="font-weight:bold; text-transform:uppercase">${s.type}</span>
+                          <span>${s.time}</span>
+                      </div>
+                      <div class="shine-msg-body">
+                          <strong>${s.title}:</strong> ${s.body}
+                      </div>
+                      ${s.original ? `
+                      <div class="shine-actions">
+                          <button class="shine-action-btn" onclick="document.querySelector('.slide-present').scrollIntoView({behavior: 'smooth'}); document.getElementById('shine-drawer').classList.remove('open');">
+                              👁️ View in Anchor
+                          </button>
+                      </div>` : ''}
+                  </div>
+              `).join('');
+              
+          } catch (e) {
+              console.error('Failed to load signals', e);
+              this.feed.innerHTML = '<div style="padding:20px; text-align:center; color:#ff4d4f">Signal Lost (Network Error)</div>';
+          }
+      }
+  }
+
+  // Initialize Shine Channel
+  new ShineChannel();
+
 });

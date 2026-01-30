@@ -2136,8 +2136,10 @@
                 `;
                 
                 let isShineActive = false;
-                shineControl.onclick = () => {
-                    isShineActive = !isShineActive;
+                const toggleShine = (forceState = null) => {
+                    if (forceState !== null) isShineActive = forceState;
+                    else isShineActive = !isShineActive;
+
                     window.ShineMap.toggleLayer(isShineActive);
                     
                     const dot = document.getElementById('shine-status-dot');
@@ -2152,7 +2154,27 @@
                     }
                 };
 
+                shineControl.onclick = () => toggleShine();
                 document.getElementById('map-container').appendChild(shineControl);
+
+                // Auto-enable if ?shine=true or ?mode=shinemap
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('shine') === 'true' || urlParams.get('mode') === 'shinemap') {
+                     // Wait a bit for map to be ready
+                     setTimeout(() => {
+                        toggleShine(true);
+                        // Also Hide Planner UI
+                        const slider = document.getElementById('view-slider');
+                        if(slider) slider.style.display = 'none';
+                        const floatBtns = document.querySelector('.floating-add-wrapper');
+                        if(floatBtns) floatBtns.style.display = 'none';
+                        const daySelect = document.getElementById('day-select-container'); // Need to confirm ID
+                        if(daySelect) daySelect.style.display = 'none';
+                        
+                        // Try to hide the top bar brand container or modify it
+                        // Maybe just hide the specific planner controls
+                     }, 500);
+                }
             }
 
         } catch (e) {

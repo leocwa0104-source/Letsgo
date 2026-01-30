@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Prevent if clicking internal buttons (if any)
             if (e.target.closest('.shinemap-action')) return;
 
-            // Navigate to Planner in Map Mode
-            window.location.href = 'planner.html?mode=map';
+            // Navigate to Planner in Map Mode with Shine Enabled
+            window.location.href = 'planner.html?mode=map&shine=true';
         });
     }
 

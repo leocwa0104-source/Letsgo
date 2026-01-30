@@ -823,7 +823,29 @@
             font-size: 0.8rem;
         }
     }
-</style>
+/* ShineMap Mode Overrides */
+  body.shinemap-mode .site-header,
+  body.shinemap-mode .floating-add-wrapper,
+  body.shinemap-mode #day-select-container,
+  body.shinemap-mode #view-slider,
+  body.shinemap-mode .controls-toggle, 
+  body.shinemap-mode #map-controls,
+  body.shinemap-mode .amap-control-bar,
+  body.shinemap-mode .amap-toolbar {
+      display: none !important;
+  }
+  
+  body.shinemap-mode .view-wrapper {
+      margin-top: 0 !important;
+      height: 100vh !important;
+  }
+  
+  body.shinemap-mode #map-container {
+      height: 100vh !important;
+      top: 0 !important;
+      bottom: 0 !important;
+  }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -2163,16 +2185,6 @@
                      // Wait a bit for map to be ready
                      setTimeout(() => {
                         toggleShine(true);
-                        // Also Hide Planner UI
-                        const slider = document.getElementById('view-slider');
-                        if(slider) slider.style.display = 'none';
-                        const floatBtns = document.querySelector('.floating-add-wrapper');
-                        if(floatBtns) floatBtns.style.display = 'none';
-                        const daySelect = document.getElementById('day-select-container'); // Need to confirm ID
-                        if(daySelect) daySelect.style.display = 'none';
-                        
-                        // Try to hide the top bar brand container or modify it
-                        // Maybe just hide the specific planner controls
                      }, 500);
                 }
             }
@@ -2992,7 +3004,13 @@
 
     // Handle initial mode (e.g., from ShineMap widget)
     const modeParam = urlParams.get('mode');
-    if (modeParam === 'map') {
+    const isShineMode = modeParam === 'shinemap' || urlParams.get('shine') === 'true';
+
+    if (isShineMode) {
+        document.body.classList.add('shinemap-mode');
+    }
+
+    if (modeParam === 'map' || isShineMode) {
         // Ensure UI reflects map mode
         setTimeout(() => {
             if (typeof switchMode === 'function') {

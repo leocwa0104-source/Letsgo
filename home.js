@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (e.target.closest('.shinemap-action')) return;
 
             // Navigate to Planner in Map Mode with Shine Enabled
-            window.location.href = 'planner.html?mode=map&shine=true';
+            window.location.href = 'planner.html?mode=shinemap';
         });
     }
 

@@ -88,20 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Prevent if clicking internal buttons (if any)
             if (e.target.closest('.shinemap-action')) return;
 
-            // Trigger ShineMap toggle
-            if (window.ShineMap) {
-                // If map is not visible, show it
-                if (!window.ShineMap.isMapVisible) {
-                    window.ShineMap.toggleLayer(true);
-                } else {
-                    // If already visible, maybe zoom to user?
-                    // For now, toggle off if clicked again (or maybe keep it simple)
-                    // Let's just toggle for consistency with old behavior
-                    // window.ShineMap.toggleLayer(false); 
-                }
-            } else {
-                console.error("ShineMap instance not found");
-            }
+            // Navigate to Planner in Map Mode
+            window.location.href = 'planner.html?mode=map';
         });
     }
 

@@ -2967,6 +2967,17 @@
       // Init Data
     const urlParams = new URLSearchParams(window.location.search);
     let planId = urlParams.get('id');
+
+    // Handle initial mode (e.g., from ShineMap widget)
+    const modeParam = urlParams.get('mode');
+    if (modeParam === 'map') {
+        // Ensure UI reflects map mode
+        setTimeout(() => {
+            if (typeof switchMode === 'function') {
+                switchMode('map');
+            }
+        }, 100);
+    }
     
     // Cloud-only: Removed auto-promote logic.
     HKWL.setCurrentPlan(planId);

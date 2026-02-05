@@ -84,11 +84,15 @@ class MarketConsole {
                 });
                 
                 this.map.on('click', (e) => {
+                    // Check flag to see if this was a polygon click
+                    if (this._ignoreMapClick) {
+                        this._ignoreMapClick = false;
+                        return;
+                    }
+
                     // Deselect if clicking background
-                    if (this.selectedGrid) {
-                        // Check if click is on a grid polygon happens via polygon click handler
-                        // If we click here, it might be outside any grid
-                        // For now, let's keep selection if it's on a grid
+                    if (this.selectedGrids.size > 0) {
+                        this.clearSelection();
                     }
                 });
 
@@ -165,7 +169,8 @@ class MarketConsole {
 
                 // Click: Check distance to distinguish from drag
                 polygon.on('click', (e) => {
-                    e.originEvent.stopPropagation(); // Stop map click (deselect)
+                    // Do NOT stop propagation, or map drag state might get stuck.
+                    // Instead, use a flag to prevent map background click logic.
 
                     // Check if it was a drag (moved > 5px)
                     if (this._pressStartPixel) {
@@ -180,13 +185,15 @@ class MarketConsole {
                             return; // Drag detected, ignore selection
                         }
                     }
-
+                    
+                    // Mark as polygon click so map handler ignores it
+                    this._ignoreMapClick = true;
                     this.selectGrid(h3Index, polygon);
                 });
 
-                // Double Click (Disable)
+                // Double Click (Let it bubble to zoom/move map)
                 polygon.on('dblclick', (e) => {
-                    e.originEvent.stopPropagation();
+                    // Allow default map behavior (Zoom/Move)
                 });
 
                 this.grids.set(h3Index, polygon);

@@ -151,7 +151,7 @@ class MarketConsole {
                     fillColor: "#2C5282",   
                     fillOpacity: isSelected ? 0.3 : 0.15, 
                     zIndex: 10,
-                    bubble: false,
+                    bubble: true, // Allow events to bubble to map for dragging
                     cursor: 'pointer'
                 });
 
@@ -160,23 +160,22 @@ class MarketConsole {
                 // Interaction
                 // Click (with drag detection)
                 polygon.on('click', (e) => {
+                    // Stop map click (deselect) from firing
                     e.originEvent.stopPropagation(); 
                     
                     // If drag happened, ignore click
                     if (this._draggingPress) {
-                        // Reset drag state
                         this._draggingPress = false;
                         this._pressStartPixel = null;
                         return;
                     }
                     
-                    // Calculate distance just in case
+                    // Double check distance
                     if (this._pressStartPixel) {
                         const cur = this.map.lngLatToContainer(e.lnglat);
                         const dx = Math.abs(cur.x - this._pressStartPixel.x);
                         const dy = Math.abs(cur.y - this._pressStartPixel.y);
                         if (dx > 5 || dy > 5) {
-                            // It was a drag
                             this._pressStartPixel = null;
                             return;
                         }

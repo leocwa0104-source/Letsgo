@@ -190,14 +190,14 @@ class MarketConsole {
                     // Do nothing
                 });
 
-                // Mousedown: Record start pos
+                // Mousedown: Disable map drag initially to prevent accidental moves
                 polygon.on('mousedown', (e) => {
+                    if (this.map) this.map.setStatus({ dragEnable: false });
                     this._pressStartPixel = this.map.lngLatToContainer(e.lnglat);
                     this._draggingPress = false;
-                    // Do NOT disable map drag. Let map handle it.
                 });
 
-                // Mousemove: Detect drag threshold
+                // Mousemove: Detect drag threshold -> Enable Drag
                 polygon.on('mousemove', (e) => {
                     if (!this._pressStartPixel) return;
                     const cur = this.map.lngLatToContainer(e.lnglat);
@@ -205,13 +205,16 @@ class MarketConsole {
                     const dy = Math.abs(cur.y - this._pressStartPixel.y);
                     if (dx > 5 || dy > 5) {
                         this._draggingPress = true;
+                        // Only enable drag if threshold crossed
+                        if (this.map) this.map.setStatus({ dragEnable: true });
                     }
                 });
 
-                // Mouseup: Cleanup
+                // Mouseup: Cleanup & Restore Drag
                 polygon.on('mouseup', () => {
                     this._pressStartPixel = null;
-                    // Don't need to restore dragEnable since we didn't disable it
+                    // Always restore drag capability on mouseup
+                    if (this.map) this.map.setStatus({ dragEnable: true });
                 });
 
                 this.grids.set(h3Index, polygon);

@@ -1440,6 +1440,11 @@ const HKWL = (() => {
     }, 3000);
   }
 
+  // Expose globally for other modules (e.g. ShineMap)
+  window.HKWL = window.HKWL || {};
+  window.HKWL.showToast = showToast;
+  window.showToast = showToast;
+
   function renderWishlistPage() {
     const settings = loadSettings();
     let title = settings.title;

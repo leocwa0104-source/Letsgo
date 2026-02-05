@@ -823,29 +823,7 @@
             font-size: 0.8rem;
         }
     }
-/* ShineMap Mode Overrides */
-  body.shinemap-mode .site-header,
-  body.shinemap-mode .floating-add-wrapper,
-  body.shinemap-mode #day-select-container,
-  body.shinemap-mode #view-slider,
-  body.shinemap-mode .controls-toggle, 
-  body.shinemap-mode #map-controls,
-  body.shinemap-mode .amap-control-bar,
-  body.shinemap-mode .amap-toolbar {
-      display: none !important;
-  }
-  
-  body.shinemap-mode .view-wrapper {
-      margin-top: 0 !important;
-      height: 100vh !important;
-  }
-  
-  body.shinemap-mode #map-container {
-      height: 100vh !important;
-      top: 0 !important;
-      bottom: 0 !important;
-  }
-  </style>
+</style>
 </head>
 <body>
   <header class="site-header">
@@ -2127,67 +2105,8 @@
             
             loadHomeMarker();
 
-            // Initialize ShineMap
-            if (window.ShineMap) {
-                // Initialize with map instance
-                window.ShineMap.init(map);
-                
-                // Add ShineMap Control Button
-                const shineControl = document.createElement('div');
-                shineControl.style.cssText = `
-                    position: absolute; 
-                    top: 10px; 
-                    right: 10px; 
-                    z-index: 1000; 
-                    background: rgba(255,255,255,0.9);
-                    border-radius: 8px;
-                    padding: 8px;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #555;
-                    transition: all 0.2s;
-                `;
-                shineControl.innerHTML = `
-                    <div style="width:12px;height:12px;border-radius:50%;background:#ccc;transition:background 0.3s;" id="shine-status-dot"></div>
-                    ShineMap
-                `;
-                
-                let isShineActive = false;
-                const toggleShine = (forceState = null) => {
-                    if (forceState !== null) isShineActive = forceState;
-                    else isShineActive = !isShineActive;
+            // ShineMap initialization removed
 
-                    window.ShineMap.toggleLayer(isShineActive);
-                    
-                    const dot = document.getElementById('shine-status-dot');
-                    if (isShineActive) {
-                        dot.style.background = '#f59e0b'; // Amber
-                        dot.style.boxShadow = '0 0 8px #f59e0b';
-                        shineControl.style.color = '#f59e0b';
-                    } else {
-                        dot.style.background = '#ccc';
-                        dot.style.boxShadow = 'none';
-                        shineControl.style.color = '#555';
-                    }
-                };
-
-                shineControl.onclick = () => toggleShine();
-                document.getElementById('map-container').appendChild(shineControl);
-
-                // Auto-enable if ?shine=true or ?mode=shinemap
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('shine') === 'true' || urlParams.get('mode') === 'shinemap') {
-                     // Wait a bit for map to be ready
-                     setTimeout(() => {
-                        toggleShine(true);
-                     }, 500);
-                }
-            }
 
         } catch (e) {
             console.error(e);
@@ -3001,23 +2920,6 @@
       // Init Data
     const urlParams = new URLSearchParams(window.location.search);
     let planId = urlParams.get('id');
-
-    // Handle initial mode (e.g., from ShineMap widget)
-    const modeParam = urlParams.get('mode');
-    const isShineMode = modeParam === 'shinemap' || urlParams.get('shine') === 'true';
-
-    if (isShineMode) {
-        document.body.classList.add('shinemap-mode');
-    }
-
-    if (modeParam === 'map' || isShineMode) {
-        // Ensure UI reflects map mode
-        setTimeout(() => {
-            if (typeof switchMode === 'function') {
-                switchMode('map');
-            }
-        }, 100);
-    }
     
     // Cloud-only: Removed auto-promote logic.
     HKWL.setCurrentPlan(planId);
@@ -3028,18 +2930,13 @@
     
     if (planId && HKWL.syncCurrentPlanFromCloud) {
         HKWL.syncCurrentPlanFromCloud().catch(console.error).finally(() => {
-            // Only render wishlist if NOT in ShineMap mode
-            if (!isShineMode) {
-                HKWL.renderWishlistPage();
-            }
+            HKWL.renderWishlistPage();
             if (currentMode === 'map' && typeof refreshMapData === 'function') {
                 refreshMapData();
             }
         });
     } else if (planId) {
-         if (!isShineMode) {
-             HKWL.renderWishlistPage();
-         }
+         HKWL.renderWishlistPage();
     }
 
       // Init Map if default mode is map
@@ -3732,5 +3629,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initCollabModule();
 });
 </script>
+
 </body>
 </html>

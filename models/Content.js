@@ -4,7 +4,7 @@ const ContentSchema = new mongoose.Schema({
   module: {
     type: String,
     required: true,
-    enum: ['spark', 'window', 'anchor', 'echo'],
+    enum: ['spark', 'anchor', 'echo', 'window', 'shineworld'],
     index: true
   },
   // Unified fields: A content item can have title, text, and/or image

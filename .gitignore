@@ -4,3 +4,6 @@ server/.env
 
 .vercel
 .env*.local
+*.log
+test_output*.txt
+npm-debug.log

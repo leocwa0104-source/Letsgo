@@ -1,19 +1,32 @@
 require('dotenv').config();
+const fs = require('fs');
+process.on('uncaughtException', (err) => {
+  fs.writeFileSync('server_crash.log', 'Uncaught Exception: ' + err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  fs.writeFileSync('server_crash.log', 'Unhandled Rejection: ' + reason);
+});
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const h3 = require('h3-js');
 
-const User = require('./models/User');
-const Plan = require('./models/Plan');
-const UserData = require('./models/UserData');
-const Signal = require('./models/Signal');
-const ShineCell = require('./models/ShineCell');
-const Message = require('./models/Message');
-const Manual = require('./models/Manual');
-const Notice = require('./models/Notice');
-const ShineConfig = require('./models/ShineConfig');
+const User = require('../models/User');
+const Plan = require('../models/Plan');
+const UserData = require('../models/UserData');
+const Signal = require('../models/Signal');
+const ShineCell = require('../models/ShineCell');
+const ShineCellPersonal = require('../models/ShineCellPersonal');
+const Message = require('../models/Message');
+const Manual = require('../models/Manual');
+const Notice = require('../models/Notice');
+const ShineConfig = require('../models/ShineConfig');
+const Spark = require('../models/Spark'); // Add Spark model
+
+const marketHandler = require('./_market');
 
 const app = express();
 app.use(cors());
@@ -34,6 +47,8 @@ const connectDB = async () => {
     throw new Error('MONGODB_URI is not defined. Please check your .env file.');
   }
   
+  console.log('Connecting to MongoDB...', process.env.MONGODB_URI.substring(0, 20) + '...');
+
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB Connected');
@@ -61,31 +76,34 @@ app.use(async (req, res, next) => {
 
 // Auth Middleware
 const authenticate = async (req, res, next) => {
-  const token = req.headers.authorization;
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  let token = req.headers.authorization;
+  if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
   
+  token = token.trim();
+
   // Simple token implementation: "userId:username" (In production, use JWT!)
   const parts = token.split(':');
-  if (parts.length < 2) return res.status(401).json({ error: 'Invalid Token' });
+  if (parts.length < 2) return res.status(401).json({ error: 'Invalid Token Format' });
   
-  const userId = parts[0];
+  const userId = parts[0].trim();
   // Handle potential encoded usernames
-  const username = decodeURIComponent(parts.slice(1).join(':'));
+  const username = decodeURIComponent(parts.slice(1).join(':')).trim();
   
-  if (!userId || !username) return res.status(401).json({ error: 'Invalid Token' });
+  if (!userId || !username) return res.status(401).json({ error: 'Invalid Token Data' });
 
   // Verify User Exists in DB
   try {
       const userExists = await User.findById(userId);
       if (!userExists) {
-          return res.status(401).json({ error: 'User account no longer exists' });
+          return res.status(401).json({ error: `User account no longer exists (ID: ${userId})` });
       }
+      // Pass full user object so services can access _id, energy, etc.
+      req.user = userExists;
   } catch (e) {
       console.error("Auth Middleware DB Check Error:", e);
-      return res.status(500).json({ error: 'Auth check failed' });
+      return res.status(500).json({ error: 'Auth check failed: ' + e.message });
   }
   
-  req.user = { id: userId, username };
   next();
 };
 
@@ -125,7 +143,9 @@ router.get('/auth/status', authenticate, async (req, res) => {
         lastNoticeSeenAt: user.lastNoticeSeenAt,
         nickname: user.nickname,
         avatar: user.avatar,
-        home: user.home
+        home: user.home,
+        energy: user.energy, // Add energy field
+        reputation: user.reputation || 1.0 // Add reputation field
     });
   } catch (e) {
     console.error('Auth Status Error:', e);
@@ -305,6 +325,8 @@ router.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+// setup-admin-temp removed
+
 
 
 // Register
@@ -468,7 +490,7 @@ router.get('/admin/users', authenticate, async (req, res) => {
     }
 
     // Return full user details for admin
-    let users = await User.find({}, 'username nickname friendId createdAt _id').sort({ createdAt: -1 });
+    let users = await User.find({}, 'username nickname friendId createdAt _id reputation energy').sort({ createdAt: -1 });
     
     // Check and backfill missing friendIds
     let hasUpdates = false;
@@ -492,6 +514,168 @@ router.get('/admin/users', authenticate, async (req, res) => {
     console.error('Get All Users Error:', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// --- Spark Management (Admin Only) ---
+
+// Get All Sparks
+router.get('/admin/sparks', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    // Populate hostId to get username
+    const sparks = await Spark.find()
+      .populate('hostId', 'username nickname')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, sparks });
+  } catch (e) {
+    console.error('Get All Sparks Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete Spark (Admin Override)
+router.delete('/admin/sparks/:id', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    const sparkId = req.params.id;
+    const spark = await Spark.findById(sparkId);
+
+    if (!spark) {
+      return res.status(404).json({ error: 'Spark not found' });
+    }
+
+    // Direct delete via Mongoose (God Mode)
+    // Note: This might leave the in-memory Grid in MarketEngine slightly out of sync 
+    // until the next restart or if MarketEngine refreshes. 
+    // Given the "God Mode" requirement, data purity in DB is priority.
+    await Spark.findByIdAndDelete(sparkId);
+
+    // Also delete associated interactions?
+    const Interaction = require('../models/Interaction'); // Lazy require if not top-level
+    await Interaction.deleteMany({ sparkId: sparkId });
+
+    res.json({ success: true, message: 'Spark successfully deleted by Admin' });
+  } catch (e) {
+    console.error('Admin Delete Spark Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- ShineMap Personal Config & Data Management ---
+
+// Get Personal Shine Config
+router.get('/user/shine-config', authenticate, async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.user.username });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        res.json({ success: true, config: user.shineConfig });
+    } catch (e) {
+        console.error('Get Personal Config Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update Personal Shine Config
+router.post('/user/shine-config', authenticate, async (req, res) => {
+    try {
+        const { physics, visuals } = req.body;
+        
+        const update = {};
+        if (physics) update['shineConfig.physics'] = physics;
+        if (visuals) update['shineConfig.visuals'] = visuals;
+        update['shineConfig.updatedAt'] = new Date();
+
+        const user = await User.findOneAndUpdate(
+            { username: req.user.username },
+            { $set: update },
+            { new: true }
+        );
+
+        res.json({ success: true, config: user.shineConfig });
+    } catch (e) {
+        console.error('Update Personal Config Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Archive Personal Data
+router.post('/shine/me/archive', authenticate, async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.user.username });
+        const archiveId = `archive_${Date.now()}`;
+        
+        // Mark all active cells as archived
+        const result = await ShineCellPersonal.updateMany(
+            { owner: user._id, status: 'active' },
+            { $set: { status: 'archived', archiveId: archiveId } }
+        );
+        
+        res.json({ success: true, count: result.modifiedCount, archiveId });
+    } catch (e) {
+        console.error('Archive Personal Data Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Reset Personal Data (Delete Active or All)
+router.post('/shine/me/reset', authenticate, async (req, res) => {
+    try {
+        const { type } = req.body; // 'active' (default) or 'full'
+        const user = await User.findOne({ username: req.user.username });
+        
+        let result;
+        if (type === 'full') {
+            // Delete ALL cells (active + archived)
+            result = await ShineCellPersonal.deleteMany({ owner: user._id });
+            
+            // Also reset config to default
+            user.shineConfig = undefined; // Will revert to defaults on save if schema has defaults? 
+            // Actually, to trigger defaults, it's safer to just set it to a new default object or let the client handle it.
+            // But let's just clear it. Mongoose might not auto-repopulate defaults on update unless we explicitly do so.
+            // Let's manually reset to the defaults defined in User.js schema to be safe
+            user.shineConfig = {
+                physics: {
+                    stationaryTime: 10000,
+                    stationaryRadius: 100,
+                    baseEnergyPassing: 1,
+                    baseEnergyStaying: 5,
+                    dwellExponent: 1.5
+                },
+                visuals: {
+                    theme: 'cyberpunk',
+                    colorStops: []
+                },
+                updatedAt: new Date()
+            };
+            await user.save();
+        } else {
+            // Delete active cells only
+            result = await ShineCellPersonal.deleteMany(
+                { owner: user._id, status: 'active' }
+            );
+        }
+        
+        res.json({ success: true, count: result.deletedCount, type: type || 'active' });
+    } catch (e) {
+        console.error('Reset Personal Data Error:', e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // Get ShineMap Stats (Admin Only)
@@ -559,16 +743,24 @@ router.post('/admin/shinemap/config', authenticate, async (req, res) => {
         if (!isAdmin) return res.status(403).json({ error: '权限不足' });
 
         const { 
-            ignitionThreshold, 
-            pioneerMultiplier, 
-            decayRate, 
-            maxBrightness, 
-            altitudeSensitivity, 
-            fogDensity,
             restingThresholdMs,
             stationaryRadius,
             speedThreshold,
-            flushInterval
+            flushInterval,
+            maxCellsReturned,
+            colorPath,
+            colorResting,
+            lightnessRange,
+            opacityRange,
+            physics, // Social Physics
+            // Dynamic Rendering
+            vitalityDecayRate,
+            lambdaRoadMax,
+            lambdaHomeMin,
+            hueRoad,
+            hueHub,
+            hueHome,
+            economy // Economy Parameters
         } = req.body;
 
         let config = await ShineConfig.findOne();
@@ -576,19 +768,83 @@ router.post('/admin/shinemap/config', authenticate, async (req, res) => {
             config = new ShineConfig();
         }
 
-        // Update fields if provided
-        if (ignitionThreshold !== undefined) config.ignitionThreshold = ignitionThreshold;
-        if (pioneerMultiplier !== undefined) config.pioneerMultiplier = pioneerMultiplier;
-        if (decayRate !== undefined) config.decayRate = decayRate;
-        if (maxBrightness !== undefined) config.maxBrightness = maxBrightness;
-        if (altitudeSensitivity !== undefined) config.altitudeSensitivity = altitudeSensitivity;
-        if (fogDensity !== undefined) config.fogDensity = fogDensity;
-        
-        // Update new client params
+        // Update Dynamic Rendering Params
+        if (vitalityDecayRate !== undefined) config.vitalityDecayRate = vitalityDecayRate;
+        if (lambdaRoadMax !== undefined) config.lambdaRoadMax = lambdaRoadMax;
+        if (lambdaHomeMin !== undefined) config.lambdaHomeMin = lambdaHomeMin;
+        if (hueRoad !== undefined) config.hueRoad = hueRoad;
+        if (hueHub !== undefined) config.hueHub = hueHub;
+        if (hueHome !== undefined) config.hueHome = hueHome;
+
+        // Update Tracking params
         if (restingThresholdMs !== undefined) config.restingThresholdMs = restingThresholdMs;
         if (stationaryRadius !== undefined) config.stationaryRadius = stationaryRadius;
         if (speedThreshold !== undefined) config.speedThreshold = speedThreshold;
         if (flushInterval !== undefined) config.flushInterval = flushInterval;
+
+        // Update System & Visual params
+        if (maxCellsReturned !== undefined) config.maxCellsReturned = maxCellsReturned;
+
+        // Update Social Physics
+        if (physics) {
+            if (physics.baseWeightPassing !== undefined) config.physics.baseWeightPassing = physics.baseWeightPassing;
+            if (physics.baseWeightResting !== undefined) config.physics.baseWeightResting = physics.baseWeightResting;
+            if (physics.crowdDamping !== undefined) config.physics.crowdDamping = physics.crowdDamping;
+            if (physics.silenceBonus !== undefined) config.physics.silenceBonus = physics.silenceBonus;
+            if (physics.dwellPowerExponent !== undefined) config.physics.dwellPowerExponent = physics.dwellPowerExponent;
+        }
+
+        // Update Economy
+        if (economy) {
+            if (!config.economy) config.economy = {};
+            if (economy.costPing !== undefined) config.economy.costPing = economy.costPing;
+    if (economy.costPingRemote !== undefined) config.economy.costPingRemote = economy.costPingRemote;
+    if (economy.costVerify !== undefined) config.economy.costVerify = economy.costVerify;
+            if (economy.costCreate !== undefined) config.economy.costCreate = economy.costCreate;
+            if (economy.spatialRent !== undefined) config.economy.spatialRent = economy.spatialRent;
+            if (economy.energyCap !== undefined) config.economy.energyCap = economy.energyCap;
+            if (economy.recoveryRate !== undefined) config.economy.recoveryRate = economy.recoveryRate;
+
+            // Advanced Economy Params (Spatial Rent, Frequency Penalty, UBI)
+            if (economy.validationWeightNeighbor !== undefined) config.economy.validationWeightNeighbor = economy.validationWeightNeighbor;
+            if (economy.frequencyPenaltyWindow !== undefined) config.economy.frequencyPenaltyWindow = economy.frequencyPenaltyWindow;
+            if (economy.frequencyPenaltyMult !== undefined) config.economy.frequencyPenaltyMult = economy.frequencyPenaltyMult;
+            if (economy.ubiDailyAmount !== undefined) config.economy.ubiDailyAmount = economy.ubiDailyAmount;
+            if (economy.ubiStakeThreshold !== undefined) config.economy.ubiStakeThreshold = economy.ubiStakeThreshold;
+            if (economy.inflationRate !== undefined) config.economy.inflationRate = economy.inflationRate;
+
+            // Hardcore Market Params (Wither, Dividend, Reputation)
+            if (economy.witherThreshold !== undefined) config.economy.witherThreshold = economy.witherThreshold;
+            if (economy.dividendRate !== undefined) config.economy.dividendRate = economy.dividendRate;
+            if (economy.reputationGain !== undefined) config.economy.reputationGain = economy.reputationGain;
+            if (economy.reputationLoss !== undefined) config.economy.reputationLoss = economy.reputationLoss;
+            if (economy.reputationLossPublisher !== undefined) config.economy.reputationLossPublisher = economy.reputationLossPublisher;
+            if (economy.reputationLossBeliever !== undefined) config.economy.reputationLossBeliever = economy.reputationLossBeliever;
+            if (economy.reputationGainChallenger !== undefined) config.economy.reputationGainChallenger = economy.reputationGainChallenger;
+            if (economy.verifyRewardBase !== undefined) config.economy.verifyRewardBase = economy.verifyRewardBase;
+
+            if (economy.dividendRatio !== undefined) config.economy.dividendRatio = economy.dividendRatio;
+            if (economy.verifierRetention !== undefined) config.economy.verifierRetention = economy.verifierRetention;
+            if (economy.riskDeposit !== undefined) config.economy.riskDeposit = economy.riskDeposit;
+        }
+
+        // Update Visual HSL
+        if (colorPath) {
+            if (colorPath.hue !== undefined) config.colorPath.hue = colorPath.hue;
+            if (colorPath.sat !== undefined) config.colorPath.sat = colorPath.sat;
+        }
+        if (colorResting) {
+            if (colorResting.hue !== undefined) config.colorResting.hue = colorResting.hue;
+            if (colorResting.sat !== undefined) config.colorResting.sat = colorResting.sat;
+        }
+        if (lightnessRange) {
+            if (lightnessRange.min !== undefined) config.lightnessRange.min = lightnessRange.min;
+            if (lightnessRange.max !== undefined) config.lightnessRange.max = lightnessRange.max;
+        }
+        if (opacityRange) {
+            if (opacityRange.min !== undefined) config.opacityRange.min = opacityRange.min;
+            if (opacityRange.max !== undefined) config.opacityRange.max = opacityRange.max;
+        }
 
         config.updatedBy = currentUsername;
         config.updatedAt = Date.now();
@@ -598,6 +854,89 @@ router.post('/admin/shinemap/config', authenticate, async (req, res) => {
         res.json({ success: true, config });
     } catch (e) {
         console.error('Update ShineConfig Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Seed Test Data (Admin Only)
+router.post('/admin/shinemap/seed', authenticate, async (req, res) => {
+    try {
+        const currentUsername = req.user.username;
+        const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+        const isAdmin = adminUsername && currentUsername === adminUsername;
+
+        if (!isAdmin) return res.status(403).json({ error: '权限不足' });
+
+        const { lat, lng } = req.body;
+        // Default to Shanghai/HK if not provided, or use random nearby
+        const centerLat = lat || 31.2304; 
+        const centerLng = lng || 121.4737;
+
+        const pulses = [];
+        const count = 50;
+        
+        for (let i = 0; i < count; i++) {
+            // Random offset within ~2km
+            const dLat = (Math.random() - 0.5) * 0.04;
+            const dLng = (Math.random() - 0.5) * 0.04;
+            
+            pulses.push({
+                lat: centerLat + dLat,
+                lng: centerLng + dLng,
+                type: Math.random() > 0.5 ? 'path' : 'resting',
+                intensity: Math.floor(Math.random() * 50) + 10,
+                velocity: {
+                    dx: (Math.random() - 0.5) * 2,
+                    dy: (Math.random() - 0.5) * 2
+                }
+            });
+        }
+
+        // Mock request to existing pulse logic (reuse logic)
+        // We can't call router handler directly easily, so we duplicate logic or call internal helper.
+        // Let's just do bulkWrite directly here to be safe and fast.
+        
+        const operations = pulses.map(pulse => {
+            const resolution = 12; // Use Res 12 for ShineMap
+            const gridId = h3.latLngToCell(pulse.lat, pulse.lng, resolution);
+            const center = h3.cellToLatLng(gridId); 
+            
+            const update = {
+                $inc: { 
+                    energy: pulse.intensity,
+                    'stats.passing': pulse.type === 'path' ? 1 : 0,
+                    'stats.resting': pulse.type === 'resting' ? 1 : 0
+                },
+                $set: { 
+                    lastPulse: new Date(),
+                    center: { lat: center[0], lng: center[1] },
+                    resolution: resolution
+                }
+            };
+
+            if (pulse.velocity) {
+                 update.$inc['velocity.dx'] = pulse.velocity.dx;
+                 update.$inc['velocity.dy'] = pulse.velocity.dy;
+                 update.$inc['velocity.count'] = 1;
+            }
+
+            return {
+                updateOne: {
+                    filter: { gridId: gridId },
+                    update: update,
+                    upsert: true
+                }
+            };
+        });
+
+        if (operations.length > 0) {
+            await ShineCell.bulkWrite(operations);
+        }
+
+        res.json({ success: true, message: `已生成 ${count} 个测试光点`, count });
+
+    } catch (e) {
+        console.error('Seed Data Error:', e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -1608,7 +1947,7 @@ router.delete('/plans/:id', authenticate, async (req, res) => {
 
 // --- Content Library Routes (CMS) ---
 
-const Content = require('./models/Content');
+const Content = require('../models/Content');
 
 // Public: Get Random Content for a Module
 router.get('/content/random', async (req, res) => {
@@ -1709,47 +2048,135 @@ router.delete('/admin/content/:id', authenticate, async (req, res) => {
     }
 });
 
+// Admin: Reset ShineMap Cycle
+router.post('/admin/cycle/reset', authenticate, async (req, res) => {
+    try {
+        const currentUsername = req.user.username;
+        const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+        const isAdmin = adminUsername && currentUsername === adminUsername;
+
+        if (!isAdmin) {
+            return res.status(403).json({ error: '权限不足' });
+        }
+
+        const now = new Date();
+
+        // 1. Update Config
+        let config = await ShineConfig.findOne();
+        if (!config) config = new ShineConfig();
+        
+        config.cycleStartDate = now;
+        await config.save();
+
+        // 2. Reset all cells
+        const result = await ShineCell.updateMany({}, { 
+            $set: { 
+                cycleEnergy: 0,
+                // Reset Cycle Stats
+                "cycleStats.passing": 0,
+                "cycleStats.resting": 0,
+                // Reset Cycle Velocity
+                "cycleVelocity.dx": 0,
+                "cycleVelocity.dy": 0,
+                "cycleVelocity.count": 0
+            } 
+        });
+
+        res.json({ success: true, count: result.modifiedCount, cycleStartDate: now });
+    } catch (e) {
+        console.error('Cycle Reset Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // --- ShineMap Routes ---
 
 // Send Pulse (Anonymous Aggregated Data)
 router.post('/shine/pulse', authenticate, async (req, res) => {
   try {
-    const { pulses } = req.body; // Expecting array of { lat, lng, type, intensity }
+    const { pulses } = req.body; // Expecting array of { lat, lng, type, intensity, velocity }
     
     if (!pulses || !Array.isArray(pulses)) {
       return res.status(400).json({ error: 'Invalid pulses data' });
     }
 
     // Process in bulk
+    const currentEpoch = Math.floor(Date.now() / (1000 * 60 * 60)); // Current Hour Index
+
     const operations = pulses.map(pulse => {
-        // Circuit Breaker: Server re-verifies grid ID logic
-        const latKey = Math.round(pulse.lat * 10000);
-        const lngKey = Math.round(pulse.lng * 10000);
-        const gridId = `${latKey}_${lngKey}`;
+        // H3 Indexing (Resolution 12 is ~9m edge, ~300m2 area, precise for human scale)
+        const resolution = 12;
+        const gridId = h3.latLngToCell(pulse.lat, pulse.lng, resolution);
+        const center = h3.cellToLatLng(gridId); // Returns [lat, lng]
         
-        // Dynamic update object
-        const update = {
-            $inc: { 
-                energy: pulse.intensity || 1,
-                'stats.passing': pulse.type === 'path' ? 1 : 0,
-                'stats.resting': pulse.type === 'resting' ? 1 : 0
-            },
-            $set: { 
-                lastPulse: new Date(),
-                center: { lat: pulse.lat, lng: pulse.lng } // Update center to latest sample
+        const intensity = pulse.intensity || 1;
+        const isPassing = pulse.type === 'path' ? 1 : 0;
+        const isResting = pulse.type === 'resting' ? 1 : 0;
+
+        // Construct Aggregation Pipeline for Atomic Updates with Conditional Logic
+        const setStage = {
+            lastPulse: new Date(),
+            center: { lat: center[0], lng: center[1] },
+            resolution: resolution,
+            
+            // Standard Accumulators (using $add with $ifNull for safety)
+            energy: { $add: [ { $ifNull: ["$energy", 0] }, intensity ] },
+            cycleEnergy: { $add: [ { $ifNull: ["$cycleEnergy", 0] }, intensity ] },
+            
+            "stats.passing": { $add: [ { $ifNull: ["$stats.passing", 0] }, isPassing ] },
+            "stats.resting": { $add: [ { $ifNull: ["$stats.resting", 0] }, isResting ] },
+
+            // Cycle Stats Accumulators
+            "cycleStats.passing": { $add: [ { $ifNull: ["$cycleStats.passing", 0] }, isPassing ] },
+            "cycleStats.resting": { $add: [ { $ifNull: ["$cycleStats.resting", 0] }, isResting ] },
+            
+            // Real-time Velocity Buckets (Rotation Logic)
+            realtime: {
+                $cond: {
+                    if: { $eq: [ { $ifNull: ["$realtime.epoch", 0] }, currentEpoch ] },
+                    then: {
+                        epoch: "$realtime.epoch",
+                        current: { $add: [ { $ifNull: ["$realtime.current", 0] }, intensity ] },
+                        prev: "$realtime.prev"
+                    },
+                    else: {
+                        epoch: currentEpoch,
+                        current: intensity,
+                        // If stored epoch is exactly current - 1, then prev = stored current. Else gap > 1 hour, prev = 0.
+                        prev: {
+                            $cond: {
+                                if: { $eq: [ { $ifNull: ["$realtime.epoch", 0] }, currentEpoch - 1 ] },
+                                then: { $ifNull: ["$realtime.current", 0] },
+                                else: 0
+                            }
+                        }
+                    }
+                }
             }
         };
 
+        // Vector Field Accumulation (Conditional)
+        if (pulse.velocity) {
+             setStage['velocity.dx'] = { $add: [ { $ifNull: ["$velocity.dx", 0] }, pulse.velocity.dx || 0 ] };
+             setStage['velocity.dy'] = { $add: [ { $ifNull: ["$velocity.dy", 0] }, pulse.velocity.dy || 0 ] };
+             setStage['velocity.count'] = { $add: [ { $ifNull: ["$velocity.count", 0] }, 1 ] };
+
+             // Cycle Velocity Accumulators
+             setStage['cycleVelocity.dx'] = { $add: [ { $ifNull: ["$cycleVelocity.dx", 0] }, pulse.velocity.dx || 0 ] };
+             setStage['cycleVelocity.dy'] = { $add: [ { $ifNull: ["$cycleVelocity.dy", 0] }, pulse.velocity.dy || 0 ] };
+             setStage['cycleVelocity.count'] = { $add: [ { $ifNull: ["$cycleVelocity.count", 0] }, 1 ] };
+        }
+
         // Floor logic (if provided)
         if (pulse.floor !== undefined) {
-            update.$inc[`floors.${pulse.floor}`] = pulse.intensity || 1;
+            setStage[`floors.${pulse.floor}`] = { $add: [ { $ifNull: [`$floors.${pulse.floor}`, 0] }, intensity ] };
         }
 
         return {
             updateOne: {
                 filter: { gridId: gridId },
-                update: update,
+                update: [ { $set: setStage } ], // Pipeline Update
                 upsert: true
             }
         };
@@ -1757,6 +2184,55 @@ router.post('/shine/pulse', authenticate, async (req, res) => {
 
     if (operations.length > 0) {
         await ShineCell.bulkWrite(operations);
+
+        // --- Personal Map Update (ShineMap-Me) ---
+        // We do this asynchronously or awaited? Awaited to ensure consistency.
+        try {
+            const user = await User.findOne({ username: req.user.username });
+            if (user) {
+                 const personalOperations = pulses.map(pulse => {
+                    const resolution = 12;
+                    const gridId = h3.latLngToCell(pulse.lat, pulse.lng, resolution);
+                    const center = h3.cellToLatLng(gridId);
+                    const intensity = pulse.intensity || 1;
+                    const isPassing = pulse.type === 'path' ? 1 : 0;
+                    const isResting = pulse.type === 'resting' ? 1 : 0;
+    
+                    const setStage = {
+                        lastPulse: new Date(),
+                        center: { lat: center[0], lng: center[1] },
+                        resolution: resolution,
+                        status: 'active',
+                        energy: { $add: [ { $ifNull: ["$energy", 0] }, intensity ] },
+                        "stats.passing": { $add: [ { $ifNull: ["$stats.passing", 0] }, isPassing ] },
+                        "stats.resting": { $add: [ { $ifNull: ["$stats.resting", 0] }, isResting ] }
+                    };
+                    
+                    if (pulse.velocity) {
+                         setStage['velocity.dx'] = { $add: [ { $ifNull: ["$velocity.dx", 0] }, pulse.velocity.dx || 0 ] };
+                         setStage['velocity.dy'] = { $add: [ { $ifNull: ["$velocity.dy", 0] }, pulse.velocity.dy || 0 ] };
+                         setStage['velocity.count'] = { $add: [ { $ifNull: ["$velocity.count", 0] }, 1 ] };
+                    }
+                    
+                    if (pulse.floor !== undefined) {
+                        setStage[`floors.${pulse.floor}`] = { $add: [ { $ifNull: [`$floors.${pulse.floor}`, 0] }, intensity ] };
+                    }
+    
+                    return {
+                        updateOne: {
+                            filter: { owner: user._id, gridId: gridId, status: 'active' },
+                            update: [ { $set: setStage } ],
+                            upsert: true
+                        }
+                    };
+                });
+                await ShineCellPersonal.bulkWrite(personalOperations);
+            }
+        } catch (err) {
+            console.error('Personal ShineMap Update Error:', err);
+            // Don't fail the main request if personal update fails? 
+            // Or should we? Let's log but not fail for now to keep world map robust.
+        }
     }
 
     res.json({ success: true, count: operations.length });
@@ -1766,22 +2242,69 @@ router.post('/shine/pulse', authenticate, async (req, res) => {
   }
 });
 
-// Get ShineMap Grids (Viewport)
+// Get Public ShineMap Config (No Auth)
+router.get('/shine-config', async (req, res) => {
+    try {
+        let config = await ShineConfig.findOne();
+        if (!config) {
+            config = new ShineConfig(); // Return default if not found
+        }
+        res.json({
+            success: true,
+            // Expose only safe public params
+            restingThresholdMs: config.restingThresholdMs,
+            stationaryRadius: config.stationaryRadius,
+            speedThreshold: config.speedThreshold,
+            flushInterval: config.flushInterval,
+            maxCellsReturned: config.maxCellsReturned,
+            // Expose Visual Config
+            colorPath: config.colorPath,
+            colorResting: config.colorResting,
+            lightnessRange: config.lightnessRange,
+            opacityRange: config.opacityRange,
+            physics: config.physics, // Expose Physics Params
+            
+            // Dynamic Rendering
+            vitalityDecayRate: config.vitalityDecayRate,
+            lambdaRoadMax: config.lambdaRoadMax,
+            lambdaHomeMin: config.lambdaHomeMin,
+            hueRoad: config.hueRoad,
+            hueHub: config.hueHub,
+            hueHome: config.hueHome,
+
+            // Cycle Mode
+            cycleStartDate: config.cycleStartDate
+        });
+    } catch (e) {
+        console.error('Get Public ShineConfig Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get ShineMap Grids (Viewport) - World
 router.get('/shine/map', async (req, res) => {
   try {
     const { north, south, east, west, zoom } = req.query;
     
-    if (!north || !south || !east || !west) {
-        return res.status(400).json({ error: 'Bounds required' });
+    // if (!north || !south || !east || !west) {
+    //    return res.status(400).json({ error: 'Bounds required' });
+    // }
+
+    // Get Config for Limit
+    let config = await ShineConfig.findOne();
+    const limit = config ? (config.maxCellsReturned || 2000) : 2000;
+
+    const query = {};
+    if (north && south && east && west) {
+        query['center.lat'] = { $lte: parseFloat(north), $gte: parseFloat(south) };
+        query['center.lng'] = { $lte: parseFloat(east), $gte: parseFloat(west) };
     }
 
     // Optimization: If zoom is low, maybe return fewer/larger grids? 
-    // For now, return all in bounds. Limit to prevent crash.
-    const cells = await ShineCell.find({
-        'center.lat': { $lte: parseFloat(north), $gte: parseFloat(south) },
-        'center.lng': { $lte: parseFloat(east), $gte: parseFloat(west) }
-    })
-    .limit(2000) // Safety limit
+    // For now, return all in bounds (or global if no bounds). Limit to prevent crash.
+    const cells = await ShineCell.find(query)
+    .sort({ lastPulse: -1 }) // Show most recent if limited
+    .limit(limit)
     .lean();
 
     res.json({ success: true, cells });
@@ -1790,6 +2313,49 @@ router.get('/shine/map', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Get Personal ShineMap Grids (Viewport) - Me
+router.get('/shine/me/map', authenticate, async (req, res) => {
+    try {
+        const { north, south, east, west, zoom, mode } = req.query;
+        
+        // Find user to ensure existence (auth middleware does this but good to be safe)
+        // const user = await User.findById(req.user.id);
+        
+        const query = { 
+            owner: req.user.id
+        };
+
+        // Mode Logic: Classic shows all history; Cycle shows only active
+        if (mode === 'classic') {
+             // No status filter = return all (active + archived)
+        } else {
+             // Default (Cycle) = Active only
+             query.status = 'active';
+        }
+
+        if (north && south && east && west) {
+            query['center.lat'] = { $lte: parseFloat(north), $gte: parseFloat(south) };
+            query['center.lng'] = { $lte: parseFloat(east), $gte: parseFloat(west) };
+        }
+
+        // Personal maps are smaller, but still good to limit if user is very active
+        const limit = 5000; 
+
+        const cells = await ShineCellPersonal.find(query)
+        .sort({ lastPulse: -1 })
+        .limit(limit)
+        .lean();
+
+        res.json({ success: true, cells });
+    } catch (e) {
+        console.error('Shine Me Map Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Mount Market Handler (Unified Endpoint)
+router.use('/market', authenticate, marketHandler);
 
 // Mount router at /api AND / (to handle Vercel rewrites robustly)
 app.use('/api', router);
@@ -1812,7 +2378,29 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    console.log('Starting server...');
+    // Connect to DB immediately on startup for standalone mode
+    const connectWithRetry = async (retries = 5) => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                await connectDB();
+                return;
+            } catch (err) {
+                console.error(`Connection attempt ${i + 1} failed. Retrying in 2s...`);
+                await new Promise(res => setTimeout(res, 2000));
+            }
+        }
+        throw new Error('Failed to connect to DB after retries');
+    };
+
+    connectWithRetry().then(() => {
+       app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    }).catch(err => {
+       console.error("Startup DB Error:", err);
+       process.exit(1);
+    });
+  } else {
+  console.log('API module loaded.');
 }
 
 module.exports = app;

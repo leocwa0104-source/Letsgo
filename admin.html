@@ -33,7 +33,6 @@
           <img src="logo-v2.svg" alt="Logo" style="height: 32px; width: 32px;">
           <div class="header-brand" style="font-size: 1.5rem; color: #333;">
               <span class="brand-shine">shine</span><span class="brand-shone">shone</span>
-          </div>
         </a>
         <span style="margin: 0 5px; color: #ccc;">|</span>
         <h1 style="margin: 0; font-size: 1.2rem; font-weight: normal; color: #666;">管理员控制台</h1>
@@ -56,6 +55,7 @@
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">用户名</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">昵称</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">好友 ID</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">信誉 (Rep)</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">创建时间</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee; text-align: right;">操作</th>
                     </tr>
@@ -66,6 +66,34 @@
             </table>
         </div>
       </section>
+
+      <section id="all-sparks-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>全部 Sparks (真理粒子)</h2>
+            <button type="button" id="refresh-sparks-btn" class="btn btn-secondary" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.9rem;">刷新列表</button>
+        </div>
+        <p style="color: #666; margin-bottom: 1rem;">上帝视角：查看并管理所有用户发布的 Spark。</p>
+        
+        <div class="table-container" style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+                <thead>
+                    <tr style="background: #f8f9fa; text-align: left; color: #555;">
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">类型</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee; width: 30%;">内容</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">发布者</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">热度/置信度</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">时间</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee; text-align: right;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="all-sparks-list">
+                    <tr><td colspan="6" style="padding: 20px; text-align: center; color: #888;">点击刷新加载...</td></tr>
+                </tbody>
+            </table>
+        </div>
+      </section>
+
+      <!-- Duplicate Economy Control section removed -->
 
       <section id="admin-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
         <h2>创建新账号</h2>
@@ -104,6 +132,315 @@
         </div>
       </section>
 
+      <section id="economy-config-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h2>真理市场经济调控 (Economy Control)</h2>
+              <div style="display: flex; gap: 10px;">
+                  <button id="btn-show-model-guide" class="btn btn-info" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.9rem; background-color: #17a2b8; border-color: #17a2b8;">📘 经济模型指南</button>
+                  <button id="save-economy-config-btn" class="btn btn-primary" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.9rem;">保存经济配置</button>
+              </div>
+          </div>
+          
+          <!-- Model Guide Modal -->
+          <div id="model-guide-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+              <div style="background: white; width: 80%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;">
+                      <h2 style="margin: 0;">Shineshone 经济与数学模型参数指南</h2>
+                      <button id="btn-close-guide" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                  </div>
+                  
+                  <div class="guide-content" style="line-height: 1.6; color: #333;">
+                      
+                      <div style="margin-bottom: 25px;">
+                          <h3 style="color: #2c5282; border-left: 4px solid #2c5282; padding-left: 10px;">1. 能量循环 (Energy Cycle)</h3>
+                          <p>Shineshone 的经济基础是<b>能量 (Energy)</b>，它既是货币也是行动力。能量通过物理世界的移动产生（熵增），并在数字市场中消耗。</p>
+                          <ul style="background: #ebf8ff; padding: 15px 15px 15px 35px; border-radius: 6px;">
+                              <li><b>Social Physics (社会物理学)</b>: 用户的物理移动被视为“做功”。
+                                  <ul>
+                                      <li><code>dwellPowerExponent</code>: 驻留能量指数 (E ~ t^n)。n=1.5 意味着驻留时间越长，单位时间获得的能量越多（鼓励深度探索）。</li>
+                                      <li><code>baseWeightPassing</code> / <code>baseWeightResting</code>: 移动与静止状态的基础权重。</li>
+                                  </ul>
+                              </li>
+                              <li><b>Monetary Policy (货币政策)</b>:
+                                  <ul>
+                                      <li><code>energyCap</code>: 能量上限，防止囤积，鼓励消费。</li>
+                                      <li><code>recoveryRate</code>: 基础自然恢复率（低保）。</li>
+                                      <li><code>ubiDailyAmount</code>: 每日无条件基本收入，保障新用户活跃度。</li>
+                                      <li><code>inflationRate</code>: 最大通胀率，控制系统总能量膨胀速度。</li>
+                                  </ul>
+                              </li>
+                          </ul>
+                      </div>
+
+                      <div style="margin-bottom: 25px;">
+                          <h3 style="color: #276749; border-left: 4px solid #276749; padding-left: 10px;">2. 真相市场 (Truth Market)</h3>
+                          <p>这是一个<b>预测市场 (Prediction Market)</b> 模型。Spark (火花) 代表一个待验证的“事实声明”。发布者和验证者都需要 "Skin in the Game" (风险共担)。</p>
+                          
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                              <div style="background: #f0fff4; padding: 15px; border-radius: 6px; border: 1px solid #c6f6d5;">
+                                  <h4 style="margin-top: 0; color: #22543d;">发布者 (Publisher)</h4>
+                                  <p>发布 Spark 不仅消耗能量，还需<b>质押</b>。</p>
+                                  <ul>
+                                      <li><code>costCreate</code>: 发布的沉没成本 (消耗掉)。</li>
+                                      <li><code>riskDeposit</code>: <b>风险质押金</b>。锁定在 Spark 中。
+                                          <br><small>👉 若 Spark 被验证为真 (Confirmed)，押金退还并可能获得分红。</small>
+                                          <br><small>👉 若 Spark 被证伪 (Busted)，押金被<b>罚没</b>并分配给验证者。</small>
+                                      </li>
+                                      <li><code>spatialRent</code>: 空间占用费，防止地图垃圾。</li>
+                                  </ul>
+                              </div>
+                              <div style="background: #fffaf0; padding: 15px; border-radius: 6px; border: 1px solid #feebc8;">
+                                  <h4 style="margin-top: 0; color: #744210;">验证者 (Verifier)</h4>
+                                  <p>通过 Verify (投票) 挖掘真相。</p>
+                                  <ul>
+                                      <li><code>costVerify</code>: 投票成本。</li>
+                                      <li><code>verifyRewardBase</code>: 基础验证奖励。</li>
+                                      <li><b>Pool (奖池)</b>: 验证者的能量流入奖池。</li>
+                                      <li><code>verifierRetention</code>: 奖池分配给验证者的比例。</li>
+                                      <li><code>witherThreshold</code>: 信心枯萎阈值。低于此值 Spark 死亡。</li>
+                                  </ul>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div style="margin-bottom: 25px;">
+                          <h3 style="color: #805ad5; border-left: 4px solid #805ad5; padding-left: 10px;">3. 市场清算机制 (Liquidation)</h3>
+                          <p>当 Spark 的状态最终确定 (Finalized) 时，触发清算：</p>
+                          <table style="width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #e2e8f0;">
+                              <tr style="background: #f7fafc;">
+                                  <th style="border: 1px solid #cbd5e0; padding: 8px;">结果</th>
+                                  <th style="border: 1px solid #cbd5e0; padding: 8px;">发布者 (Publisher)</th>
+                                  <th style="border: 1px solid #cbd5e0; padding: 8px;">验证者 (Verifier)</th>
+                              </tr>
+                              <tr>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px;"><b>Confirmed (真)</b></td>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px; color: green;">
+                                      <div>💰 退还 Deposit + 分红</div>
+                                      <div style="font-size:0.8em; color:#38a169;">(信誉不变或增加)</div>
+                                  </td>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px; color: green;">
+                                      <div>🏆 赢家瓜分 Pool + 奖励</div>
+                                      <div style="font-size:0.8em; color:#38a169;">(信誉不变或增加)</div>
+                                  </td>
+                              </tr>
+                              <tr>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px;"><b>Busted (假)</b></td>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px; color: red;">
+                                      <div>💸 失去 Deposit (罚没)</div>
+                                      <div style="font-size:0.8em; color:#e53e3e;">📉 信誉重挫 (reputationLossPublisher)</div>
+                                  </td>
+                                  <td style="border: 1px solid #cbd5e0; padding: 8px;">
+                                      <div style="color:green;">🛡️ 打假者: 瓜分 Pool + Deposit + <span style="color:#38a169;">信誉奖励 (GainChallenger)</span></div>
+                                      <div style="color:red; margin-top:5px;">🤥 盲信者: <span style="color:#e53e3e;">信誉受损 (LossBeliever)</span></div>
+                                  </td>
+                              </tr>
+                          </table>
+                          <p style="font-size: 0.9em; color: #666; margin-top: 10px;">* 信誉机制 (Reputation): 采用<b>结果导向</b>模型。造谣者(-0.5)和盲信者(-0.1)会被惩罚，而打假者(+0.2)会获得信誉奖励。</p>
+                      </div>
+
+                      <div style="margin-bottom: 25px;">
+                          <h3 style="color: #c53030; border-left: 4px solid #c53030; padding-left: 10px;">4. 关键参数速查</h3>
+                          <ul style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; list-style: none; padding: 0;">
+                              <li style="background: #fff5f5; padding: 10px; border-radius: 4px; border: 1px solid #fed7d7;">
+                                  <b>costPing</b>: 探索(Scan)的基础成本。
+                              </li>
+                              <li style="background: #fff5f5; padding: 10px; border-radius: 4px; border: 1px solid #fed7d7;">
+                                  <b>dividendRatio</b>: Ping成本中流入奖池的比例。
+                              </li>
+                              <li style="background: #fff5f5; padding: 10px; border-radius: 4px; border: 1px solid #fed7d7;">
+                                  <b>frequencyPenaltyMult</b>: 高频操作的惩罚倍数 (防刷)。
+                              </li>
+                              <li style="background: #fff5f5; padding: 10px; border-radius: 4px; border: 1px solid #fed7d7;">
+                                  <b>stationaryRadius</b>: 判定为“驻留”的物理半径 (m)。
+                              </li>
+                          </ul>
+                      </div>
+
+                  </div>
+              </div>
+          </div>
+
+          <script>
+              // Guide Modal Logic
+              document.getElementById('btn-show-model-guide').addEventListener('click', () => {
+                  document.getElementById('model-guide-modal').style.display = 'flex';
+              });
+              document.getElementById('btn-close-guide').addEventListener('click', () => {
+                  document.getElementById('model-guide-modal').style.display = 'none';
+              });
+              document.getElementById('model-guide-modal').addEventListener('click', (e) => {
+                  if (e.target === document.getElementById('model-guide-modal')) {
+                      document.getElementById('model-guide-modal').style.display = 'none';
+                  }
+              });
+          </script>
+
+          <p style="color: #666; margin-bottom: 1rem;">调整真理市场的能量成本与经济参数。</p>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+              <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; border: 1px solid #c8e6c9;">
+                  <h4 style="margin-top: 0; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 8px;">成本控制 (Cost)</h4>
+                  <div class="form-group">
+                <label>Ping Cost (Local) (扫描消耗/本地)</label>
+                <input type="number" id="econ-cost-ping" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="font-size: 0.8rem; color: #666;">每次 Ping 消耗的能量 (Default: 5)</div>
+            </div>
+            <div class="form-group">
+                <label>Ping Cost (Remote) (扫描消耗/远程)</label>
+                <input type="number" id="econ-cost-ping-remote" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="font-size: 0.8rem; color: #666;">远程观测的熵增成本 (Default: 15)</div>
+            </div>
+            <div class="form-group">
+                <label>Verify Cost (验证成本)</label>
+                      <input type="number" id="econ-cost-verify" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">每次投票消耗的能量 (Default: 2)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Create Cost (发布成本)</label>
+                      <input type="number" id="econ-cost-create" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">发布 Spark 的基础质押 (Default: 50)</div>
+                  </div>
+              </div>
+
+              <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #bbdefb;">
+                  <h4 style="margin-top: 0; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 8px;">宏观经济 (Macro)</h4>
+                  <div class="form-group">
+                      <label>Energy Cap (能量上限)</label>
+                      <input type="number" id="econ-energy-cap" step="10" min="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">用户能量存储上限 (Default: 100)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Recovery Rate (恢复速率)</label>
+                      <input type="number" id="econ-recovery-rate" step="0.1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">每小时自动恢复能量 (Default: 5.0)</div>
+                  </div>
+              </div>
+
+              <!-- New Sections for Advanced Economy -->
+              <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border: 1px solid #ffe0b2;">
+                  <h4 style="margin-top: 0; color: #e65100; border-bottom: 1px solid #ffe0b2; padding-bottom: 8px;">拥挤费 & 权重 (Spatial Rent & Weights)</h4>
+                  <div class="form-group">
+                      <label>Spatial Rent (每条递增成本 c)</label>
+                      <input type="number" id="econ-spatialRent" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">Progressive Tax: x + (n-1)*c (Default: 10)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Neighbor Weight (相邻权重)</label>
+                      <input type="number" id="econ-validationWeightNeighbor" step="0.1" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">Adjacent Cell Vote Weight (Default: 0.5)</div>
+                  </div>
+              </div>
+
+              <div style="background: #fce4ec; padding: 15px; border-radius: 8px; border: 1px solid #f8bbd0;">
+                  <h4 style="margin-top: 0; color: #880e4f; border-bottom: 1px solid #f8bbd0; padding-bottom: 8px;">反刷屏 (Anti-Spam)</h4>
+                  <div class="form-group">
+                      <label>Penalty Window (ms)</label>
+                      <input type="number" id="econ-frequencyPenaltyWindow" step="1000" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">双倍扣费窗口 (Default: 10000)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Penalty Multiplier (惩罚倍数)</label>
+                      <input type="number" id="econ-frequencyPenaltyMult" step="0.1" min="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">Default: 2.0</div>
+                  </div>
+              </div>
+
+              <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; border: 1px solid #e1bee7;">
+                  <h4 style="margin-top: 0; color: #4a148c; border-bottom: 1px solid #e1bee7; padding-bottom: 8px;">货币政策 (UBI & Inflation)</h4>
+                  <div class="form-group">
+                      <label>Daily UBI (每日空投)</label>
+                      <input type="number" id="econ-ubiDailyAmount" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">Default: 5</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Stake Threshold (低保门槛)</label>
+                      <input type="number" id="econ-ubiStakeThreshold" step="1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">持有能量高于此值才发 UBI (Default: 50)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Max Inflation (最大通胀率)</label>
+                      <input type="number" id="econ-inflationRate" step="0.01" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">Default: 0.05 (5%)</div>
+                  </div>
+              </div>
+
+              <div style="background: #e0f2f1; padding: 15px; border-radius: 8px; border: 1px solid #b2dfdb;">
+                  <h4 style="margin-top: 0; color: #00695c; border-bottom: 1px solid #b2dfdb; padding-bottom: 8px;">硬核市场 (Hardcore)</h4>
+                  <div class="form-group">
+                      <label>Wither Threshold (枯萎阈值)</label>
+                      <input type="number" id="econ-witherThreshold" step="0.05" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">信心低于此值Spark枯萎 (Default: 0.1)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Dividend Rate (分红率)</label>
+                      <input type="number" id="econ-dividendRate" step="0.05" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">高信心Spark分红比例 (Default: 0.1)</div>
+                  </div>
+                  <div style="display: flex; gap: 10px;">
+                      <div class="form-group" style="flex: 1;">
+                          <label>Rep Gain (信誉+)</label>
+                          <input type="number" id="econ-reputationGain" step="0.01" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                      <div class="form-group" style="flex: 1;">
+                          <label>Rep Loss (信誉-)</label>
+                          <input type="number" id="econ-reputationLoss" step="0.01" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                  </div>
+                  <!-- Specific Reputation Params -->
+                  <div style="background: #fff; padding: 10px; border: 1px solid #b2dfdb; border-radius: 4px; margin-top: 10px;">
+                      <h5 style="margin: 0 0 10px 0; color: #00695c; font-size: 0.9rem;">信誉奖惩细则 (Reputation Detail)</h5>
+                      <div style="display: flex; gap: 10px;">
+                           <div class="form-group" style="flex: 1;">
+                              <label>Pub Loss (造谣)</label>
+                              <input type="number" id="econ-reputationLossPublisher" step="0.1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                              <div style="font-size: 0.7rem; color: #666;">发布假消息惩罚</div>
+                          </div>
+                          <div class="form-group" style="flex: 1;">
+                              <label>Believer Loss (盲信)</label>
+                              <input type="number" id="econ-reputationLossBeliever" step="0.1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                              <div style="font-size: 0.7rem; color: #666;">误信假消息惩罚</div>
+                          </div>
+                          <div class="form-group" style="flex: 1;">
+                              <label>Challenger Gain (打假)</label>
+                              <input type="number" id="econ-reputationGainChallenger" step="0.1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                              <div style="font-size: 0.7rem; color: #666;">揭露假消息奖励</div>
+                          </div>
+                      </div>
+                  </div>
+            <div class="form-group" style="margin-top: 10px;">
+                <label>Verify Reward Base (验证挖矿基数)</label>
+                <input type="number" id="econ-verifyRewardBase" step="0.5" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="font-size: 0.8rem; color: #666;">实际奖励 = 基数 * 权重 (权重取决于距离/信誉)。若Cost=2, 基数建议>3以允许盈利。</div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Dividend Ratio (分红比例)</label>
+                    <input type="number" id="econ-dividendRatio" step="0.1" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8rem; color: #666;">Ping成本中用于分红的比例 (0-1)</div>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Verifier Retention (验证者留存)</label>
+                    <input type="number" id="econ-verifierRetention" step="0.1" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8rem; color: #666;">分红中分配给验证者的比例 (0-1)</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Risk Deposit (质押金)</label>
+                    <input type="number" id="econ-riskDeposit" step="10" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8rem; color: #666;">发布 Spark 需锁定的能量 (若被证伪则罚没)</div>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                     <!-- Placeholder for future param -->
+                </div>
+            </div>
+
+        </div>
+          </div>
+      </section>
+
       <section id="shinemap-config-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
               <h2>ShineMap 参数配置</h2>
@@ -112,52 +449,7 @@
           <p style="color: #666; margin-bottom: 1rem;">调整 ShineMap 的核心算法参数。</p>
           
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-              <!-- Genesis -->
-              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                  <h4 style="margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">创世参数 (Genesis)</h4>
-                  <div class="form-group">
-                      <label>IGNITION_THRESHOLD (点亮阈值)</label>
-                      <input type="number" id="conf-ignition" step="1" min="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">初期: 1, 后期: 10</div>
-                  </div>
-                  <div class="form-group">
-                      <label>PIONEER_MULTIPLIER (先驱者倍率)</label>
-                      <input type="number" id="conf-pioneer" step="0.1" min="1.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">早期用户权重 (默认 5.0)</div>
-                  </div>
-              </div>
-
-              <!-- Evolution -->
-              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                  <h4 style="margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">演化参数 (Evolution)</h4>
-                  <div class="form-group">
-                      <label>DECAY_RATE (半衰期速率)</label>
-                      <input type="number" id="conf-decay" step="0.01" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">每天衰减比例 (默认 0.05)</div>
-                  </div>
-                  <div class="form-group">
-                      <label>MAX_BRIGHTNESS (最大亮度钳位)</label>
-                      <input type="number" id="conf-max-bright" step="10" min="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">防止光污染 (默认 1000)</div>
-                  </div>
-              </div>
-
-              <!-- Dimensional & Visual -->
-              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
-                  <h4 style="margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">维度与视觉 (Dim & Visual)</h4>
-                  <div class="form-group">
-                      <label>ALTITUDE_SENSITIVITY (海拔灵敏度)</label>
-                      <input type="number" id="conf-altitude" step="0.1" min="0.1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">米/层 (默认 3.0)</div>
-                  </div>
-                  <div class="form-group">
-                      <label>FOG_DENSITY (迷雾浓度)</label>
-                      <input type="number" id="conf-fog" step="0.05" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                      <div style="font-size: 0.8rem; color: #888;">未探索区域透明度 (0-1)</div>
-                  </div>
-              </div>
-
-              <!-- Client Tracking (New) -->
+              <!-- Client Tracking (Keep) -->
               <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                   <h4 style="margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">追踪参数 (Tracking)</h4>
                   <div class="form-group">
@@ -181,7 +473,195 @@
                       <div style="font-size: 0.8rem; color: #888;">毫秒 (默认 60000)</div>
                   </div>
               </div>
+
+              <!-- System & Visual (New) -->
+              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                  <h4 style="margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">系统与视觉 (System & Visual)</h4>
+                  <div class="form-group">
+                      <label>MAX_CELLS (最大返回网格数)</label>
+                      <input type="number" id="conf-max-cells" step="100" min="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #888;">防止客户端崩溃 (默认 2000)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>VISUAL_GAIN (视觉增益)</label>
+                      <input type="number" id="conf-visual-gain" step="0.1" min="0.1" max="5.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #888;">调整全局亮度/透明度 (默认 1.0)</div>
+                  </div>
+              </div>
+              
+              <!-- Dynamic Rendering Config -->
+              <div style="background: #fff8e1; padding: 15px; border-radius: 8px; border: 1px solid #ffe0b2;">
+                  <h4 style="margin-top: 0; color: #e65100; border-bottom: 1px solid #ffe0b2; padding-bottom: 8px;">动态渲染参数 (Rendering)</h4>
+                  
+                  <div class="form-group">
+                      <label>Decay Rate (日衰减率)</label>
+                      <input type="number" id="conf-decay-rate" step="0.01" min="0.5" max="1.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #888;">E_eff = E * Rate^Days (Default: 0.9)</div>
+                  </div>
+                  
+                  <div style="display: flex; gap: 10px;">
+                      <div class="form-group" style="flex: 1;">
+                          <label>Lambda Road (<)</label>
+                          <input type="number" id="conf-lambda-road" step="0.05" min="0" max="1.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                      <div class="form-group" style="flex: 1;">
+                          <label>Lambda Home (>)</label>
+                          <input type="number" id="conf-lambda-home" step="0.05" min="0" max="1.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                  </div>
+
+                  <div style="display: flex; gap: 10px;">
+                      <div class="form-group" style="flex: 1;">
+                          <label>Hue Road</label>
+                          <input type="number" id="conf-hue-road" step="1" min="0" max="360" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                      <div class="form-group" style="flex: 1;">
+                          <label>Hue Hub</label>
+                          <input type="number" id="conf-hue-hub" step="1" min="0" max="360" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                      <div class="form-group" style="flex: 1;">
+                          <label>Hue Home</label>
+                          <input type="number" id="conf-hue-home" step="1" min="0" max="360" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Social Physics Engine -->
+              <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; border: 1px solid #d0e1fd;">
+                  <h4 style="margin-top: 0; color: #0044cc; border-bottom: 1px solid #d0e1fd; padding-bottom: 8px;">社会物理引擎 (Social Physics)</h4>
+                  
+                  <div class="form-group">
+                      <label>Base Weight (Passing)</label>
+                      <input type="number" id="conf-phy-pass" step="0.1" min="0.1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">路过基础能量 (Default: 1.0)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Base Weight (Resting)</label>
+                      <input type="number" id="conf-phy-rest" step="0.5" min="0.5" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">停留基础能量 (Default: 5.0)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Crowd Damping (Scarcity Alpha)</label>
+                      <input type="number" id="conf-phy-damp" step="0.05" min="0" max="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">拥挤衰减系数 0-1 (Default: 0.1)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Silence Bonus (Beta)</label>
+                      <input type="number" id="conf-phy-silence" step="0.1" min="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">探索奖励系数 (Default: 0.2)</div>
+                  </div>
+                  <div class="form-group">
+                      <label>Dwell Power Exponent (β)</label>
+                      <input type="number" id="conf-phy-exponent" step="0.1" min="1.0" max="3.0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                      <div style="font-size: 0.8rem; color: #666;">停留能量指数 (Default: 1.5, E ~ t^β)</div>
+                  </div>
+              </div>
+
+              <!-- Cycle Mode Control (New) -->
+              <div style="background: #fff8e1; padding: 15px; border-radius: 8px; border: 1px solid #ffe0b2;">
+                  <h4 style="margin-top: 0; color: #e65100; border-bottom: 1px solid #ffe0b2; padding-bottom: 8px;">周期模式控制 (Cycle Mode)</h4>
+                  <div class="form-group">
+                      <label>当前周期开始时间</label>
+                      <div id="cycle-start-date" style="color: #333; margin-bottom: 1rem; font-family: monospace;">加载中...</div>
+                  </div>
+                  <button id="reset-cycle-btn" class="btn btn-primary" style="background-color: #f57c00; border-color: #e65100; width: auto; padding: 0.3rem 0.8rem; font-size: 0.9rem;">重置周期 (清零数据)</button>
+                  <div style="font-size: 0.8rem; color: #e65100; margin-top: 8px;">注意：这将清空所有网格的“周期能量”数据，但保留总累积能量。</div>
+              </div>
           </div>
+          
+          <!-- ShineMap Math Model Guide -->
+          <div style="margin-top: 2rem; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+              <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #007aff; padding-bottom: 10px; display: inline-block;">ShineMap 数学模型与参数指南</h3>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-top: 20px;">
+                  
+                  <!-- 1. Core Energy Model -->
+                  <div>
+                      <h4 style="color: #007aff; margin-bottom: 10px;">1. 能量积聚模型 (Energy Accumulation)</h4>
+                      <p style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+                          ShineMap 的核心机制是基于用户行为产生能量脉冲 (Pulse)。能量 ($E$) 由两部分组成：
+                      </p>
+                      <div style="background: #f4f6f9; padding: 10px; border-left: 3px solid #007aff; font-family: monospace; font-size: 0.9rem; margin: 10px 0;">
+                          E_pulse = BaseWeight * Scarcity * SilenceBonus
+                      </div>
+                      <ul style="font-size: 0.9rem; color: #666; padding-left: 20px;">
+                          <li><b>BaseWeight (基础权重)</b>:
+                              <ul>
+                                  <li>路过 (Passing): 固定常数 1.0 (conf-phy-pass)。</li>
+                                  <li>停留 (Resting): <b>动态变量</b>，由右侧的“停留时间物理”模型计算得出 (即 $BaseWeight = E_{rest}$)。</li>
+                              </ul>
+                          </li>
+                          <li><b>Scarcity (拥挤衰减)</b>: 人越多，单人贡献越小。
+                              <br><code>Factor = 1.0 / (1.0 + α * CurrentEnergy)</code>
+                              <br>α (Alpha) 为阻尼系数 (conf-phy-damp, 默认 0.1)。
+                          </li>
+                          <li><b>SilenceBonus (探索奖励)</b>: 探索无人区奖励倍增。
+                              <br>若网格能量为 0，则 <code>Bonus = 1.0 + 2 * β</code>
+                              <br>β (Beta) 为奖励系数 (conf-phy-silence, 默认 0.2)。
+                          </li>
+                      </ul>
+                  </div>
+
+                  <!-- 2. Dwell Time Physics -->
+                  <div>
+                      <h4 style="color: #e65100; margin-bottom: 10px;">2. 停留时间物理 (Social Physics)</h4>
+                      <p style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+                          这是<b>能量积聚模型的子模块</b>，专门用于计算“停留状态”下的 BaseWeight。
+                      </p>
+                      <div style="background: #fff8e1; padding: 10px; border-left: 3px solid #ff9800; font-family: monospace; font-size: 0.9rem; margin: 10px 0;">
+                          BaseWeight = E_rest ~ t ^ β
+                      </div>
+                      <ul style="font-size: 0.9rem; color: #666; padding-left: 20px;">
+                          <li><b>逻辑联系</b>: 停留越久，BaseWeight 越大，从而在总公式中产生巨大的 $E_{pulse}$。</li>
+                          <li><b>t</b>: 累计停留时间 (分钟)。</li>
+                          <li><b>β (Exponent)</b>: 幂指数 (conf-phy-exponent, 默认 1.5)。
+                              <ul>
+                                  <li>β = 1.0: 线性增长 (普通物理)。</li>
+                                  <li>β > 1.0: 超线性增长 (社交引力，越久越重要)。</li>
+                              </ul>
+                          </li>
+                          <li><b>积分计算</b>: 系统使用“精确积分增量法”计算每 5 秒的能量增量，避免刷新率影响总量。</li>
+                      </ul>
+                  </div>
+
+                  <!-- 3. Dynamic Rendering -->
+                  <div>
+                      <h4 style="color: #2e7d32; margin-bottom: 10px;">3. 动态渲染与光谱 (Spectral Rendering)</h4>
+                      <p style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+                          网格颜色由其“功能谱系” ($\lambda$) 决定，而非单纯的热度。
+                      </p>
+                      <div style="background: #e8f5e9; padding: 10px; border-left: 3px solid #4caf50; font-family: monospace; font-size: 0.9rem; margin: 10px 0;">
+                          λ = Resting / (Resting + Passing)
+                      </div>
+                      <ul style="font-size: 0.9rem; color: #666; padding-left: 20px;">
+                          <li><b>λ < 0.3 (Road)</b>: 主要为通过流量 -> 呈现冷色调 (Cyan/Blue)。</li>
+                          <li><b>λ > 0.7 (Home)</b>: 主要为驻留流量 -> 呈现暖色调 (Orange/Red)。</li>
+                          <li><b>中间态 (Hub)</b>: 混合区域 -> 呈现紫色/品红 (Purple)。</li>
+                          <li><b>亮度/透明度</b>: 由总能量 ($E$) 决定，遵循韦伯-费希纳定律 (对数感知)。</li>
+                      </ul>
+                  </div>
+
+                  <!-- 4. Realtime Thermodynamics -->
+                  <div>
+                      <h4 style="color: #d81b60; margin-bottom: 10px;">4. 实时热力学 (Thermodynamics)</h4>
+                      <p style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+                          实时模式展示的是能量的<b>变化率</b> ($\Delta E / \Delta t$)，而非总量。
+                      </p>
+                      <div style="background: #fce4ec; padding: 10px; border-left: 3px solid #e91e63; font-family: monospace; font-size: 0.9rem; margin: 10px 0;">
+                          ΔE = E(CurrentHour) - E(PrevHour)
+                      </div>
+                      <ul style="font-size: 0.9rem; color: #666; padding-left: 20px;">
+                          <li><b>升温 (Heating, ΔE > 0)</b>: 人群聚集 -> 红移 (Amber -> Red -> White)。</li>
+                          <li><b>冷却 (Cooling, ΔE < 0)</b>: 人群消散 -> 蓝移 (Cyan -> Blue -> Violet)。</li>
+                          <li><b>平稳 (Steady)</b>: 无显著变化 -> 透明不渲染。</li>
+                      </ul>
+                  </div>
+
+              </div>
+          </div>
+          
+
+
       </section>
 
       <section id="content-manager-section" class="map-section" style="border-bottom: 1px solid #eee; margin-bottom: 2rem; padding-bottom: 2rem;">
@@ -250,7 +730,8 @@
                 <label for="cms-module-select">选择板块</label>
                 <select id="cms-module-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     <option value="spark">灵感的火花 (Spark)</option>
-                    <option value="window">他人的窗户 (Window)</option>
+                    <option value="shineworld">Shineworld</option>
+                    <option value="window">他人的窗户 (Window - Legacy)</option>
                     <option value="anchor">当下的锚点 (Anchor)</option>
                 </select>
             </div>
@@ -288,7 +769,8 @@
                 <select id="cms-filter-module" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd;">
                     <option value="">全部板块</option>
                     <option value="spark">灵感的火花</option>
-                    <option value="window">他人的窗户</option>
+                    <option value="shineworld">Shineworld</option>
+                    <option value="window">他人的窗户 (Legacy)</option>
                     <option value="anchor">当下的锚点</option>
                 </select>
             </div>
@@ -467,7 +949,7 @@
       const allUsersList = document.getElementById('all-users-list');
 
       async function renderAllUsers() {
-          allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #888;">加载中...</td></tr>';
+          allUsersList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #888;">加载中...</td></tr>';
           
           try {
               const res = await fetch('/api/admin/users', {
@@ -477,7 +959,7 @@
               
               if (data.success && data.users) {
                   if (data.users.length === 0) {
-                      allUsersList.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #888;">暂无用户</td></tr>';
+                      allUsersList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #888;">暂无用户</td></tr>';
                       return;
                   }
                   
@@ -490,6 +972,8 @@
                       
                       // Format Date
                       const createdDate = u.createdAt ? new Date(u.createdAt).toLocaleString('zh-CN', { hour12: false }) : '未知';
+                      const rep = u.reputation !== undefined ? u.reputation.toFixed(2) : '1.00';
+                      const repColor = rep >= 1 ? '#2e7d32' : (rep < 0.5 ? '#d32f2f' : '#f57c00');
                       
                       const isMe = u.username === currentAdmin;
                       
@@ -500,6 +984,7 @@
                           </td>
                           <td style="padding: 10px; color: #666;">${u.nickname || '-'}</td>
                           <td style="padding: 10px; font-family: monospace; color: #555;" title="系统唯一标识: ${u._id}">${u.friendId || '-'}</td>
+                          <td style="padding: 10px; font-weight: bold; color: ${repColor};">${rep}</td>
                           <td style="padding: 10px; color: #888; font-size: 0.9rem;">${createdDate}</td>
                           <td style="padding: 10px; text-align: right;">
                               ${!isMe ? `<button class="btn-delete-user" data-id="${u._id}" data-username="${u.username}" style="padding: 4px 10px; background: #fee; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">注销</button>` : ''}
@@ -556,6 +1041,105 @@
 
       refreshUsersBtn.addEventListener('click', renderAllUsers);
       renderAllUsers(); // Initial Load for List
+
+      // --- SPARK MANAGEMENT LOGIC ---
+      const refreshSparksBtn = document.getElementById('refresh-sparks-btn');
+      const allSparksList = document.getElementById('all-sparks-list');
+
+      async function renderAllSparks() {
+          allSparksList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #888;">加载中...</td></tr>';
+          
+          try {
+              const res = await fetch('/api/admin/sparks', {
+                  headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+              });
+              const data = await res.json();
+              
+              if (data.success && data.sparks) {
+                  if (data.sparks.length === 0) {
+                      allSparksList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #888;">暂无 Spark 数据</td></tr>';
+                      return;
+                  }
+                  
+                  allSparksList.innerHTML = '';
+
+                  data.sparks.forEach(s => {
+                      const tr = document.createElement('tr');
+                      tr.style.borderBottom = '1px solid #eee';
+                      
+                      const createdDate = s.createdAt ? new Date(s.createdAt).toLocaleString('zh-CN', { hour12: false }) : '未知';
+                      const hostName = s.hostId ? (s.hostId.username || '未知用户') : '已删除用户';
+                      const hostNick = s.hostId ? (s.hostId.nickname || '') : '';
+                      const typeLabel = s.type === 'HARD_FACT' ? '<span style="color:#2e7d32; font-weight:bold;">事实</span>' : '<span style="color:#c62828; font-weight:bold;">感触</span>';
+                      
+                      // Confidence/Heat
+                      const confidence = s.snapshot ? (s.snapshot.confidence * 100).toFixed(1) + '%' : '0%';
+                      const votes = s.snapshot ? `(+${s.snapshot.upvotes || 0} / -${s.snapshot.downvotes || 0})` : '';
+
+                      tr.innerHTML = `
+                          <td style="padding: 10px;">${typeLabel}</td>
+                          <td style="padding: 10px; color: #333; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${s.content}">${s.content}</td>
+                          <td style="padding: 10px;">
+                              <div style="font-weight: 500;">${hostName}</div>
+                              <div style="font-size: 0.8rem; color: #888;">${hostNick}</div>
+                          </td>
+                          <td style="padding: 10px; color: #666;">
+                              <div style="font-weight:bold;">${confidence}</div>
+                              <div style="font-size: 0.8rem;">${votes}</div>
+                          </td>
+                          <td style="padding: 10px; color: #888; font-size: 0.9rem;">${createdDate}</td>
+                          <td style="padding: 10px; text-align: right;">
+                              <button class="btn-delete-spark" data-id="${s._id}" style="padding: 4px 10px; background: #fee; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">删除</button>
+                          </td>
+                      `;
+                      
+                      allSparksList.appendChild(tr);
+                  });
+                  
+                  // Bind Delete Events
+                  document.querySelectorAll('.btn-delete-spark').forEach(btn => {
+                      btn.addEventListener('click', async (e) => {
+                          const sid = e.target.dataset.id;
+                          
+                          if (confirm(`警告：确定要删除此 Spark 吗？\n此操作不可恢复！`)) {
+                              e.target.disabled = true;
+                              e.target.textContent = "删除中...";
+                              
+                              try {
+                                  const delRes = await fetch(`/api/admin/sparks/${sid}`, {
+                                      method: 'DELETE',
+                                      headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                                  });
+                                  const delData = await delRes.json();
+                                  
+                                  if (delData.success) {
+                                      alert(delData.message);
+                                      renderAllSparks(); // Refresh list
+                                  } else {
+                                      alert("删除失败: " + delData.error);
+                                      e.target.disabled = false;
+                                      e.target.textContent = "删除";
+                                  }
+                              } catch(err) {
+                                  alert("请求出错: " + err.message);
+                                  e.target.disabled = false;
+                                  e.target.textContent = "删除";
+                              }
+                          }
+                      });
+                  });
+                  
+              } else {
+                  allSparksList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #d32f2f;">加载失败: ' + (data.error || '未知错误') + '</td></tr>';
+              }
+          } catch(e) {
+              console.error("Failed to load spark list", e);
+              allSparksList.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #d32f2f;">网络错误，请重试</td></tr>';
+          }
+      }
+
+      refreshSparksBtn.addEventListener('click', renderAllSparks);
+      renderAllSparks(); // Initial Load
 
       // Helper to load content
       async function loadContent(type) {
@@ -919,7 +1503,8 @@
 
                       let moduleName = item.module;
                       if (moduleName === 'spark') moduleName = '灵感火花';
-                      else if (moduleName === 'window') moduleName = '他人窗户';
+                      else if (moduleName === 'shineworld') moduleName = 'Shineworld';
+                      else if (moduleName === 'window') moduleName = '他人窗户 (Legacy)';
                       else if (moduleName === 'anchor') moduleName = '当下的锚点';
 
                       tr.innerHTML = `
@@ -1000,16 +1585,57 @@
 
       // --- ShineMap Config Logic ---
       const saveShineConfigBtn = document.getElementById('save-shine-config-btn');
-      const confIgnition = document.getElementById('conf-ignition');
-      const confPioneer = document.getElementById('conf-pioneer');
-      const confDecay = document.getElementById('conf-decay');
-      const confMaxBright = document.getElementById('conf-max-bright');
-      const confAltitude = document.getElementById('conf-altitude');
-      const confFog = document.getElementById('conf-fog');
       const confResting = document.getElementById('conf-resting');
       const confRadius = document.getElementById('conf-radius');
       const confSpeed = document.getElementById('conf-speed');
       const confFlush = document.getElementById('conf-flush');
+      const confMaxCells = document.getElementById('conf-max-cells');
+      const seedTestBtn = document.getElementById('seed-test-data-btn');
+
+
+      const confPhyPass = document.getElementById('conf-phy-pass');
+      const confPhyRest = document.getElementById('conf-phy-rest');
+      const confPhyDamp = document.getElementById('conf-phy-damp');
+      const confPhySilence = document.getElementById('conf-phy-silence');
+      const confPhyExponent = document.getElementById('conf-phy-exponent');
+      
+      // Dynamic Rendering Elements
+      const confDecayRate = document.getElementById('conf-decay-rate');
+      const confLambdaRoad = document.getElementById('conf-lambda-road');
+      const confLambdaHome = document.getElementById('conf-lambda-home');
+      const confHueRoad = document.getElementById('conf-hue-road');
+      const confHueHub = document.getElementById('conf-hue-hub');
+      const confHueHome = document.getElementById('conf-hue-home');
+
+      // Economy Elements
+      const saveEconomyConfigBtn = document.getElementById('save-economy-config-btn');
+      const econCostPing = document.getElementById('econ-cost-ping');
+      const econCostPingRemote = document.getElementById('econ-cost-ping-remote');
+      const econCostVerify = document.getElementById('econ-cost-verify');
+      const econCostCreate = document.getElementById('econ-cost-create');
+      const econEnergyCap = document.getElementById('econ-energy-cap');
+      const econRecoveryRate = document.getElementById('econ-recovery-rate');
+      
+      const econSpatialRent = document.getElementById('econ-spatialRent');
+      const econValidationWeightNeighbor = document.getElementById('econ-validationWeightNeighbor');
+      const econFrequencyPenaltyWindow = document.getElementById('econ-frequencyPenaltyWindow');
+      const econFrequencyPenaltyMult = document.getElementById('econ-frequencyPenaltyMult');
+      const econUbiDailyAmount = document.getElementById('econ-ubiDailyAmount');
+      const econUbiStakeThreshold = document.getElementById('econ-ubiStakeThreshold');
+      const econInflationRate = document.getElementById('econ-inflationRate');
+
+      const econWitherThreshold = document.getElementById('econ-witherThreshold');
+      const econDividendRate = document.getElementById('econ-dividendRate');
+      const econReputationGain = document.getElementById('econ-reputationGain');
+      const econReputationLoss = document.getElementById('econ-reputationLoss');
+      const econReputationLossPublisher = document.getElementById('econ-reputationLossPublisher');
+      const econReputationLossBeliever = document.getElementById('econ-reputationLossBeliever');
+      const econReputationGainChallenger = document.getElementById('econ-reputationGainChallenger');
+      
+      const econDividendRatio = document.getElementById('econ-dividendRatio');
+      const econVerifierRetention = document.getElementById('econ-verifierRetention');
+      const econVerifyRewardBase = document.getElementById('econ-verifyRewardBase');
+      const econRiskDeposit = document.getElementById('econ-riskDeposit');
 
       async function loadShineConfig() {
           try {
@@ -1018,38 +1644,161 @@
               });
               const data = await res.json();
               if (data.success && data.config) {
-                  confIgnition.value = data.config.ignitionThreshold;
-                  confPioneer.value = data.config.pioneerMultiplier;
-                  confDecay.value = data.config.decayRate;
-                  confMaxBright.value = data.config.maxBrightness;
-                  confAltitude.value = data.config.altitudeSensitivity;
-                  confFog.value = data.config.fogDensity;
-                  
-                  // New Client Params
+                  // Tracking Params
                   if (data.config.restingThresholdMs) confResting.value = data.config.restingThresholdMs;
                   if (data.config.stationaryRadius) confRadius.value = data.config.stationaryRadius;
                   if (data.config.speedThreshold) confSpeed.value = data.config.speedThreshold;
                   if (data.config.flushInterval) confFlush.value = data.config.flushInterval;
+                  
+                  // System & Visual
+                  confMaxCells.value = data.config.maxCellsReturned || 2000;
+                  // Note: visualGain might be missing in older configs
+                  if (document.getElementById('conf-visual-gain') && data.config.visualGain) {
+                      document.getElementById('conf-visual-gain').value = data.config.visualGain;
+                  }
+
+                  // Social Physics
+                  if (data.config.physics) {
+                      confPhyPass.value = data.config.physics.baseWeightPassing;
+                      confPhyRest.value = data.config.physics.baseWeightResting;
+                      confPhyDamp.value = data.config.physics.crowdDamping;
+                      confPhySilence.value = data.config.physics.silenceBonus;
+                      confPhyExponent.value = data.config.physics.dwellPowerExponent;
+                  }
+
+                  // Dynamic Rendering
+                  if (data.config.vitalityDecayRate !== undefined) confDecayRate.value = data.config.vitalityDecayRate;
+                  if (data.config.lambdaRoadMax !== undefined) confLambdaRoad.value = data.config.lambdaRoadMax;
+                  if (data.config.lambdaHomeMin !== undefined) confLambdaHome.value = data.config.lambdaHomeMin;
+                  if (data.config.hueRoad !== undefined) confHueRoad.value = data.config.hueRoad;
+                  if (data.config.hueHub !== undefined) confHueHub.value = data.config.hueHub;
+                  if (data.config.hueHome !== undefined) confHueHome.value = data.config.hueHome;
+
+                  // Economy
+                  if (data.config.economy) {
+                      if (econCostPing) econCostPing.value = data.config.economy.costPing;
+                      if (econCostPingRemote) econCostPingRemote.value = data.config.economy.costPingRemote ?? 15;
+                      if (econCostVerify) econCostVerify.value = data.config.economy.costVerify;
+                      if (econCostCreate) econCostCreate.value = data.config.economy.costCreate;
+                      if (econSpatialRent) econSpatialRent.value = data.config.economy.spatialRent ?? 10;
+                      if (econEnergyCap) econEnergyCap.value = data.config.economy.energyCap;
+                      if (econRecoveryRate) econRecoveryRate.value = data.config.economy.recoveryRate;
+                      
+                      // Advanced Params
+                      if (econValidationWeightNeighbor) econValidationWeightNeighbor.value = data.config.economy.validationWeightNeighbor ?? 0.5;
+                      if (econFrequencyPenaltyWindow) econFrequencyPenaltyWindow.value = data.config.economy.frequencyPenaltyWindow ?? 10000;
+                      if (econFrequencyPenaltyMult) econFrequencyPenaltyMult.value = data.config.economy.frequencyPenaltyMult ?? 2;
+                      if (econUbiDailyAmount) econUbiDailyAmount.value = data.config.economy.ubiDailyAmount ?? 5;
+                      if (econUbiStakeThreshold) econUbiStakeThreshold.value = data.config.economy.ubiStakeThreshold ?? 50;
+                      if (econInflationRate) econInflationRate.value = data.config.economy.inflationRate ?? 0.05;
+
+                      // Hardcore Params
+                      if (econWitherThreshold) econWitherThreshold.value = data.config.economy.witherThreshold ?? 0.1;
+                      if (econDividendRate) econDividendRate.value = data.config.economy.dividendRate ?? 0.1;
+                      if (econReputationGain) econReputationGain.value = data.config.economy.reputationGain ?? 0.05;
+                      if (econReputationLoss) econReputationLoss.value = data.config.economy.reputationLoss ?? 0.05;
+                      if (econReputationLossPublisher) econReputationLossPublisher.value = data.config.economy.reputationLossPublisher ?? 0.5;
+                      if (econReputationLossBeliever) econReputationLossBeliever.value = data.config.economy.reputationLossBeliever ?? 0.1;
+                      if (econReputationGainChallenger) econReputationGainChallenger.value = data.config.economy.reputationGainChallenger ?? 0.2;
+                      if (econVerifyRewardBase) econVerifyRewardBase.value = data.config.economy.verifyRewardBase ?? 4;
+                      
+                      if (econDividendRatio) econDividendRatio.value = data.config.economy.dividendRatio ?? 0.3;
+                      if (econVerifierRetention) econVerifierRetention.value = data.config.economy.verifierRetention ?? 0.5;
+                      if (econRiskDeposit) econRiskDeposit.value = data.config.economy.riskDeposit ?? 100;
+                  } else {
+                      // Defaults
+                      if (econCostPing) econCostPing.value = 5;
+                      if (econCostVerify) econCostVerify.value = 2;
+                      if (econCostCreate) econCostCreate.value = 50;
+                      if (econEnergyCap) econEnergyCap.value = 100;
+                      if (econRecoveryRate) econRecoveryRate.value = 5.0;
+                  }
+
+                  // Cycle Mode Display
+                  const cycleStartDateEl = document.getElementById('cycle-start-date');
+                  if (cycleStartDateEl) {
+                      if (data.config.cycleStartDate) {
+                          cycleStartDateEl.textContent = new Date(data.config.cycleStartDate).toLocaleString('zh-CN', { hour12: false });
+                      } else {
+                          cycleStartDateEl.textContent = "未设置";
+                      }
+                  }
+
               }
           } catch (e) {
               console.error("Failed to load ShineMap config", e);
           }
       }
 
+      // Seed Test Data Handler
+      if (seedTestBtn) {
+          seedTestBtn.addEventListener('click', async () => {
+              if (!confirm("确定要在当前地图中心生成50个随机测试光点吗？这会产生永久数据。")) return;
+              
+              try {
+                  seedTestBtn.textContent = '生成中...';
+                  seedTestBtn.disabled = true;
+                  
+                  const centerStr = prompt("请输入生成中心 (lat,lng)，留空则使用默认(上海/HK):", "31.2304,121.4737");
+                  let lat = null, lng = null;
+                  if (centerStr && centerStr.includes(',')) {
+                      [lat, lng] = centerStr.split(',').map(Number);
+                  }
+
+                  const res = await fetch('/api/admin/shinemap/seed', {
+                      method: 'POST',
+                      headers: { 
+                          'Content-Type': 'application/json',
+                          'Authorization': sessionStorage.getItem('hkwl_auth_token') 
+                      },
+                      body: JSON.stringify({ lat, lng })
+                  });
+                  
+                  const data = await res.json();
+                  if (data.success) {
+                      alert(data.message);
+                      // If stats function exists, refresh it
+                      if (typeof loadShineMapStats === 'function') loadShineMapStats();
+                  } else {
+                      alert('生成失败: ' + (data.error || '未知错误'));
+                  }
+              } catch (e) {
+                  alert('请求出错: ' + e.message);
+              } finally {
+                  seedTestBtn.textContent = '生成周围测试光点';
+                  seedTestBtn.disabled = false;
+              }
+          });
+      }
+
       saveShineConfigBtn.addEventListener('click', async () => {
           const payload = {
-              ignitionThreshold: parseFloat(confIgnition.value),
-              pioneerMultiplier: parseFloat(confPioneer.value),
-              decayRate: parseFloat(confDecay.value),
-              maxBrightness: parseFloat(confMaxBright.value),
-              altitudeSensitivity: parseFloat(confAltitude.value),
-              fogDensity: parseFloat(confFog.value),
-              
-              // New Client Params
+              // Tracking
               restingThresholdMs: parseFloat(confResting.value),
               stationaryRadius: parseFloat(confRadius.value),
               speedThreshold: parseFloat(confSpeed.value),
-              flushInterval: parseFloat(confFlush.value)
+              flushInterval: parseFloat(confFlush.value),
+              
+              // System & Visual
+              maxCellsReturned: parseInt(confMaxCells.value),
+              // visualGain: parseFloat(document.getElementById('conf-visual-gain').value), // Not strictly in schema yet but good to have ready
+
+              // Social Physics
+              physics: {
+                  baseWeightPassing: parseFloat(confPhyPass.value),
+                  baseWeightResting: parseFloat(confPhyRest.value),
+                  crowdDamping: parseFloat(confPhyDamp.value),
+                  silenceBonus: parseFloat(confPhySilence.value),
+                  dwellPowerExponent: parseFloat(confPhyExponent.value)
+              },
+
+              // Dynamic Rendering
+              vitalityDecayRate: parseFloat(confDecayRate.value),
+              lambdaRoadMax: parseFloat(confLambdaRoad.value),
+              lambdaHomeMin: parseFloat(confLambdaHome.value),
+              hueRoad: parseInt(confHueRoad.value),
+              hueHub: parseInt(confHueHub.value),
+              hueHome: parseInt(confHueHome.value)
           };
 
           try {
@@ -1081,6 +1830,118 @@
 
       // Load config initially
       loadShineConfig();
+
+      // --- Cycle Mode Logic ---
+      const resetCycleBtn = document.getElementById('reset-cycle-btn');
+      if (resetCycleBtn) {
+          resetCycleBtn.addEventListener('click', async () => {
+              if (confirm("确定要重置周期吗？这将清空所有网格的“周期能量”数据，但保留总累积能量。\n\n此操作不可撤销！")) {
+                  try {
+                      resetCycleBtn.disabled = true;
+                      resetCycleBtn.textContent = "重置中...";
+                      
+                      const res = await fetch('/api/admin/cycle/reset', {
+                          method: 'POST',
+                          headers: { 'Authorization': sessionStorage.getItem('hkwl_auth_token') }
+                      });
+                      const data = await res.json();
+                      
+                      if (data.success) {
+                          alert(`周期已重置成功！\n受影响网格数: ${data.count}`);
+                          loadShineConfig(); // Refresh date
+                          if (typeof loadShineMapStats === 'function') loadShineMapStats();
+                      } else {
+                          alert("重置失败: " + (data.error || "未知错误"));
+                      }
+                  } catch (e) {
+                      console.error("Cycle reset failed:", e);
+                      alert("网络错误，无法重置周期");
+                  } finally {
+                      resetCycleBtn.disabled = false;
+                      resetCycleBtn.textContent = "重置周期 (清零数据)";
+                  }
+              }
+          });
+      }
+
+      // --- ECONOMY CONFIG SAVE ---
+      if (saveEconomyConfigBtn) {
+          saveEconomyConfigBtn.addEventListener('click', async () => {
+              const getInt = (val, def) => {
+                  const parsed = parseInt(val);
+                  return isNaN(parsed) ? def : parsed;
+              };
+              const getFloat = (val, def) => {
+                  const parsed = parseFloat(val);
+                  return isNaN(parsed) ? def : parsed;
+              };
+
+              const economy = {
+                  costPing: getInt(econCostPing.value, 5),
+                  costPingRemote: getInt(econCostPingRemote.value, 15),
+                  costVerify: getInt(econCostVerify.value, 2),
+                  costCreate: getInt(econCostCreate.value, 50),
+                  spatialRent: getInt(econSpatialRent.value, 10),
+                  energyCap: getInt(econEnergyCap.value, 100),
+                  recoveryRate: getFloat(econRecoveryRate.value, 5.0),
+
+                  // Advanced Params
+                  validationWeightNeighbor: getFloat(econValidationWeightNeighbor.value, 0.5),
+                  frequencyPenaltyWindow: getInt(econFrequencyPenaltyWindow.value, 10000),
+                  frequencyPenaltyMult: getFloat(econFrequencyPenaltyMult.value, 2.0),
+                  ubiDailyAmount: getInt(econUbiDailyAmount.value, 5),
+                  ubiStakeThreshold: getInt(econUbiStakeThreshold.value, 50),
+                  inflationRate: getFloat(econInflationRate.value, 0.05),
+
+                  // Hardcore Params
+                  witherThreshold: getFloat(econWitherThreshold.value, 0.1),
+                  dividendRate: getFloat(econDividendRate.value, 0.1),
+                  reputationGain: getFloat(econReputationGain.value, 0.05),
+                  reputationLoss: getFloat(econReputationLoss.value, 0.05),
+                  reputationLossPublisher: getFloat(econReputationLossPublisher.value, 0.5),
+                  reputationLossBeliever: getFloat(econReputationLossBeliever.value, 0.1),
+                  reputationGainChallenger: getFloat(econReputationGainChallenger.value, 0.2),
+                  verifyRewardBase: getFloat(econVerifyRewardBase.value, 4),
+                  
+                  dividendRatio: getFloat(econDividendRatio.value, 0.3),
+                  verifierRetention: getFloat(econVerifierRetention.value, 0.5),
+                  riskDeposit: getFloat(econRiskDeposit.value, 100)
+              };
+
+              // Basic Validation
+              if (economy.costPing < 0 || economy.costVerify < 0 || economy.costCreate < 0 || economy.energyCap < 10) {
+                  alert('请确保所有数值非负，且能量上限至少为 10');
+                  return;
+              }
+
+              const originalText = saveEconomyConfigBtn.textContent;
+              saveEconomyConfigBtn.disabled = true;
+              saveEconomyConfigBtn.textContent = '保存中...';
+
+              try {
+                  const res = await fetch('/api/admin/shinemap/config', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                      },
+                      body: JSON.stringify({ economy })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                      alert('经济配置已保存！(Economy configuration saved)');
+                  } else {
+                      alert('保存失败: ' + (data.error || 'Unknown error'));
+                  }
+              } catch (e) {
+                  console.error('Error saving economy config:', e);
+                  alert('保存时发生错误');
+              } finally {
+                  saveEconomyConfigBtn.disabled = false;
+                  saveEconomyConfigBtn.textContent = originalText;
+              }
+          });
+      }
 
       // Initial Load & Filter Listener
       loadCmsContent();

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "start": "node api/index.js",
     "dev": "node api/index.js",
     "deploy": "vercel deploy --prod",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -19,6 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "h3-js": "^4.4.0",
     "mongoose": "^9.1.4"
   },
   "devDependencies": {

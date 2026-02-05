@@ -9,8 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="shineshone">
   <link rel="apple-touch-icon" href="logo.png">
-  <link rel="stylesheet" href="styles.css?v=3" />
-  <link rel="stylesheet" href="home.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="home.css?v=2" />
+  <link rel="stylesheet" href="guide.css?v=2" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <script src="pwa-loader.js"></script>
@@ -20,6 +21,35 @@
     };
   </script>
   <script src="https://webapi.amap.com/loader.js"></script>
+  <style>
+    /* Critical Inline Styles for Guide Overlay to ensure visibility */
+     #market-guide-overlay {
+         position: fixed !important;
+         top: 0;
+         left: 0;
+         width: 100vw;
+         height: 100vh;
+         background-color: rgba(0, 0, 0, 0.6);
+         z-index: 2147483647 !important; /* Max z-index */
+         display: none;
+         align-items: center;
+         justify-content: center;
+         backdrop-filter: blur(2px);
+         opacity: 1 !important;
+         visibility: visible !important;
+         pointer-events: auto !important; /* Critical: Block interactions with underlying elements */
+     }
+     #market-guide-overlay.active {
+         display: flex !important;
+     }
+     /* Ensure panel is visible */
+     .guide-panel {
+         display: block !important;
+         opacity: 1 !important;
+         visibility: visible !important;
+         z-index: 2147483648 !important;
+     }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -86,33 +116,51 @@
         </div>
       </div>
 
-    <!-- 2. The Window (Shone) -->
-    <div class="bento-widget widget-window">
-      <div class="window-overlay"></div>
-      <div class="window-content">
-        <div class="window-tag">Featured Journey</div>
-        <div class="window-title">Alice 的冰岛环岛<br>7日极光之旅</div>
-        <div class="window-author">
-          <div class="author-avatar"></div>
-          <span>by Alice</span>
+    <!-- Market (Simplified) -->
+    <div class="bento-card market-card" id="market-card">
+        <div class="card-header">
+            <h3>Market</h3>
+            <div class="header-actions">
+                 <span id="user-energy-display" class="energy-badge">⚡ --</span>
+                 <!-- Help Button -->
+                 <button class="market-help-btn" id="btn-market-help" aria-label="Guide">?</button>
+            </div>
         </div>
-      </div>
+        
+
+
+        <!-- Compact List (Top 3 Only) -->
+        <div id="market-list-container" class="market-list compact-view">
+            <!-- Items injected here -->
+        </div>
+        
+        <a href="market.html" class="market-view-all-link">View Full Exchange & My Assets →</a>
+
+
     </div>
 
-    <!-- ShineMap Widget (New) -->
-    <div class="bento-widget widget-shinemap" id="widget-shinemap">
-        <div class="shinemap-preview-container">
-            <!-- Mini Map Background (Placeholder or live) -->
-            <div class="shinemap-mini-bg"></div>
-            <div class="shinemap-overlay-content">
-                <div class="shinemap-icon">🗺️</div>
-                <div class="shinemap-title">ShineMap</div>
-                <div class="shinemap-subtitle">Light up your world</div>
+    <!-- 3. ShineMap - New Peer Section -->
+    <div class="bento-widget widget-field">
+        <div class="field-bg"></div>
+        <div class="field-content">
+            <div class="field-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+            </div>
+            <div class="field-title">ShineMap</div>
+            
+            <div class="scope-switch-container" id="homepage-scope-switch">
+                <button class="scope-btn active" data-scope="world">World</button>
+                <button class="scope-btn" data-scope="me">Me</button>
+            </div>
+
+            <div class="field-desc">Connect with the world's pulse</div>
+            <div class="field-status">
+                <span class="status-dot"></span> <span id="field-live-count">Live</span>
             </div>
         </div>
     </div>
 
-    <!-- 3. The Spark (Prism) -->
+    <!-- 4. The Spark (Prism) -->
     <div class="bento-widget widget-spark">
       <div class="spark-inner">
         <div class="spark-front">
@@ -146,16 +194,48 @@
         <div class="drawer-title">Shine Channel</div>
         <button class="drawer-close" id="shine-drawer-close">&times;</button>
       </div>
-      <div class="radar-container" id="radar-container">
-        <!-- Radar Circles & Scan Line injected via JS/CSS -->
-        <div class="radar-scan"></div>
-        <!-- Bubbles injected via JS -->
-      </div>
-      <div class="radius-control">
-        <div class="radius-label">Signal Range: <span id="radius-value">5</span> km</div>
-        <input type="range" min="0.5" max="10" step="0.5" value="5" class="radius-slider" id="radius-slider">
+      <div class="channel-list-container" id="channel-list-container">
+        <!-- Channel List Items will be injected here -->
       </div>
     </div>
+  </div>
+
+  <!-- Shine Map Fullscreen Overlay -->
+  <div id="shine-map-overlay" class="map-overlay">
+      <div class="map-header">
+          <div class="map-title">ShineMap</div>
+          <button id="map-close-btn" class="map-close-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+      </div>
+      <div id="shine-map-container" style="width: 100%; height: calc(100% - 60px);"></div>
+  </div>
+
+  <!-- Market Guide Overlay -->
+  <div id="market-guide-overlay" class="modal-overlay">
+      <div class="guide-panel">
+          <div class="modal-header">
+              <h3>Market Field Manual</h3>
+              <button class="modal-close-btn" id="btn-close-guide">×</button>
+          </div>
+          <div class="modal-content guide-content">
+              <div class="guide-section">
+                  <h4>📡 PING (Scan)</h4>
+                  <p><strong>Cost: 5⚡</strong><br>Detect nearby Sparks (truth signals) in your sector. Results are privacy-protected.</p>
+              </div>
+              <div class="guide-section">
+                  <h4>📡 TRANSMIT (Post)</h4>
+                  <p><strong>Cost: 50⚡</strong><br>Anchor a truth node at your location.<br><strong>FACT:</strong> Objective reality.<br><strong>VIBE:</strong> Subjective intel.</p>
+              </div>
+              <div class="guide-section">
+                  <h4>⚖️ VERIFY (Vote)</h4>
+                  <p><strong>Reward: Variable</strong><br>Confirm (✓) or Challenge (✕) others' sparks. Consensus earns energy; collusion drains reputation.</p>
+              </div>
+              <div class="guide-footer">
+                  <em>"Truth is the only currency."</em>
+              </div>
+          </div>
+      </div>
   </div>
 
   <script src="auth-manager.js"></script>
@@ -164,7 +244,46 @@
   <script src="notice.js"></script>
   <script src="manual.js"></script>
   <script src="main.js"></script>
-  <script src="shine-map.js"></script>
-  <script src="home.js?v=8" defer></script>
+  <script src="https://unpkg.com/h3-js"></script>
+  <script src="shine-map.js?v=8"></script>
+  <script src="home.js?v=4" defer></script>
+  <script>
+    // Independent Fail-safe Script for Guide Button
+    (function() {
+        console.log('Initializing Guide Button Fail-safe Script');
+        const btnGuide = document.getElementById('btn-market-help');
+        const guideOverlay = document.getElementById('market-guide-overlay');
+        const btnCloseGuide = document.getElementById('btn-close-guide');
+
+        if (btnGuide && guideOverlay) {
+            btnGuide.addEventListener('click', function(e) {
+                console.log('Fail-safe: Guide button clicked');
+                e.preventDefault();
+                e.stopPropagation();
+                guideOverlay.style.display = 'flex';
+                // Force reflow
+                void guideOverlay.offsetWidth; 
+                guideOverlay.classList.add('active');
+            });
+        }
+
+        if (btnCloseGuide && guideOverlay) {
+            btnCloseGuide.addEventListener('click', function(e) {
+                console.log('Fail-safe: Close button clicked');
+                e.preventDefault();
+                e.stopPropagation();
+                guideOverlay.style.display = 'none';
+                guideOverlay.classList.remove('active');
+            });
+            
+            guideOverlay.addEventListener('click', function(e) {
+                if (e.target === guideOverlay) {
+                    guideOverlay.style.display = 'none';
+                    guideOverlay.classList.remove('active');
+                }
+            });
+        }
+    })();
+  </script>
 </body>
 </html>

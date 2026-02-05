@@ -1,0 +1,134 @@
+
+/* Guide Button */
+.market-help-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.2);
+    background: rgba(255,255,255,0.5);
+    color: #333;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    transition: all 0.2s;
+}
+
+.market-help-btn:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+/* Guide Overlay - Critical Fix */
+#market-guide-overlay.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 10000; /* Extremely high z-index */
+    display: none; /* Controlled by JS */
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+}
+
+/* Active state (redundant if JS sets display:flex, but good practice) */
+#market-guide-overlay.modal-overlay.active {
+    display: flex;
+}
+
+/* Guide Panel Styles */
+.guide-panel {
+    background: #f0f2f5;
+    color: #333;
+    border: 1px solid #ccc;
+    font-family: 'Courier New', monospace;
+    width: 90%;
+    max-width: 340px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: guideFadeIn 0.2s ease-out;
+}
+
+@keyframes guideFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Header inside Guide Panel */
+.guide-panel .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #e1e4e8;
+    border-bottom: 1px solid #ccc;
+}
+
+.guide-panel .modal-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.guide-panel .modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+}
+
+.guide-panel .modal-close-btn:hover {
+    color: #000;
+}
+
+.guide-content {
+    padding: 16px;
+}
+
+.guide-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed #ccc;
+}
+
+.guide-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.guide-section h4 {
+    margin: 0 0 6px 0;
+    color: #0c5da5;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.guide-section p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #444;
+}
+
+.guide-footer {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #666;
+    border-top: 2px solid #333;
+    padding-top: 10px;
+}

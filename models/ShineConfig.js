@@ -53,6 +53,7 @@ const shineConfigSchema = new mongoose.Schema({
 
   // Market Economy Parameters (Energy Central Bank)
   economy: {
+    dailyFreePings: { type: Number, default: 5 }, // Daily Free Quota
     costPing: { type: Number, default: 5 }, // Local Scan
     costPingRemote: { type: Number, default: 15 }, // Remote Scan (Higher Entropy)
     costVerify: { type: Number, default: 2 },

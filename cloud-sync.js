@@ -98,6 +98,7 @@ const CloudSync = (() => {
   }
 
   return {
+    request, // Expose request for custom modules like market-app.js
     isLoggedIn: () => !!token,
     getToken: () => token,
     

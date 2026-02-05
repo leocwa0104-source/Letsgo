@@ -6,7 +6,7 @@ class MarketConsole {
     constructor() {
         this.map = null;
         this.h3Res = 12; // Grid Resolution
-        this.selectedGrid = null; // Currently selected H3 index
+        this.selectedGrids = new Set(); // Currently selected H3 indices (Multi-select)
         this.userLocation = null; // {lat, lng}
         this.grids = new Map(); // Store polygon instances: h3Index -> AMap.Polygon
         
@@ -101,7 +101,7 @@ class MarketConsole {
         if (zoom < 15) {
             // Clear grids if zoomed out too far (except selected)
              for (const [h3Index, polygon] of this.grids) {
-                if (this.selectedGrid !== h3Index) {
+                if (!this.selectedGrids.has(h3Index)) {
                     polygon.setMap(null);
                     this.grids.delete(h3Index);
                 }
@@ -125,7 +125,7 @@ class MarketConsole {
         
         // 3. Remove old grids not in new set (and not selected)
         for (const [h3Index, polygon] of this.grids) {
-            if (!newGrids.has(h3Index) && this.selectedGrid !== h3Index) {
+            if (!newGrids.has(h3Index) && !this.selectedGrids.has(h3Index)) {
                 polygon.setMap(null);
                 this.grids.delete(h3Index);
             }
@@ -137,13 +137,15 @@ class MarketConsole {
                 const hexBoundary = h3.cellToBoundary(h3Index);
                 const path = hexBoundary.map(p => [p[1], p[0]]);
                 
+                const isSelected = this.selectedGrids.has(h3Index);
+                
                 const polygon = new AMap.Polygon({
                     path: path,
-                    strokeColor: "#4FD1C5", // Cyan/Teal
-                    strokeWeight: 1,
-                    strokeOpacity: 0.3, 
-                    fillColor: "#2C5282",   // Dark Blue fill
-                    fillOpacity: 0.15,      // Slight fill for presence
+                    strokeColor: isSelected ? "#FBD38D" : "#4FD1C5", // Gold vs Cyan
+                    strokeWeight: isSelected ? 2 : 1,
+                    strokeOpacity: isSelected ? 1 : 0.3, 
+                    fillColor: "#2C5282",   
+                    fillOpacity: isSelected ? 0.3 : 0.15, 
                     zIndex: 10,
                     bubble: false,
                     cursor: 'pointer'
@@ -162,16 +164,18 @@ class MarketConsole {
             }
         });
 
-        // 5. Ensure selected grid stays highlighted
-        if (this.selectedGrid && this.grids.has(this.selectedGrid)) {
-            const p = this.grids.get(this.selectedGrid);
-            p.setOptions({
-                strokeOpacity: 1,
-                fillOpacity: 0.3,
-                strokeColor: "#FBD38D",
-                strokeWeight: 2
-            });
-        }
+        // 5. Ensure selected grids stay highlighted (if they were already rendered)
+        this.selectedGrids.forEach(h3Index => {
+            if (this.grids.has(h3Index)) {
+                const p = this.grids.get(h3Index);
+                p.setOptions({
+                    strokeOpacity: 1,
+                    fillOpacity: 0.3,
+                    strokeColor: "#FBD38D",
+                    strokeWeight: 2
+                });
+            }
+        });
     }
 
     renderGridOverlay() {
@@ -180,40 +184,65 @@ class MarketConsole {
     }
 
     selectGrid(h3Index, polygonInstance) {
-        // Deselect previous
-        this.deselectGrid();
-
-        // Select new
-        this.selectedGrid = h3Index;
-        // Use passed instance or find it
-        const poly = polygonInstance || this.grids.get(h3Index);
-        if (poly) {
-            poly.setOptions({ 
-                fillOpacity: 0.2,
-                strokeColor: "#FBD38D", // Gold highlight
-                strokeWeight: 2,
-                strokeOpacity: 1
-            });
+        // Toggle Selection
+        if (this.selectedGrids.has(h3Index)) {
+            // Deselect
+            this.selectedGrids.delete(h3Index);
+            const poly = polygonInstance || this.grids.get(h3Index);
+            if (poly) {
+                 poly.setOptions({ 
+                    fillOpacity: 0.15,
+                    strokeColor: "#4FD1C5",
+                    strokeWeight: 1,
+                    strokeOpacity: 0.3
+                });
+            }
+        } else {
+            // Select
+            this.selectedGrids.add(h3Index);
+            const poly = polygonInstance || this.grids.get(h3Index);
+            if (poly) {
+                poly.setOptions({ 
+                    fillOpacity: 0.2,
+                    strokeColor: "#FBD38D", // Gold highlight
+                    strokeWeight: 2,
+                    strokeOpacity: 1
+                });
+            }
         }
 
-        console.log('Selected Grid:', h3Index);
+        console.log('Selected Grids:', this.selectedGrids.size);
         
-        // Auto-switch to scanner and scan
+        // Switch to scanner to show button (but don't auto-scan)
         this.switchTab('scanner');
-        this.scanGrid(h3Index);
+        
+        // Update Scan Button Text
+        this.updateScanButton();
     }
     
-    deselectGrid() {
-        if (this.selectedGrid && this.grids.has(this.selectedGrid)) {
-            // Revert to flashlight style
-            this.grids.get(this.selectedGrid).setOptions({ 
-                fillOpacity: 0.15,
-                strokeColor: "#4FD1C5",
-                strokeWeight: 1,
-                strokeOpacity: 0.3
-            });
+    clearSelection() {
+        this.selectedGrids.forEach(h3Index => {
+            if (this.grids.has(h3Index)) {
+                // Revert to flashlight style
+                this.grids.get(h3Index).setOptions({ 
+                    fillOpacity: 0.15,
+                    strokeColor: "#4FD1C5",
+                    strokeWeight: 1,
+                    strokeOpacity: 0.3
+                });
+            }
+        });
+        this.selectedGrids.clear();
+        this.updateScanButton();
+    }
+    
+    updateScanButton() {
+        const count = this.selectedGrids.size;
+        if (count > 0) {
+            this.ui.btnScan.innerHTML = `SCAN (${count} Sectors)`;
+        } else {
+            this.ui.btnScan.innerHTML = `SCAN (Local)`;
         }
-        this.selectedGrid = null;
     }
 
     bindEvents() {
@@ -226,8 +255,8 @@ class MarketConsole {
 
         // Scan Button
         this.ui.btnScan.addEventListener('click', () => {
-            if (this.selectedGrid) {
-                this.scanGrid(this.selectedGrid);
+            if (this.selectedGrids.size > 0) {
+                this.scanSelectedGrids();
             } else {
                 this.scanCurrentSector();
             }
@@ -255,15 +284,20 @@ class MarketConsole {
         this.ui.tabs.forEach(t => t.classList.remove('active'));
         document.querySelector(`.console-tab[data-tab="${tabName}"]`).classList.add('active');
         
-        // Clear Viewport
-        this.ui.viewport.innerHTML = '<div class="empty-state" style="padding:20px; text-align:center; color:#666">Loading...</div>';
+        // Clear Viewport if switching away or to empty scanner
+        if (this.ui.viewport.innerHTML.includes('Loading')) {
+             // keep loading
+        } else {
+             // Reset
+        }
 
         if (tabName === 'scanner') {
-            // If grid selected, show its content, else prompt
-            if (this.selectedGrid) {
-                this.scanGrid(this.selectedGrid);
+            // Show instructions or results
+            if (this.selectedGrids.size > 0) {
+                // Don't auto-scan, just show ready state
+                this.ui.viewport.innerHTML = `<div class="empty-state" style="padding:20px; text-align:center; color:#666">${this.selectedGrids.size} Grids Selected.<br>Click SCAN to search.</div>`;
             } else {
-                this.ui.viewport.innerHTML = '<div class="empty-state" style="padding:20px; text-align:center; color:#666">Select a Grid to Scan or Click SCAN for current location</div>';
+                this.ui.viewport.innerHTML = '<div class="empty-state" style="padding:20px; text-align:center; color:#666">Select Grids on Map to Scan<br>or Click SCAN for current location</div>';
             }
         } else if (tabName === 'portfolio') {
             this.loadPortfolio();
@@ -306,31 +340,55 @@ class MarketConsole {
 
     async updateBalance() {
         try {
+            this.ui.energy.innerText = "...";
             const data = await CloudSync.request('/market/balance');
-            if (!data.error) {
-                this.energy = data.energy;
-                this.reputation = data.reputation;
-                this.ui.energy.innerText = Math.floor(this.energy);
-                this.ui.rep.innerText = Math.floor(this.reputation);
-                // Free Quota Display
-                const freeQuota = 5; // Default, ideally fetch from config
-                const used = data.pingsToday || 0;
-                this.ui.pings.innerText = `${used}/${freeQuota}`;
-                this.ui.pings.style.color = used < freeQuota ? '#68d391' : '#fc8181';
+            
+            if (data.error) {
+                throw new Error(data.error);
             }
+
+            this.energy = data.energy;
+            this.reputation = data.reputation;
+            this.ui.energy.innerText = Math.floor(this.energy);
+            this.ui.rep.innerText = Math.floor(this.reputation);
+            // Free Quota Display
+            const freeQuota = 5; // Default, ideally fetch from config
+            const used = data.pingsToday || 0;
+            this.ui.pings.innerText = `${used}/${freeQuota}`;
+            this.ui.pings.style.color = used < freeQuota ? '#68d391' : '#fc8181';
+            
         } catch (e) {
             console.error('Balance update failed', e);
+            this.ui.energy.innerText = "ERR";
+            this.ui.rep.innerText = "ERR";
+            this.ui.pings.innerText = "ERR";
+            
+            // Show error in viewport for debugging
+            this.ui.viewport.innerHTML = `
+                <div class="error" style="font-size: 0.8rem; text-align: left;">
+                    <strong>Connection Error:</strong><br>
+                    ${e.message || "Unknown Error"}<br>
+                    <small>Check Render Logs / Network</small>
+                    <br>
+                    <button onclick="app.updateBalance()" class="console-btn-small" style="margin-top:10px;">RETRY</button>
+                </div>
+            `;
         }
     }
 
-    async scanGrid(h3Index) {
-        this.ui.viewport.innerHTML = '<div class="loading">Scanning Sector...</div>';
+    async scanSelectedGrids() {
+        if (this.selectedGrids.size === 0) return;
         
+        const count = this.selectedGrids.size;
+        this.ui.viewport.innerHTML = `<div class="loading">Scanning ${count} Sectors...</div>`;
+        
+        const gridArray = Array.from(this.selectedGrids);
+
         try {
-            // Determine if remote
+            // Determine if remote (check first grid)
             let isRemote = false;
-            if (this.userLocation) {
-                const center = h3.cellToLatLng(h3Index);
+            if (this.userLocation && gridArray.length > 0) {
+                const center = h3.cellToLatLng(gridArray[0]);
                 const distance = AMap.GeometryUtil.distance(
                     [this.userLocation.lng, this.userLocation.lat],
                     [center[1], center[0]]
@@ -339,7 +397,7 @@ class MarketConsole {
             }
 
             const data = await CloudSync.request('/market/ping', 'POST', {
-                location: h3Index, // Send Grid ID directly
+                location: gridArray, // Send Array of Grids
                 isRemote
             });
             
@@ -426,7 +484,7 @@ class MarketConsole {
                 // Or just show toast
                 alert(`Vote Recorded! Reward Pool: ${data.rewardPool}`);
                 // Re-scan to update UI
-                if (this.selectedGrid) this.scanGrid(this.selectedGrid);
+                if (this.selectedGrids.size > 0) this.scanSelectedGrids();
                 else this.scanCurrentSector();
             } else {
                 alert(data.error || 'Verification failed');
@@ -455,13 +513,15 @@ class MarketConsole {
         let coordinates = this.userLocation ? [this.userLocation.lng, this.userLocation.lat] : [0,0];
         let h3Indices = [];
         
-        if (this.selectedGrid) {
+        if (this.selectedGrids.size > 0) {
             // If grid selected, center of grid?
             // Or if user is NOT in grid, can they post there? 
             // Yes, Remote Posting (allows covering fields).
-            const center = h3.cellToLatLng(this.selectedGrid);
+            // Use center of first selected grid if explicit selection
+            const firstGrid = this.selectedGrids.values().next().value;
+            const center = h3.cellToLatLng(firstGrid);
             coordinates = [center[1], center[0]]; // [lng, lat]
-            h3Indices = [this.selectedGrid];
+            h3Indices = Array.from(this.selectedGrids);
         } else {
             // Current location -> Current Grid
             if (this.userLocation) {
@@ -484,7 +544,7 @@ class MarketConsole {
                 this.ui.inputContent.value = '';
                 this.updateBalance();
                 // Refresh
-                if (this.selectedGrid) this.scanGrid(this.selectedGrid);
+                if (this.selectedGrids.size > 0) this.scanSelectedGrids();
                 else this.scanCurrentSector();
             } else {
                 alert(data.error || 'Transmission failed');

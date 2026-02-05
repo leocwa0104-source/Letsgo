@@ -14,6 +14,8 @@ class MarketConsole {
         this.energy = 0;
         this.reputation = 0;
         this.currentTab = 'scanner';
+        this._pressStartPixel = null;
+        this._draggingPress = false;
         
         // DOM Elements
         this.ui = {
@@ -157,19 +159,36 @@ class MarketConsole {
                 
                 // Interaction
                 polygon.on('click', (e) => {
-                    // Stop propagation to map click
                     e.originEvent.stopPropagation(); 
+                    if (this._draggingPress) {
+                        this._draggingPress = false;
+                        this._pressStartPixel = null;
+                        return;
+                    }
                     this.selectGrid(h3Index, polygon);
                 });
                 polygon.on('dblclick', (e) => {
                     e.originEvent.stopPropagation();
                     this.centerOnGrid(h3Index);
                 });
-                polygon.on('mousedown', () => {
+                polygon.on('mousedown', (e) => {
                     if (this.map) this.map.setStatus({ dragEnable: false });
+                    this._pressStartPixel = this.map.lngLatToContainer(e.lnglat);
+                    this._draggingPress = false;
+                });
+                polygon.on('mousemove', (e) => {
+                    if (!this._pressStartPixel) return;
+                    const cur = this.map.lngLatToContainer(e.lnglat);
+                    const dx = Math.abs(cur.x - this._pressStartPixel.x);
+                    const dy = Math.abs(cur.y - this._pressStartPixel.y);
+                    if (dx > 5 || dy > 5) {
+                        this._draggingPress = true;
+                        if (this.map) this.map.setStatus({ dragEnable: true });
+                    }
                 });
                 polygon.on('mouseup', () => {
                     if (this.map) this.map.setStatus({ dragEnable: true });
+                    this._pressStartPixel = null;
                 });
 
                 this.grids.set(h3Index, polygon);

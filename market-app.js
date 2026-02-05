@@ -68,6 +68,8 @@ class MarketConsole {
                     pitchEnable: false
                 });
 
+                this.map.setStatus({ doubleClickZoom: false });
+
                 this.map.on('complete', () => {
                     console.log('Map Ready');
                     // Removed initial renderGridOverlay to keep map clean
@@ -159,6 +161,16 @@ class MarketConsole {
                     e.originEvent.stopPropagation(); 
                     this.selectGrid(h3Index, polygon);
                 });
+                polygon.on('dblclick', (e) => {
+                    e.originEvent.stopPropagation();
+                    this.centerOnGrid(h3Index);
+                });
+                polygon.on('mousedown', () => {
+                    if (this.map) this.map.setStatus({ dragEnable: false });
+                });
+                polygon.on('mouseup', () => {
+                    if (this.map) this.map.setStatus({ dragEnable: true });
+                });
 
                 this.grids.set(h3Index, polygon);
             }
@@ -243,6 +255,28 @@ class MarketConsole {
         } else {
             this.ui.btnScan.innerHTML = `SCAN (Local)`;
         }
+    }
+
+    centerOnGrid(h3Index) {
+        const poly = this.grids.get(h3Index);
+        if (!poly || !this.map) return;
+        const path = poly.getPath();
+        if (!path || path.length === 0) return;
+        let lng = 0, lat = 0;
+        for (let i = 0; i < path.length; i++) {
+            const p = path[i];
+            if (Array.isArray(p)) {
+                lng += p[0];
+                lat += p[1];
+            } else {
+                const plng = typeof p.getLng === 'function' ? p.getLng() : p.lng;
+                const plat = typeof p.getLat === 'function' ? p.getLat() : p.lat;
+                lng += plng;
+                lat += plat;
+            }
+        }
+        const n = path.length;
+        this.map.setCenter([lng / n, lat / n]);
     }
 
     bindEvents() {

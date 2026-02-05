@@ -158,24 +158,47 @@ class MarketConsole {
                 polygon.setMap(this.map);
                 
                 // Interaction
+                // Click (with drag detection)
                 polygon.on('click', (e) => {
                     e.originEvent.stopPropagation(); 
+                    
+                    // If drag happened, ignore click
                     if (this._draggingPress) {
+                        // Reset drag state
                         this._draggingPress = false;
                         this._pressStartPixel = null;
                         return;
                     }
+                    
+                    // Calculate distance just in case
+                    if (this._pressStartPixel) {
+                        const cur = this.map.lngLatToContainer(e.lnglat);
+                        const dx = Math.abs(cur.x - this._pressStartPixel.x);
+                        const dy = Math.abs(cur.y - this._pressStartPixel.y);
+                        if (dx > 5 || dy > 5) {
+                            // It was a drag
+                            this._pressStartPixel = null;
+                            return;
+                        }
+                    }
+
                     this.selectGrid(h3Index, polygon);
                 });
+
+                // Double Click (Disable)
                 polygon.on('dblclick', (e) => {
                     e.originEvent.stopPropagation();
-                    this.centerOnGrid(h3Index);
+                    // Do nothing
                 });
+
+                // Mousedown: Record start pos
                 polygon.on('mousedown', (e) => {
-                    if (this.map) this.map.setStatus({ dragEnable: false });
                     this._pressStartPixel = this.map.lngLatToContainer(e.lnglat);
                     this._draggingPress = false;
+                    // Do NOT disable map drag. Let map handle it.
                 });
+
+                // Mousemove: Detect drag threshold
                 polygon.on('mousemove', (e) => {
                     if (!this._pressStartPixel) return;
                     const cur = this.map.lngLatToContainer(e.lnglat);
@@ -183,12 +206,13 @@ class MarketConsole {
                     const dy = Math.abs(cur.y - this._pressStartPixel.y);
                     if (dx > 5 || dy > 5) {
                         this._draggingPress = true;
-                        if (this.map) this.map.setStatus({ dragEnable: true });
                     }
                 });
+
+                // Mouseup: Cleanup
                 polygon.on('mouseup', () => {
-                    if (this.map) this.map.setStatus({ dragEnable: true });
                     this._pressStartPixel = null;
+                    // Don't need to restore dragEnable since we didn't disable it
                 });
 
                 this.grids.set(h3Index, polygon);

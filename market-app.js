@@ -158,26 +158,26 @@ class MarketConsole {
                 polygon.setMap(this.map);
                 
                 // Interaction
-                // Click (with drag detection)
+                // Mousedown: Record start pixel for drag detection
+                polygon.on('mousedown', (e) => {
+                    this._pressStartPixel = this.map.lngLatToContainer(e.lnglat);
+                });
+
+                // Click: Check distance to distinguish from drag
                 polygon.on('click', (e) => {
-                    // Stop map click (deselect) from firing
-                    e.originEvent.stopPropagation(); 
-                    
-                    // If drag happened, ignore click
-                    if (this._draggingPress) {
-                        this._draggingPress = false;
-                        this._pressStartPixel = null;
-                        return;
-                    }
-                    
-                    // Double check distance
+                    e.originEvent.stopPropagation(); // Stop map click (deselect)
+
+                    // Check if it was a drag (moved > 5px)
                     if (this._pressStartPixel) {
                         const cur = this.map.lngLatToContainer(e.lnglat);
                         const dx = Math.abs(cur.x - this._pressStartPixel.x);
                         const dy = Math.abs(cur.y - this._pressStartPixel.y);
+                        
+                        // Reset
+                        this._pressStartPixel = null;
+
                         if (dx > 5 || dy > 5) {
-                            this._pressStartPixel = null;
-                            return;
+                            return; // Drag detected, ignore selection
                         }
                     }
 
@@ -187,34 +187,6 @@ class MarketConsole {
                 // Double Click (Disable)
                 polygon.on('dblclick', (e) => {
                     e.originEvent.stopPropagation();
-                    // Do nothing
-                });
-
-                // Mousedown: Disable map drag initially to prevent accidental moves
-                polygon.on('mousedown', (e) => {
-                    if (this.map) this.map.setStatus({ dragEnable: false });
-                    this._pressStartPixel = this.map.lngLatToContainer(e.lnglat);
-                    this._draggingPress = false;
-                });
-
-                // Mousemove: Detect drag threshold -> Enable Drag
-                polygon.on('mousemove', (e) => {
-                    if (!this._pressStartPixel) return;
-                    const cur = this.map.lngLatToContainer(e.lnglat);
-                    const dx = Math.abs(cur.x - this._pressStartPixel.x);
-                    const dy = Math.abs(cur.y - this._pressStartPixel.y);
-                    if (dx > 5 || dy > 5) {
-                        this._draggingPress = true;
-                        // Only enable drag if threshold crossed
-                        if (this.map) this.map.setStatus({ dragEnable: true });
-                    }
-                });
-
-                // Mouseup: Cleanup & Restore Drag
-                polygon.on('mouseup', () => {
-                    this._pressStartPixel = null;
-                    // Always restore drag capability on mouseup
-                    if (this.map) this.map.setStatus({ dragEnable: true });
                 });
 
                 this.grids.set(h3Index, polygon);

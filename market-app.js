@@ -306,9 +306,8 @@ class MarketConsole {
 
     async updateBalance() {
         try {
-            const res = await fetch('/api/market/balance');
-            if (res.ok) {
-                const data = await res.json();
+            const data = await CloudSync.request('/market/balance');
+            if (!data.error) {
                 this.energy = data.energy;
                 this.reputation = data.reputation;
                 this.ui.energy.innerText = Math.floor(this.energy);
@@ -339,16 +338,10 @@ class MarketConsole {
                 if (distance > 500) isRemote = true;
             }
 
-            const res = await fetch('/api/market/ping', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: h3Index, // Send Grid ID directly
-                    isRemote
-                })
+            const data = await CloudSync.request('/market/ping', 'POST', {
+                location: h3Index, // Send Grid ID directly
+                isRemote
             });
-
-            const data = await res.json();
             
             if (data.success) {
                 this.updateBalance(); // Update energy cost
@@ -372,16 +365,11 @@ class MarketConsole {
         this.ui.viewport.innerHTML = '<div class="loading">Scanning Local Area...</div>';
         
         try {
-            const res = await fetch('/api/market/ping', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: [this.userLocation.lng, this.userLocation.lat], // GeoJSON
-                    isRemote: false
-                })
+            const data = await CloudSync.request('/market/ping', 'POST', {
+                location: [this.userLocation.lng, this.userLocation.lat], // GeoJSON
+                isRemote: false
             });
 
-            const data = await res.json();
             if (data.success) {
                 this.updateBalance();
                 this.renderSparks(data.sparks);
@@ -426,18 +414,13 @@ class MarketConsole {
     async verify(sparkId, vote) {
         // Optimistic UI update? No, wait for result.
         try {
-            const res = await fetch('/api/market/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sparkId,
-                    vote,
-                    meta: {
-                        userLocation: this.userLocation
-                    }
-                })
+            const data = await CloudSync.request('/market/verify', 'POST', {
+                sparkId,
+                vote,
+                meta: {
+                    userLocation: this.userLocation
+                }
             });
-            const data = await res.json();
             if (data.success) {
                 // Refresh scan?
                 // Or just show toast
@@ -488,18 +471,13 @@ class MarketConsole {
         }
 
         try {
-            const res = await fetch('/api/market/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    coordinates,
-                    content,
-                    type,
-                    marketH3Indices: h3Indices
-                })
+            const data = await CloudSync.request('/market/create', 'POST', {
+                coordinates,
+                content,
+                type,
+                marketH3Indices: h3Indices
             });
 
-            const data = await res.json();
             if (data.success) {
                 alert(`Spark Transmitted! Energy Cost: ${data.energy}`);
                 this.ui.modalCreate.classList.remove('active');
@@ -522,8 +500,7 @@ class MarketConsole {
     async loadPortfolio() {
         this.ui.viewport.innerHTML = '<div class="loading">Loading Portfolio...</div>';
         try {
-            const res = await fetch('/api/market/portfolio');
-            const data = await res.json();
+            const data = await CloudSync.request('/market/portfolio');
             
             if (data.success) {
                 this.renderPortfolio(data.portfolio);
@@ -580,12 +557,7 @@ class MarketConsole {
 
     async harvest(sparkId) {
         try {
-            const res = await fetch('/api/market/harvest', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sparkId })
-            });
-            const data = await res.json();
+            const data = await CloudSync.request('/market/harvest', 'POST', { sparkId });
             
             if (data.success) {
                 if (data.claimed > 0) {

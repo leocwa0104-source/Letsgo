@@ -44,34 +44,42 @@ const connectDB = async () => {
   
   if (!process.env.MONGODB_URI) {
     console.warn('Warning: MONGODB_URI is not defined.');
-    throw new Error('MONGODB_URI is not defined. Please check your .env file.');
+    // Don't throw here for static file serving, but API calls will fail
+    return;
   }
   
-  console.log('Connecting to MongoDB...', process.env.MONGODB_URI.substring(0, 20) + '...');
-
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('MongoDB Connected');
+      console.log('Connecting to MongoDB...', process.env.MONGODB_URI.substring(0, 20) + '...');
+      await mongoose.connect(process.env.MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      });
+      console.log('MongoDB Connected');
   } catch (err) {
-    console.error('MongoDB Connection Error:', err);
-    throw new Error(`DB Connect Failed: ${err.message}`);
+      console.error('MongoDB Connection Error:', err);
+      // In serverless, we might want to re-throw or handle gracefully
+      throw err;
   }
 };
 
-// Global Middleware to ensure DB connection
+// Middleware to ensure DB is connected for every request (Serverless pattern)
 app.use(async (req, res, next) => {
-  if (req.path === '/api') return next(); // Skip for health check
-  try {
-    await connectDB();
+    // Skip for static files if possible, but hard to distinguish here.
+    // Just ensure connection.
+    if (mongoose.connection.readyState !== 1) {
+        try {
+            await connectDB();
+        } catch (e) {
+            console.error("Middleware DB Connect Fail:", e);
+            // Continue? Or fail? If it's an API call, fail.
+            if (req.path.startsWith('/api')) {
+                 return res.status(500).json({ error: 'Database Connection Failed' });
+            }
+        }
+    }
     next();
-  } catch (e) {
-    console.error('Middleware Connection Error:', e);
-    // Return explicit JSON error
-    res.status(500).json({ 
-      error: 'Database connection failed',
-      details: process.env.NODE_ENV === 'development' ? e.message : undefined 
-    });
-  }
 });
 
 // Auth Middleware

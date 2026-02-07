@@ -22,12 +22,12 @@ const Auth = (() => {
       if (avatar !== undefined) sessionStorage.setItem(AVATAR_KEY, avatar);
     },
     
-    register: async (username, password) => {
+    register: async (username, password, email) => {
       if (typeof CloudSync === 'undefined') {
         return { success: false, message: "无法连接到云端服务" };
       }
       try {
-        const res = await CloudSync.register(username, password);
+        const res = await CloudSync.register(username, password, email);
         if (res.success) return { success: true, message: "注册成功" };
         return { success: false, message: res.error || "注册失败" };
       } catch (e) {
@@ -98,8 +98,8 @@ const Auth = (() => {
       return sessionStorage.getItem("hkwl_is_admin") === "true";
     },
 
-    createAccount: async (username, password) => {
-      return Auth.register(username, password);
+    createAccount: async (username, password, email) => {
+      return Auth.register(username, password, email);
     },
 
     changePassword: async (newPassword) => {

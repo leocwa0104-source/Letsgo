@@ -53,6 +53,7 @@
                 <thead>
                     <tr style="background: #f8f9fa; text-align: left; color: #555;">
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">用户名</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #eee;">电子邮箱</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">昵称</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">好友 ID</th>
                         <th style="padding: 10px; border-bottom: 2px solid #eee;">信誉 (Rep)</th>
@@ -101,6 +102,10 @@
         <div class="form-group">
             <label for="new-username">新用户名</label>
             <input id="new-username" type="text" placeholder="输入用户名">
+        </div>
+        <div class="form-group">
+            <label for="new-email">电子邮箱</label>
+            <input id="new-email" type="email" placeholder="输入电子邮箱">
         </div>
         <div class="form-group">
             <label for="new-password">新密码</label>
@@ -836,10 +841,11 @@
       // Create User Logic
       document.getElementById('create-user-btn').addEventListener('click', async () => {
           const u = document.getElementById('new-username').value.trim();
+          const email = document.getElementById('new-email').value.trim();
           const p = document.getElementById('new-password').value;
           
-          if(!u || !p) {
-              alert("请输入用户名和密码");
+          if(!u || !p || !email) {
+              alert("请输入用户名、邮箱和密码");
               return;
           }
           
@@ -848,10 +854,11 @@
           btn.textContent = "创建中...";
           
           try {
-            const res = await Auth.createAccount(u, p);
+            const res = await Auth.createAccount(u, p, email);
             if(res.success) {
                 alert("创建成功！用户 ID: " + (res.userId || "未知"));
                 document.getElementById('new-username').value = '';
+                document.getElementById('new-email').value = '';
                 document.getElementById('new-password').value = '';
             } else {
                 alert("创建失败: " + res.message);
@@ -982,11 +989,13 @@
                               <div style="font-weight: 500;">${u.username}</div>
                               ${isMe ? '<span style="font-size: 0.8rem; background: #e3f2fd; color: #0d47a1; padding: 2px 6px; border-radius: 4px;">管理员(我)</span>' : ''}
                           </td>
+                          <td style="padding: 10px; color: #666;">${u.email || '-'}</td>
                           <td style="padding: 10px; color: #666;">${u.nickname || '-'}</td>
                           <td style="padding: 10px; font-family: monospace; color: #555;" title="系统唯一标识: ${u._id}">${u.friendId || '-'}</td>
                           <td style="padding: 10px; font-weight: bold; color: ${repColor};">${rep}</td>
                           <td style="padding: 10px; color: #888; font-size: 0.9rem;">${createdDate}</td>
                           <td style="padding: 10px; text-align: right;">
+                              <button class="btn-edit-user" data-id="${u._id}" data-username="${u.username}" data-email="${u.email||''}" data-nickname="${u.nickname||''}" style="padding: 4px 10px; background: #e3f2fd; color: #0d47a1; border: 1px solid #bbdefb; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-right: 5px;">编辑</button>
                               ${!isMe ? `<button class="btn-delete-user" data-id="${u._id}" data-username="${u.username}" style="padding: 4px 10px; background: #fee; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">注销</button>` : ''}
                           </td>
                       `;
@@ -1943,10 +1952,117 @@
           });
       }
 
+      // --- Edit User Logic ---
+      const editUserModal = document.getElementById('edit-user-modal');
+      const cancelEditUserBtn = document.getElementById('cancel-edit-user-btn');
+      const saveEditUserBtn = document.getElementById('save-edit-user-btn');
+      
+      // Close Modal
+      cancelEditUserBtn.addEventListener('click', () => {
+          editUserModal.style.display = 'none';
+      });
+
+      // Open Modal (Event Delegation)
+      allUsersList.addEventListener('click', (e) => {
+          if (e.target.classList.contains('btn-edit-user')) {
+              const btn = e.target;
+              document.getElementById('edit-user-id').value = btn.dataset.id;
+              document.getElementById('edit-user-username').value = btn.dataset.username;
+              document.getElementById('edit-user-email').value = btn.dataset.email;
+              document.getElementById('edit-user-nickname').value = btn.dataset.nickname;
+              document.getElementById('edit-user-password').value = ''; // Clear password
+              
+              editUserModal.style.display = 'flex';
+          }
+      });
+      
+      // Save User
+      saveEditUserBtn.addEventListener('click', async () => {
+          const uid = document.getElementById('edit-user-id').value;
+          const email = document.getElementById('edit-user-email').value.trim();
+          const nickname = document.getElementById('edit-user-nickname').value.trim();
+          const password = document.getElementById('edit-user-password').value;
+          
+          const payload = { email, nickname };
+          if (password) payload.password = password;
+          
+          try {
+              saveEditUserBtn.disabled = true;
+              saveEditUserBtn.textContent = "保存中...";
+              
+              const res = await fetch(`/api/admin/users/${uid}`, {
+                  method: 'PUT',
+                  headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': sessionStorage.getItem('hkwl_auth_token')
+                  },
+                  body: JSON.stringify(payload)
+              });
+              const data = await res.json();
+              
+              if (data.success) {
+                  alert("用户更新成功！");
+                  editUserModal.style.display = 'none';
+                  renderAllUsers(); // Refresh list
+              } else {
+                  alert("更新失败: " + data.error);
+              }
+          } catch(e) {
+              alert("请求出错: " + e.message);
+          } finally {
+              saveEditUserBtn.disabled = false;
+              saveEditUserBtn.textContent = "保存";
+          }
+      });
+
       // Initial Load & Filter Listener
       loadCmsContent();
       cmsFilterModule.addEventListener('change', loadCmsContent);
     });
   </script>
+<!-- Edit User Modal -->
+<div id="edit-user-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <h3>编辑用户</h3>
+        <input type="hidden" id="edit-user-id">
+        <div class="form-group">
+            <label>用户名 (不可修改)</label>
+            <input type="text" id="edit-user-username" disabled style="background: #f0f0f0;">
+        </div>
+        <div class="form-group">
+            <label>电子邮箱</label>
+            <input type="email" id="edit-user-email" placeholder="输入电子邮箱">
+        </div>
+        <div class="form-group">
+            <label>昵称</label>
+            <input type="text" id="edit-user-nickname" placeholder="输入昵称">
+        </div>
+        <div class="form-group">
+            <label>重置密码 (留空不修改)</label>
+            <input type="password" id="edit-user-password" placeholder="输入新密码">
+        </div>
+        <div class="modal-actions" style="text-align: right; margin-top: 20px;">
+            <button id="cancel-edit-user-btn" style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer;">取消</button>
+            <button id="save-edit-user-btn" class="primary-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 1000;
+        display: flex; justify-content: center; align-items: center;
+    }
+    .modal-content {
+        background: white; padding: 20px; border-radius: 8px; width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .primary-btn {
+        background: #0d47a1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;
+    }
+    .primary-btn:hover { background: #083275; }
+</style>
+
 </body>
 </html>

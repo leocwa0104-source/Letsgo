@@ -357,13 +357,19 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: '请填写所有必填项' });
+    const { username, password, email } = req.body;
+    if (!username || !password) return res.status(400).json({ error: '请填写用户名和密码' });
+    if (!email) return res.status(400).json({ error: '请填写电子邮箱' });
     
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ error: '用户名已存在' });
+    // Check Username
+    const existingUser = await User.findOne({ username });
+    if (existingUser) return res.status(400).json({ error: '用户名已存在' });
+
+    // Check Email
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) return res.status(400).json({ error: '该邮箱已被注册' });
     
-    const user = new User({ username, password });
+    const user = new User({ username, password, email });
     await user.save();
     
     // Create empty data entry
@@ -372,7 +378,7 @@ router.post('/register', async (req, res) => {
     res.json({ success: true, userId: user._id });
   } catch (e) {
     if (e.code === 11000) {
-      return res.status(400).json({ error: '用户名已存在' });
+      return res.status(400).json({ error: '用户名或邮箱已存在' });
     }
     console.error(e);
     res.status(500).json({ error: '注册失败: ' + e.message });
@@ -484,6 +490,50 @@ router.delete('/admin/users/:id', authenticate, async (req, res) => {
   }
 });
 
+// Update User (Admin Only)
+router.put('/admin/users/:id', authenticate, async (req, res) => {
+  try {
+    const currentUsername = req.user.username;
+    const adminUsername = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
+    const isAdmin = adminUsername && currentUsername === adminUsername;
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: '权限不足' });
+    }
+
+    const userId = req.params.id;
+    const { email, nickname, password } = req.body;
+    
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    const updateData = {};
+    if (email !== undefined) updateData.email = email;
+    if (nickname !== undefined) updateData.nickname = nickname;
+    if (password) updateData.password = password; // Plain text for now as per existing logic
+
+    // If updating email, check for duplicates
+    if (email) {
+        const existing = await User.findOne({ email, _id: { $ne: userId } });
+        if (existing) {
+            return res.status(400).json({ error: '该邮箱已被其他用户使用' });
+        }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updateData },
+        { new: true }
+    );
+
+    if (!updatedUser) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ success: true, message: '用户信息已更新', user: updatedUser });
+  } catch (e) {
+    console.error('Update User Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Get All Users (Admin Only)
 router.get('/admin/users', authenticate, async (req, res) => {
   try {
@@ -496,7 +546,7 @@ router.get('/admin/users', authenticate, async (req, res) => {
     }
 
     // Return full user details for admin
-    let users = await User.find({}, 'username nickname friendId createdAt _id reputation energy').sort({ createdAt: -1 });
+    let users = await User.find({}, 'username nickname friendId createdAt _id reputation energy email').sort({ createdAt: -1 });
     
     // Check and backfill missing friendIds
     let hasUpdates = false;
@@ -951,10 +1001,17 @@ router.post('/admin/shinemap/seed', authenticate, async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    
+    // Support login by Username OR Email
+    const user = await User.findOne({
+        $or: [
+            { username: username },
+            { email: username }
+        ]
+    });
     
     if (!user || user.password !== password) {
-      return res.status(401).json({ error: '用户名或密码错误' });
+      return res.status(401).json({ error: '账号或密码错误' });
     }
     
     const token = `${user._id}:${encodeURIComponent(user.username)}`;

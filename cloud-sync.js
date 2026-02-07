@@ -102,8 +102,8 @@ const CloudSync = (() => {
     isLoggedIn: () => !!token,
     getToken: () => token,
     
-    register: async (username, password) => {
-      return await request("/register", "POST", { username, password });
+    register: async (username, password, email) => {
+      return await request("/register", "POST", { username, password, email });
     },
 
     changePassword: async (newPassword) => {

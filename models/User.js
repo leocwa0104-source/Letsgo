@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
+  email: { type: String, unique: true, sparse: true }, // Added for Auth migration
   password: { type: String, required: true }, // In production, hash this!
   friendId: { type: String, unique: true, sparse: true }, // 6-char unique ID for adding friends
   friends: [{ type: String }], // Array of usernames
